@@ -1,5 +1,5 @@
 /* ============================================================
-   Motiva AI — Warm Dark design tokens
+   AlphaTeam AI — Warm Dark design tokens
    Driven at runtime by Tweaks (palette / type / motion / density).
    ============================================================ */
 
@@ -88,7 +88,7 @@ html, body {
 }
 /* entrance animations only when the tab is visible (added via JS).
    Base state is always visible, so reduced-motion / hidden-tab / print show content. */
-.motiva.animate .screen { animation: screen-in var(--t) var(--ease) both; }
+.alphateam-ai.animate .screen { animation: screen-in var(--t) var(--ease) both; }
 @keyframes screen-in {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
@@ -237,19 +237,19 @@ html, body {
 /* ---------- generic fade/rise util (gated on .animate; visible at rest) ---------- */
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-.motiva.animate .rise { animation: rise var(--t) var(--ease) both; }
-.motiva.animate .fade { animation: fade var(--t) var(--ease) both; }
+.alphateam-ai.animate .rise { animation: rise var(--t) var(--ease) both; }
+.alphateam-ai.animate .fade { animation: fade var(--t) var(--ease) both; }
 
-.motiva.animate .stagger > * { animation: rise var(--t) var(--ease) both; }
-.motiva.animate .stagger > *:nth-child(1) { animation-delay: calc(0.04s * var(--m)); }
-.motiva.animate .stagger > *:nth-child(2) { animation-delay: calc(0.10s * var(--m)); }
-.motiva.animate .stagger > *:nth-child(3) { animation-delay: calc(0.16s * var(--m)); }
-.motiva.animate .stagger > *:nth-child(4) { animation-delay: calc(0.22s * var(--m)); }
-.motiva.animate .stagger > *:nth-child(5) { animation-delay: calc(0.28s * var(--m)); }
-.motiva.animate .stagger > *:nth-child(6) { animation-delay: calc(0.34s * var(--m)); }
+.alphateam-ai.animate .stagger > * { animation: rise var(--t) var(--ease) both; }
+.alphateam-ai.animate .stagger > *:nth-child(1) { animation-delay: calc(0.04s * var(--m)); }
+.alphateam-ai.animate .stagger > *:nth-child(2) { animation-delay: calc(0.10s * var(--m)); }
+.alphateam-ai.animate .stagger > *:nth-child(3) { animation-delay: calc(0.16s * var(--m)); }
+.alphateam-ai.animate .stagger > *:nth-child(4) { animation-delay: calc(0.22s * var(--m)); }
+.alphateam-ai.animate .stagger > *:nth-child(5) { animation-delay: calc(0.28s * var(--m)); }
+.alphateam-ai.animate .stagger > *:nth-child(6) { animation-delay: calc(0.34s * var(--m)); }
 
 /* overlays — visible at rest, fade only when animating */
-.motiva.animate .overlay { animation: fade var(--t-fast) var(--ease) both; }
+.alphateam-ai.animate .overlay { animation: fade var(--t-fast) var(--ease) both; }
 
 /* ---------- bottom nav ---------- */
 .nav {

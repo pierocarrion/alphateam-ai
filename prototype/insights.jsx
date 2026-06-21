@@ -195,7 +195,7 @@ function SettingsScreen({ tone, onBack }) {
         </SettingsGroup>
 
         <p className="tiny text-wrap-pretty" style={{ textAlign: 'center', marginTop: 20, padding: '0 20px' }}>
-          Motiva never shows overdue items, broken streaks, or public scores. Promise.
+          AlphaTeam never shows overdue items, broken streaks, or public scores. Promise.
         </p>
       </div>
     </div>

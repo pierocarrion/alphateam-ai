@@ -1,5 +1,5 @@
 {
-  "name": "motiva-ai",
+  "name": "alphateam-ai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,8 +13,8 @@
     "db:studio": "prisma studio",
     "db:deploy": "prisma migrate deploy",
     "evidence:export": "tsx scripts/export-evidence.ts",
-    "docker:build": "docker build -t motiva-staging .",
-    "docker:run": "docker run -p 3000:8080 --env-file .env motiva-staging",
+    "docker:build": "docker build -t alphateam-ai-staging .",
+    "docker:run": "docker run -p 3000:8080 --env-file .env alphateam-ai-staging",
     "test": "vitest",
     "test:run": "vitest run",
     "test:e2e": "playwright test",

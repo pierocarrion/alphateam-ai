@@ -33,7 +33,7 @@ function WebSidebar({ view, setView }) {
       <div style={{ padding: '18px 18px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--line)' }}>
         <Mira size={30} mood="calm" />
         <div>
-          <div className="display" style={{ fontSize: 16, color: 'var(--ink)' }}>Motiva</div>
+          <div className="display" style={{ fontSize: 16, color: 'var(--ink)' }}>AlphaTeam</div>
           <div className="tiny" style={{ fontSize: 11 }}>Acme · workspace</div>
         </div>
       </div>

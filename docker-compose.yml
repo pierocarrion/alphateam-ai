@@ -1,17 +1,17 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: motiva-postgres
+    container_name: alphateam-ai-postgres
     environment:
-      POSTGRES_USER: motiva
-      POSTGRES_PASSWORD: motiva
-      POSTGRES_DB: motiva
+      POSTGRES_USER: alphateam-ai
+      POSTGRES_PASSWORD: alphateam-ai
+      POSTGRES_DB: alphateam-ai
     ports:
       - "5432:5432"
     volumes:
-      - motiva_pg_data:/var/lib/postgresql/data
+      - alphateam-ai_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U motiva -d motiva"]
+      test: ["CMD-SHELL", "pg_isready -U alphateam-ai -d alphateam-ai"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,17 +20,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: motiva-app
+    container_name: alphateam-ai-app
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: "postgresql://motiva:motiva@postgres:5432/motiva?schema=public"
+      DATABASE_URL: "postgresql://alphateam-ai:alphateam-ai@postgres:5432/alphateam-ai?schema=public"
       NEXTAUTH_SECRET: "local-dev-secret-change-me-in-production"
       NEXTAUTH_URL: "http://localhost:3000"
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: motiva
-      DB_NAME: motiva
+      DB_USER: alphateam-ai
+      DB_NAME: alphateam-ai
     volumes:
       - .:/app
       - /app/node_modules
@@ -40,4 +40,4 @@ services:
         condition: service_healthy
 
 volumes:
-  motiva_pg_data:
+  alphateam-ai_pg_data:

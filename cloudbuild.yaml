@@ -57,7 +57,7 @@ images:
 
 substitutions:
   _REGION: us-central1
-  _REPO: motiva
+  _REPO: alphateam-ai
   _SERVICE: alphateam
   _DB_INSTANCE: alphateam-db
   _DB_SECRET: database-url
@@ -71,7 +71,7 @@ substitutions:
   _VERTEX_LOCATION: us-central1
   _GEMINI_MODEL: gemini-2.5-flash-preview-05-20
   _VERSION: latest
-  _SERVICE_ACCOUNT: cloud-run-motiva@alphalead-ai.iam.gserviceaccount.com
+  _SERVICE_ACCOUNT: cloud-run-alphateam-ai@alphalead-ai.iam.gserviceaccount.com
 
 options:
   logging: CLOUD_LOGGING_ONLY

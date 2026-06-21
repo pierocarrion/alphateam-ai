@@ -6,7 +6,7 @@ Procrastination is not a time problem; it is an emotion problem. Most productivi
 
 Mira, our gentle companion orb, listens to team chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. No guilt, no piles, no streaks — just a kind nudge to begin.
 
-For teams, Motiva adds a quiet layer of care: a Crew space that spots load imbalance, pairs people for hard starts, and tracks recovered time instead of hours lost.
+For teams, AlphaTeam adds a quiet layer of care: a Crew space that spots load imbalance, pairs people for hard starts, and tracks recovered time instead of hours lost.
 
 ## What we built
 

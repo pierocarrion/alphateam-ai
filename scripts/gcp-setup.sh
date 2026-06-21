@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time GCP setup for Motiva AI on project alphalead-ai.
+# One-time GCP setup for AlphaTeam AI on project alphalead-ai.
 # Run this after installing gcloud and running:
 #   gcloud auth login
 #   gcloud config set project alphalead-ai
@@ -12,7 +12,7 @@ DB_INSTANCE="alphateam-db"
 DB_NAME="alphateam"
 DB_USER="alphateam"
 DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -base64 24)}"
-SERVICE_ACCOUNT="cloud-run-motiva"
+SERVICE_ACCOUNT="cloud-run-alphateam-ai"
 SERVICE_NAME="alphateam"
 
 echo "=== GCP setup for AlphaTeam AI ==="
@@ -38,7 +38,7 @@ gcloud services enable \
 
 # 3. Create Artifact Registry
 echo "Creating Artifact Registry repository..."
-gcloud artifacts repositories create motiva \
+gcloud artifacts repositories create alphateam-ai \
   --repository-format=docker \
   --location="$REGION" \
   --description="AlphaTeam AI container images" || true

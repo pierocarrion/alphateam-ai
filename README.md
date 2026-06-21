@@ -1,6 +1,6 @@
 # AlphaTeam AI
 
-A gentle, anti-guilt productivity companion for individuals and teams. Mira listens to your chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. Previously Motiva AI.
+A gentle, anti-guilt productivity companion for individuals and teams. Mira listens to your chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. Previously AlphaTeam AI.
 
 Built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **Prisma**, and **PostgreSQL**.
 

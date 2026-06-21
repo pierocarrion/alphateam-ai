@@ -14,9 +14,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: motiva
-          POSTGRES_PASSWORD: motiva
-          POSTGRES_DB: motiva
+          POSTGRES_USER: alphateam-ai
+          POSTGRES_PASSWORD: alphateam-ai
+          POSTGRES_DB: alphateam-ai
         ports:
           - 5432:5432
         options: >-
@@ -26,7 +26,7 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://motiva:motiva@localhost:5432/motiva?schema=public
+      DATABASE_URL: postgresql://alphateam-ai:alphateam-ai@localhost:5432/alphateam-ai?schema=public
       NEXTAUTH_SECRET: ci-secret-must-be-at-least-32-characters-long
       NEXTAUTH_URL: http://localhost:3000
 

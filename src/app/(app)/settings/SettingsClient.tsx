@@ -60,7 +60,7 @@ export function SettingsClient({ tone }: SettingsClientProps) {
         </SettingsGroup>
 
         <p className="px-5 pt-1 text-center text-xs text-ink-3 text-wrap-pretty">
-          Motiva never shows overdue items, broken streaks, or public scores. Promise.
+          AlphaTeam never shows overdue items, broken streaks, or public scores. Promise.
         </p>
       </div>
     </div>

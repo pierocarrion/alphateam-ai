@@ -51,7 +51,7 @@ export function DesktopSidebar() {
       <div className="flex items-center gap-2.5 border-b border-line px-[18px] py-[18px] pb-3.5">
         <Mira size={30} mood="calm" />
         <div>
-          <div className="font-display text-base text-ink">Motiva</div>
+          <div className="font-display text-base text-ink">AlphaTeam</div>
           <div className="text-[11px] text-ink-3">Acme · workspace</div>
         </div>
       </div>

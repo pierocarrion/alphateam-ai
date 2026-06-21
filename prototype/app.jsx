@@ -1,4 +1,4 @@
-// app.jsx — Motiva AI · router, navigation, app/web modes, tweaks, mount
+// app.jsx — AlphaTeam AI · router, navigation, app/web modes, tweaks, mount
 const { useState: useStateA, useEffect: useEffectA, useRef: useRefA } = React;
 
 /* ---------- palettes & fonts for tweaks ---------- */
@@ -33,7 +33,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [mode, setMode] = useStateA('app');         // app | web
-  const [phase, setPhase] = useStateA(() => localStorage.getItem('motiva_onboarded') ? 'app' : 'welcome'); // welcome | onboarding | app
+  const [phase, setPhase] = useStateA(() => localStorage.getItem('alphateam-ai_onboarded') ? 'app' : 'welcome'); // welcome | onboarding | app
   const [screen, setScreen] = useStateA('home');    // home | chat | crew | me | night | insights | day | settings
   const [flow, setFlow] = useStateA(null);          // null | task | ritual | focus | reward | intention
   const [activeTask, setActiveTask] = useStateA(DECK_TASK);
@@ -74,7 +74,7 @@ function App() {
   const showTask = (task) => { setActiveTask(task || DECK_TASK); setFlow('task'); };
   const ritualWith = (task) => { setActiveTask(task || DECK_TASK); setFlow('ritual'); };
   const completeFlow = () => { setFlow(null); if (mode === 'app') setScreen('home'); };
-  const finishOnboarding = () => { localStorage.setItem('motiva_onboarded', '1'); setPhase('app'); setScreen('home'); };
+  const finishOnboarding = () => { localStorage.setItem('alphateam-ai_onboarded', '1'); setPhase('app'); setScreen('home'); };
 
   const navScreens = ['home', 'chat', 'crew', 'me'];
   const showNav = mode === 'app' && phase === 'app' && navScreens.includes(screen) && !flow;
@@ -121,7 +121,7 @@ function App() {
   );
 
   return (
-    <div className="motiva" ref={rootRef} style={{ ...vars, fontFamily: 'var(--font-body)' }}>
+    <div className="alphateam-ai" ref={rootRef} style={{ ...vars, fontFamily: 'var(--font-body)' }}>
       <ModeToggle mode={mode} setMode={setMode} />
 
       <div className="stage">
@@ -129,8 +129,8 @@ function App() {
           {mode === 'app' ? (
             <IOSDevice dark width={402} height={874}>{phoneInner}</IOSDevice>
           ) : (
-            <ChromeWindow width={1200} height={744} url="motiva.team/acme/q3-launch"
-              tabs={[{ title: 'Motiva — q3-launch' }, { title: 'Acme Deck Hub' }]} activeIndex={0}>
+            <ChromeWindow width={1200} height={744} url="alphateam-ai.team/acme/q3-launch"
+              tabs={[{ title: 'AlphaTeam — q3-launch' }, { title: 'Acme Deck Hub' }]} activeIndex={0}>
               <WebApp tone={tone} convo={convo} onShowTask={showTask} />
             </ChromeWindow>
           )}

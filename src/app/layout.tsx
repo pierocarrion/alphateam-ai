@@ -16,7 +16,7 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Motiva AI",
+  title: "AlphaTeam AI",
   description: "A gentle nudge to begin.",
 };
 

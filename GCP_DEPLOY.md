@@ -65,7 +65,7 @@ gcloud services enable \
 ### 3. Create the Artifact Registry repository
 
 ```bash
-gcloud artifacts repositories create motiva \
+gcloud artifacts repositories create alphateam-ai \
   --repository-format=docker \
   --location=$REGION \
   --description="AlphaTeam AI container images"
@@ -74,9 +74,9 @@ gcloud artifacts repositories create motiva \
 ### 4. Create the Cloud SQL PostgreSQL instance
 
 ```bash
-export DB_INSTANCE=motiva-db
-export DB_NAME=motiva
-export DB_USER=motiva
+export DB_INSTANCE=alphateam-ai-db
+export DB_NAME=alphateam-ai
+export DB_USER=alphateam-ai
 export DB_PASSWORD=$(openssl rand -base64 24)
 
 gcloud sql instances create $DB_INSTANCE \
@@ -122,10 +122,10 @@ echo -n "price_..." | gcloud secrets create stripe-price-business --data-file=-
 ### 6. Create a Cloud Run service account
 
 ```bash
-export SERVICE_ACCOUNT=cloud-run-motiva
+export SERVICE_ACCOUNT=cloud-run-alphateam-ai
 
 gcloud iam service-accounts create $SERVICE_ACCOUNT \
-  --display-name="Motiva Cloud Run"
+  --display-name="AlphaTeam Cloud Run"
 
 # Grant required roles
 gcloud projects add-iam-policy-binding $PROJECT_ID \
