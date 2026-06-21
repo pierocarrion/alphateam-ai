@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mira, TopBar, Avatar, Weather, Button, Icon, PEOPLE } from "@/shared/ui";
+import { Mira, TopBar, Avatar, Weather, Button, Icon, getPerson } from "@/shared/ui";
 import type { PersonId } from "@/shared/ui";
 
 interface CrewClientProps {
@@ -111,8 +111,8 @@ export function CrewClient({ warm, mood, loadGuardian, milestone, pair }: CrewCl
               <div className="flex-1">
                 <div className="text-[15.5px] font-bold text-ink">
                   {paired
-                    ? `${PEOPLE[pair.who]?.name ?? "Someone"} is starting too — go!`
-                    : `${PEOPLE[pair.who]?.name ?? "Someone"} is free to start with you`}
+                    ? `${getPerson(pair.who).name} is starting too — go!`
+                    : `${getPerson(pair.who).name} is free to start with you`}
                 </div>
                 <div className="text-xs text-ink-3">
                   {paired

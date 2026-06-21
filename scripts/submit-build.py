@@ -21,6 +21,7 @@ steps = config.get("steps", [])
 options = config.get("options", {})
 substitutions = config.get("substitutions", {})
 images = config.get("images", [])
+available_secrets = config.get("availableSecrets")
 
 substitutions["_VERSION"] = VERSION
 
@@ -32,6 +33,9 @@ build_body = {
 
 if images:
     build_body["images"] = images
+
+if available_secrets:
+    build_body["availableSecrets"] = available_secrets
 
 if GCS_SOURCE:
     bucket, obj = GCS_SOURCE.replace("gs://", "").split("/", 1)
