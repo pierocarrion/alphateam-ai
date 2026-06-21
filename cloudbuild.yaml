@@ -69,7 +69,7 @@ substitutions:
   _STRIPE_PRICE_BUSINESS: stripe-price-business
   _NEXTAUTH_URL: https://alphateam-lql5h6aova-uc.a.run.app
   _VERTEX_LOCATION: us-central1
-  _GEMINI_MODEL: gemini-2.5-flash-preview-05-20
+  _GEMINI_MODEL: gemini-2.5-flash
   _VERSION: latest
   _SERVICE_ACCOUNT: cloud-run-alphateam-ai@alphalead-ai.iam.gserviceaccount.com
 

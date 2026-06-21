@@ -3,7 +3,7 @@ import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID ?? "";
 const location = process.env.VERTEX_AI_LOCATION ?? "us-central1";
-const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-preview-05-20";
+const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 const GEMINI_ENABLED = process.env.GEMINI_ENABLED === "true";
 const GEMINI_FALLBACK = process.env.GEMINI_FALLBACK !== "false"; // default true
