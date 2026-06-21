@@ -32,6 +32,7 @@ jobs:
 
       - name: Submit Cloud Build
         run: |
+          set +e
           gcloud config set project alphalead-ai
           OUTPUT=$(gcloud builds submit . \
             --config=cloudbuild.yaml \
