@@ -86,10 +86,11 @@ export async function resetDatabase() {
 
 export async function seedWorkspace() {
   const client = await getTestPrisma();
+  const slug = `acme-${crypto.randomUUID().slice(0, 8)}`;
   const workspace = await client.workspace.create({
     data: {
       name: "Acme",
-      slug: "acme",
+      slug,
     },
   });
   const channel = await client.channel.create({

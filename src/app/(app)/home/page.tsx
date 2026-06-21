@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
-import { Mira, Button, Card, Icon } from "@/shared/ui";
+import { Mira, Button, Icon } from "@/shared/ui";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);

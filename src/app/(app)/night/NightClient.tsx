@@ -1,20 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { Mira, Button } from "@/shared/ui";
+import { fetchJson } from "@/shared/lib/api";
 
 interface NightClientProps {
   warm: boolean;
   name: string;
+  windDownsThisWeek: number;
 }
 
-export function NightClient({ warm, name }: NightClientProps) {
+export function NightClient({ warm, name, windDownsThisWeek }: NightClientProps) {
   const [stage, setStage] = useState(0);
+  const savedRef = useRef(false);
 
   useEffect(() => {
     if (stage === 1) {
       const t = setTimeout(() => setStage(2), 8200);
       return () => clearTimeout(t);
+    }
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage === 2 && !savedRef.current) {
+      savedRef.current = true;
+      fetchJson("/api/winddown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }).catch(() => {
+        toast.error("We couldn’t save your wind-down. That’s okay — it still counted.");
+      });
     }
   }, [stage]);
 
@@ -50,8 +67,9 @@ export function NightClient({ warm, name }: NightClientProps) {
           </p>
           <div className="card rise mt-6 max-w-[300px] p-4">
             <p className="text-xs text-ink-3 text-wrap-pretty">
-              The late scroll quietly costs most people ~332 hours of sleep a year. You don’t have
-              to spend yours tonight.
+              {windDownsThisWeek > 0
+                ? `You’ve wound down ${windDownsThisWeek} time${windDownsThisWeek === 1 ? "" : "s"} this week. Your sleep thanks you.`
+                : "The late scroll quietly costs most people ~332 hours of sleep a year. You don’t have to spend yours tonight."}
             </p>
           </div>
           <div className="mt-7 w-full max-w-[320px]">

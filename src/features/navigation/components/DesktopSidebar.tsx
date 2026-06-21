@@ -1,13 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { cn } from "@/shared/lib/cn";
-import { Avatar, Icon, Mira, type PersonId } from "@/shared/ui";
+import { Avatar, Icon, Mira } from "@/shared/ui";
+import { fetchJson } from "@/shared/lib/api";
+import { personIdFromName } from "@/shared/lib/person";
 
-const channels = ["q3-launch", "general", "design"];
-const dms: PersonId[] = ["daniel", "sofia", "theo", "priya"];
+export interface SidebarChannel {
+  id: string;
+  name: string;
+}
+
+export interface SidebarMember {
+  id: string;
+  name: string;
+}
+
+interface DesktopSidebarProps {
+  workspaceName: string;
+  channels: SidebarChannel[];
+  members: SidebarMember[];
+  dmByPeer: Record<string, string>;
+  userName: string;
+  userRole: string;
+  showBackstage: boolean;
+}
 
 interface SideRowProps {
   href: string;
@@ -39,11 +59,42 @@ function SideLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function DesktopSidebar() {
+export function DesktopSidebar({
+  workspaceName,
+  channels,
+  members,
+  dmByPeer,
+  userName,
+  userRole,
+  showBackstage,
+}: DesktopSidebarProps) {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const userName = session?.user?.name || "Maya";
-  const userRole = "Coordinator"; // Could come from profile later
+  const router = useRouter();
+  const [openingDm, setOpeningDm] = useState<string | null>(null);
+
+  const selfPersonId = personIdFromName(userName || "you");
+  const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+
+  const openDm = async (member: SidebarMember) => {
+    if (openingDm) return;
+    setOpeningDm(member.id);
+    try {
+      const data = await fetchJson<{ channel: { id: string } }>("/api/dms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partnerId: member.id }),
+      });
+      if (data.channel?.id) {
+        router.push(`/chat/${data.channel.id}`);
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "We couldn't open that conversation. Please try again."
+      );
+    } finally {
+      setOpeningDm(null);
+    }
+  };
 
   return (
     <aside className="hidden w-[244px] flex-none flex-col border-r border-line bg-bg-2 lg:flex">
@@ -52,55 +103,80 @@ export function DesktopSidebar() {
         <Mira size={30} mood="calm" />
         <div>
           <div className="font-display text-base text-ink">AlphaTeam</div>
-          <div className="text-[11px] text-ink-3">Acme · workspace</div>
+          <div className="text-[11px] text-ink-3">{workspaceName} · workspace</div>
         </div>
       </div>
 
       {/* Nav */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3.5">
         <SideLabel>Channels</SideLabel>
+        {channels.length === 0 && (
+          <p className="px-2.5 pb-1 text-xs text-ink-3">No channels yet.</p>
+        )}
         {channels.map((c) => (
           <SideRow
-            key={c}
-            href="/chat"
-            active={pathname === "/chat" && c === "q3-launch"}
+            key={c.id}
+            href={`/chat/${c.id}`}
+            active={pathname === `/chat/${c.id}`}
           >
-            <span className="text-ink-3">#</span> {c}
+            <span className="text-ink-3">#</span> {c.name}
           </SideRow>
         ))}
 
         <div className="h-3.5" />
         <SideLabel>Direct messages</SideLabel>
-        {dms.map((d) => (
-          <SideRow key={d} href="/chat">
-            <Avatar who={d} size={20} /> {d.charAt(0).toUpperCase() + d.slice(1)}
-          </SideRow>
-        ))}
+        {members.length === 0 && (
+          <p className="px-2.5 pb-1 text-xs text-ink-3">No one else here yet.</p>
+        )}
+        {members.map((m) => {
+          const channelId = dmByPeer[m.id];
+          const active = channelId ? pathname === `/chat/${channelId}` : false;
+          return (
+            <button
+              key={m.id}
+              onClick={() => openDm(m)}
+              disabled={openingDm === m.id}
+              className={cn(
+                "mb-0.5 flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[14.5px] font-semibold transition-colors disabled:opacity-60",
+                active
+                  ? "bg-accent-soft text-ink"
+                  : "text-ink-2 hover:bg-white/[0.03]"
+              )}
+            >
+              <Avatar who={personIdFromName(m.name)} size={20} />
+              {m.name?.split(" ")[0] ?? "Someone"}
+            </button>
+          );
+        })}
 
-        <div className="h-3.5" />
-        <SideLabel>Coordinator</SideLabel>
-        <SideRow href="/backstage" active={pathname === "/backstage"}>
-          <Icon
-            name="shield"
-            size={16}
-            color={
-              pathname === "/backstage"
-                ? "var(--color-accent)"
-                : "var(--color-glow)"
-            }
-          />
-          Backstage
-        </SideRow>
+        {showBackstage && (
+          <>
+            <div className="h-3.5" />
+            <SideLabel>Coordinator</SideLabel>
+            <SideRow href="/backstage" active={pathname === "/backstage"}>
+              <Icon
+                name="shield"
+                size={16}
+                color={
+                  pathname === "/backstage"
+                    ? "var(--color-accent)"
+                    : "var(--color-glow)"
+                }
+              />
+              Backstage
+            </SideRow>
+          </>
+        )}
       </div>
 
       {/* User footer */}
       <div className="flex items-center gap-2.5 border-t border-line px-3.5 py-3">
-        <Avatar who="maya" size={30} />
+        <Avatar who={selfPersonId} size={30} />
         <div className="flex-1 min-w-0">
           <div className="truncate text-[13.5px] font-bold text-ink">
-            {userName}
+            {userName || "you"}
           </div>
-          <div className="text-[11px] text-ink-3">{userRole}</div>
+          <div className="text-[11px] text-ink-3">{roleLabel}</div>
         </div>
         <Icon name="bell" size={17} color="var(--color-ink-3)" />
       </div>

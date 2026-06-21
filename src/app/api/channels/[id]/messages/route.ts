@@ -46,6 +46,7 @@ export async function GET(
           orderBy: { createdAt: "asc" },
         },
         workspace: { include: { memberships: true } },
+        participants: { include: { user: { select: { id: true, name: true } } } },
       },
     });
 
@@ -56,7 +57,10 @@ export async function GET(
       );
     }
 
-    const isMember = channel.workspace.memberships.some((m) => m.userId === user.id);
+    const isMember =
+      channel.type === "dm"
+        ? channel.participants.some((p) => p.userId === user.id)
+        : channel.workspace.memberships.some((m) => m.userId === user.id);
     if (!isMember) {
       return NextResponse.json(
         { error: "You don't have access to that channel." },
@@ -89,8 +93,14 @@ export async function GET(
         }
       : null;
 
+    const peer =
+      channel.type === "dm"
+        ? channel.participants.find((p) => p.userId !== user.id)?.user ?? null
+        : null;
+
     return NextResponse.json({
-      channel: { id: channel.id, name: channel.name },
+      channel: { id: channel.id, name: channel.name, type: channel.type },
+      peer: peer ? { id: peer.id, name: peer.name } : null,
       messages: channel.messages.map((m) => ({
         id: m.id,
         who: personIdFromName(m.user.name ?? ""),
@@ -147,7 +157,10 @@ export async function POST(
 
     const channel = await prisma.channel.findUnique({
       where: { id },
-      include: { workspace: { include: { memberships: true } } },
+      include: {
+        workspace: { include: { memberships: true } },
+        participants: true,
+      },
     });
     if (!channel) {
       return NextResponse.json(
@@ -156,7 +169,10 @@ export async function POST(
       );
     }
 
-    const isMember = channel.workspace.memberships.some((m) => m.userId === user.id);
+    const isMember =
+      channel.type === "dm"
+        ? channel.participants.some((p) => p.userId === user.id)
+        : channel.workspace.memberships.some((m) => m.userId === user.id);
     if (!isMember) {
       return NextResponse.json(
         { error: "You don't have access to that channel." },

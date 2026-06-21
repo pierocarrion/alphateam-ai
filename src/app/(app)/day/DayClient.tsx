@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mira, TopBar, Button, Icon } from "@/shared/ui";
+import { Mira, TopBar, Button } from "@/shared/ui";
 
 interface Task {
   id: string;
@@ -16,7 +16,7 @@ interface DayClientProps {
   warm: boolean;
 }
 
-export function DayClient({ heroTask, otherTasks, warm }: DayClientProps) {
+export function DayClient({ heroTask, otherTasks }: DayClientProps) {
   const [peek, setPeek] = useState(false);
 
   return (

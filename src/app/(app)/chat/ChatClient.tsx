@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Button, Icon, Mira, TopBar } from "@/shared/ui";
+import { Avatar, Button, Icon, Mira, TopBar } from "@/shared/ui";
+import { personIdFromName } from "@/shared/lib/person";
 import { useChannel } from "@/features/chat/application/hooks/useChannel";
 import { ChatMessage } from "@/features/chat/presentation/components/ChatMessage";
 import { DesktopMessage } from "@/features/chat/presentation/components/DesktopMessage";
@@ -18,11 +19,20 @@ import { DesktopRail } from "./DesktopRail";
 interface ChatClientProps {
   channelId: string;
   channelName: string;
+  channelType: "channel" | "dm";
+  peerName?: string | null;
   mood: { value: number; label: string; note: string };
   loadGuardian: { who: string; title: string; note: string } | null;
 }
 
-export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatClientProps) {
+export function ChatClient({
+  channelId,
+  channelName,
+  channelType,
+  peerName,
+  mood,
+  loadGuardian,
+}: ChatClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const { messages, isLoading, sendMessage, detected: detectedFromSend, isSending, queryError } =
@@ -34,6 +44,9 @@ export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatC
   const detected = detectedFromSend ?? detectedFromApi;
 
   const warm = true;
+  const isDm = channelType === "dm";
+  const titleName = isDm ? (peerName ?? "Direct message") : channelName;
+  const peerPersonId = peerName ? personIdFromName(peerName) : "you";
 
   const currentUserId = session?.user?.id as string | undefined;
   const isYou = (m: { userId?: string }) => m.userId === currentUserId;
@@ -85,12 +98,21 @@ export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatC
         {/* Mobile header */}
         <div className="lg:hidden">
           <div className="h-[58px] flex-none" />
-          <TopBar kicker="Team" title={`# ${channelName}`} />
+          <TopBar kicker={isDm ? "Direct message" : "Team"} title={isDm ? titleName : `# ${titleName}`} />
           <div className="flex flex-none items-center gap-2 border-b border-line px-4 pb-3 pt-0">
             <div className="flex-1">
               <div className="flex items-center gap-1.5 font-display text-lg text-ink">
-                <span className="text-ink-3">#</span>
-                {channelName}
+                {isDm ? (
+                  <>
+                    <Avatar who={peerPersonId} size={20} />
+                    {titleName}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-ink-3">#</span>
+                    {titleName}
+                  </>
+                )}
               </div>
               <div className="text-xs text-ink-3">
                 {session?.user?.name || "You"} · you
@@ -109,8 +131,17 @@ export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatC
         <div className="hidden flex-none items-center gap-2 border-b border-line bg-[radial-gradient(120%_60%_at_50%_-10%,#221c2c,var(--color-bg)_60%)] px-6 py-4 lg:flex">
           <div className="flex-1">
             <div className="flex items-center gap-1.5 font-display text-lg text-ink">
-              <span className="text-ink-3">#</span>
-              {channelName}
+              {isDm ? (
+                <>
+                  <Avatar who={peerPersonId} size={22} />
+                  {titleName}
+                </>
+              ) : (
+                <>
+                  <span className="text-ink-3">#</span>
+                  {titleName}
+                </>
+              )}
             </div>
             <div className="text-xs text-ink-3">
               {session?.user?.name || "You"} · Mira is listening quietly
@@ -185,7 +216,7 @@ export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatC
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend();
               }}
-              placeholder={`Message #${channelName}…`}
+              placeholder={`Message ${isDm ? titleName : `#${titleName}`}…`}
               className="flex-1 bg-transparent py-2 text-[15.5px] text-ink outline-none placeholder:text-ink-3"
             />
             <button
@@ -218,7 +249,7 @@ export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatC
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend();
               }}
-              placeholder={`Message #${channelName}`}
+              placeholder={`Message ${isDm ? titleName : `#${titleName}`}`}
               className="flex-1 bg-transparent py-2 text-[15px] text-ink outline-none placeholder:text-ink-3"
             />
             <Button
@@ -232,14 +263,16 @@ export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatC
         </div>
       </div>
 
-      {/* Desktop right rail */}
-      <div className="hidden xl:flex">
-        <DesktopRail
-          detected={detected}
-          mood={mood}
-          loadGuardian={loadGuardian}
-        />
-      </div>
+      {/* Desktop right rail (channels only) */}
+      {channelType === "channel" && (
+        <div className="hidden xl:flex">
+          <DesktopRail
+            detected={detected}
+            mood={mood}
+            loadGuardian={loadGuardian}
+          />
+        </div>
+      )}
     </div>
   );
 }

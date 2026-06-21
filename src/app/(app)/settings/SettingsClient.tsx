@@ -1,16 +1,53 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { TopBar, SettingsGroup, SettingRow, SettingRowToggle, FeedbackWidget } from "@/shared/ui";
+import { fetchJson } from "@/shared/lib/api";
 
 interface SettingsClientProps {
   tone: "warm" | "balanced";
+  gentleCheckIns: boolean;
+  pairStartInvites: boolean;
+  quietMode: boolean;
 }
 
-export function SettingsClient({ tone }: SettingsClientProps) {
-  const [nudges, setNudges] = useState(true);
-  const [pair, setPair] = useState(true);
-  const [quiet, setQuiet] = useState(false);
+interface SettingsState {
+  tone: "warm" | "balanced";
+  gentleCheckIns: boolean;
+  pairStartInvites: boolean;
+  quietMode: boolean;
+}
+
+export function SettingsClient({
+  tone,
+  gentleCheckIns,
+  pairStartInvites,
+  quietMode,
+}: SettingsClientProps) {
+  const [state, setState] = useState<SettingsState>({
+    tone,
+    gentleCheckIns,
+    pairStartInvites,
+    quietMode,
+  });
+
+  const update = async (patch: Partial<SettingsState>) => {
+    const prev = state;
+    setState((s) => ({ ...s, ...patch }));
+    try {
+      await fetchJson("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+    } catch (err) {
+      setState(prev);
+      toast.error(
+        err instanceof Error ? err.message : "We couldn’t save that. Please try again."
+      );
+    }
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -33,24 +70,31 @@ export function SettingsClient({ tone }: SettingsClientProps) {
         >
           <SettingRowToggle
             title="Gentle check-ins"
-            on={nudges}
-            onToggle={() => setNudges((v) => !v)}
+            on={state.gentleCheckIns}
+            onToggle={() => update({ gentleCheckIns: !state.gentleCheckIns })}
           />
           <SettingRowToggle
             title="Pair-start invites"
-            on={pair}
-            onToggle={() => setPair((v) => !v)}
+            on={state.pairStartInvites}
+            onToggle={() => update({ pairStartInvites: !state.pairStartInvites })}
           />
           <SettingRowToggle
             title="Quiet mode (pause all)"
-            on={quiet}
-            onToggle={() => setQuiet((v) => !v)}
+            on={state.quietMode}
+            onToggle={() => update({ quietMode: !state.quietMode })}
             last
           />
         </SettingsGroup>
 
         <SettingsGroup label="Voice">
-          <SettingRow title="Tone" detail={tone === "warm" ? "Warm" : "Balanced"} chevron last />
+          <SettingRowToggle
+            title="Warm tone"
+            on={state.tone === "warm"}
+            onToggle={() =>
+              update({ tone: state.tone === "warm" ? "balanced" : "warm" })
+            }
+            last
+          />
         </SettingsGroup>
 
         <SettingsGroup label="Evidence" note="Your wins and struggles help us prove what gentle productivity can do.">

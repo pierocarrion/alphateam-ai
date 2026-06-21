@@ -2,9 +2,6 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
-import { computeLoadBalance, computeWorkspaceMood } from "@/server/lib/metrics";
-import { personIdFromName } from "@/shared/lib/person";
-import { ChatClient } from "./ChatClient";
 
 export default async function ChatPage() {
   const session = await getServerSession(authOptions);
@@ -16,33 +13,31 @@ export default async function ChatPage() {
   });
   if (!user) redirect("/login");
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { slug: "acme" },
-    include: {
-      channels: { where: { name: "q3-launch" }, take: 1 },
-      memberships: { where: { userId: user.id } },
+  const firstChannel = await prisma.channel.findFirst({
+    where: {
+      type: "channel",
+      workspace: { memberships: { some: { userId: user.id } } },
     },
+    orderBy: { name: "asc" },
+    select: { id: true },
   });
 
-  const channel = workspace?.channels[0];
-  if (!channel || !workspace?.memberships.length) redirect("/home");
+  if (firstChannel) {
+    redirect(`/chat/${firstChannel.id}`);
+  }
 
-  const mood = await computeWorkspaceMood(workspace.id);
-  const load = await computeLoadBalance(workspace.id);
-  const loadGuardian = load.heavy
-    ? {
-        who: personIdFromName(load.heavy.name),
-        title: `${load.heavy.name} is carrying the most — ${load.heavy.openCount} open task${load.heavy.openCount === 1 ? "" : "s"}.`,
-        note: "Suggest a pair‑start or hand one item over?",
-      }
-    : null;
+  const firstDm = await prisma.channel.findFirst({
+    where: {
+      type: "dm",
+      participants: { some: { userId: user.id } },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
 
-  return (
-    <ChatClient
-      channelId={channel.id}
-      channelName={channel.name}
-      mood={mood}
-      loadGuardian={loadGuardian}
-    />
-  );
+  if (firstDm) {
+    redirect(`/chat/${firstDm.id}`);
+  }
+
+  redirect("/home");
 }

@@ -91,3 +91,44 @@ describe("POST /api/channels/[id]/messages", () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe("DM channel access", () => {
+  async function seedDm() {
+    const { user, workspaceId } = await seedMember({ name: "Alice" });
+    const partner = await seedMember({ name: "Bob", workspaceId });
+    const prisma = await getTestPrisma();
+    const dm = await prisma.channel.create({
+      data: {
+        workspaceId,
+        name: `dm:${[user.id, partner.user.id].sort().join(":")}`,
+        type: "dm",
+        participants: {
+          create: [{ userId: user.id }, { userId: partner.user.id }],
+        },
+      },
+    });
+    return { user, partner, dm, workspaceId };
+  }
+
+  it("allows a participant to read a DM", async () => {
+    const { user, dm } = await seedDm();
+    await mockSession(user);
+
+    const request = new Request(`http://localhost:3000/api/channels/${dm.id}/messages`);
+    const response = await callRouteHandler(GET, request, { id: dm.id });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.channel.type).toBe("dm");
+    expect(data.peer).not.toBeNull();
+  });
+
+  it("blocks a workspace member who is not a DM participant", async () => {
+    const { dm, workspaceId } = await seedDm();
+    const intruder = await seedMember({ name: "Eve", workspaceId });
+    await mockSession(intruder.user);
+
+    const request = new Request(`http://localhost:3000/api/channels/${dm.id}/messages`);
+    const response = await callRouteHandler(GET, request, { id: dm.id });
+    expect(response.status).toBe(403);
+  });
+});

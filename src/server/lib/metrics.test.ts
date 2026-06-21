@@ -161,7 +161,7 @@ describe("computeWorkspaceMood", () => {
 describe("computeLoadBalance", () => {
   it("detects imbalance when one member carries many more tasks", async () => {
     const heavy = await seedMember({ name: "Heavy" });
-    const light = await seedMember({
+    await seedMember({
       name: "Light",
       workspaceId: heavy.workspaceId,
     });

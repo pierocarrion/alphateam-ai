@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Icon, Mira } from "@/shared/ui";
+import { Button, Mira } from "@/shared/ui";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 
 interface InterceptCardProps {

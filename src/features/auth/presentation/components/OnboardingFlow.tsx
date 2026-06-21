@@ -48,14 +48,12 @@ export function OnboardingFlow() {
   const [profile, setProfile] = useState<string | null>(null);
   const [tone] = useState<"warm" | "balanced">("warm");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
   const prof = PROFILES.find((p) => p.id === profile);
 
   const complete = async () => {
     if (!role || !hard || !profile) return;
     setSaving(true);
-    setError("");
     try {
       await fetchJson("/api/onboarding", {
         method: "POST",
@@ -69,7 +67,6 @@ export function OnboardingFlow() {
         err instanceof ApiError || err instanceof Error
           ? err.message
           : "We couldn't save your onboarding. Please try again.";
-      setError(message);
       toast.error(message);
     } finally {
       setSaving(false);

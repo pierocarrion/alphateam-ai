@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
 import { sumRecoveredMinutesThisWeek } from "@/server/lib/metrics";
-import { Mira, HubRow, Button } from "@/shared/ui";
+import { HubRow, Button } from "@/shared/ui";
 
 export default async function MePage() {
   const session = await getServerSession(authOptions);
@@ -12,7 +11,6 @@ export default async function MePage() {
     include: { profile: true },
   });
 
-  const name = user?.name?.split(" ")[0] ?? "you";
   const warm = user?.profile?.tone === "balanced" ? false : true;
 
   const minutes = user ? await sumRecoveredMinutesThisWeek(user.id) : 0;
