@@ -30,27 +30,26 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Diagnostics
-        run: |
-          set +e
-          AUTH_OUT=$(gcloud auth list 2>&1)
-          GCS_OUT=$(gsutil ls gs://alphalead-ai-build-source 2>&1)
-          GCS_STATUS=$?
-          ACCT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>&1)
-          echo "::warning::AUTH: $AUTH_OUT | ACCT: $ACCT | GCS_STATUS: $GCS_STATUS | GCS_OUT: $GCS_OUT"
-          if [ $GCS_STATUS -ne 0 ]; then
-            echo "::error::GCS access failed: $GCS_OUT"
-          fi
-
-      - name: Submit Cloud Build
+      - name: Upload source and submit build
         run: |
           set +e
           gcloud config set project alphalead-ai
-          OUTPUT=$(gcloud builds submit . \
+          echo "=== Creating source tarball ==="
+          tar -czf /tmp/source.tar.gz .
+          echo "=== Uploading to GCS ==="
+          UPLOAD_OUT=$(gsutil cp /tmp/source.tar.gz gs://alphalead-ai-build-source/source-$GITHUB_SHA.tar.gz 2>&1)
+          UPLOAD_STATUS=$?
+          echo "$UPLOAD_OUT"
+          if [ $UPLOAD_STATUS -ne 0 ]; then
+            echo "::error::GCS upload failed (exit $UPLOAD_STATUS): $UPLOAD_OUT"
+            exit 1
+          fi
+          echo "=== Submitting Cloud Build ==="
+          OUTPUT=$(gcloud builds submit \
+            --source gs://alphalead-ai-build-source/source-$GITHUB_SHA.tar.gz \
             --config=cloudbuild.yaml \
             --project=alphalead-ai \
-            --gcs-source-staging-dir=gs://alphalead-ai-build-source/source \
-            --substitutions=_VERSION=${{ github.sha }} 2>&1)
+            --substitutions=_VERSION=$GITHUB_SHA 2>&1)
           STATUS=$?
           echo "$OUTPUT"
           if [ $STATUS -ne 0 ]; then
