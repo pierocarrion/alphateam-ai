@@ -41,7 +41,6 @@ export const metadata: Metadata = {
   },
   description,
   applicationName: title,
-  generator: "Next.js",
   keywords,
   authors: [{ name: "AlphaTeam AI" }],
   creator: "AlphaTeam AI",
@@ -75,9 +74,6 @@ export const metadata: Metadata = {
     },
   },
   manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export const viewport: Viewport = {
