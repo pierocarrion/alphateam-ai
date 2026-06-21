@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -96,6 +97,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
+        <Toaster richColors position="top-center" toastOptions={{ style: { background: "#221f2a", color: "#f3ece1", border: "1px solid rgba(255,236,214,0.14)" } }} />
       </body>
     </html>
   );
