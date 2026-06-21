@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
+import { computeLoadBalance, computeWorkspaceMood } from "@/server/lib/metrics";
+import { personIdFromName } from "@/shared/lib/person";
 import { ChatClient } from "./ChatClient";
 
 export default async function ChatPage() {
@@ -25,5 +27,22 @@ export default async function ChatPage() {
   const channel = workspace?.channels[0];
   if (!channel || !workspace?.memberships.length) redirect("/home");
 
-  return <ChatClient channelId={channel.id} channelName={channel.name} />;
+  const mood = await computeWorkspaceMood(workspace.id);
+  const load = await computeLoadBalance(workspace.id);
+  const loadGuardian = load.heavy
+    ? {
+        who: personIdFromName(load.heavy.name),
+        title: `${load.heavy.name} is carrying the most — ${load.heavy.openCount} open task${load.heavy.openCount === 1 ? "" : "s"}.`,
+        note: "Suggest a pair‑start or hand one item over?",
+      }
+    : null;
+
+  return (
+    <ChatClient
+      channelId={channel.id}
+      channelName={channel.name}
+      mood={mood}
+      loadGuardian={loadGuardian}
+    />
+  );
 }

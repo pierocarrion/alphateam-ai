@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button, Icon, Mira, Weather } from "@/shared/ui";
+import { Avatar, Button, Icon, Mira, Weather } from "@/shared/ui";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { fetchJson } from "@/shared/lib/api";
 
@@ -23,9 +23,11 @@ const DEFAULT_TASK: DetectedTaskDraft = {
 
 interface DesktopRailProps {
   detected: DetectedTaskDraft | null;
+  mood: { value: number; label: string; note: string };
+  loadGuardian: { who: string; title: string; note: string } | null;
 }
 
-export function DesktopRail({ detected }: DesktopRailProps) {
+export function DesktopRail({ detected, mood, loadGuardian }: DesktopRailProps) {
   const router = useRouter();
 
   const tasks: DetectedTaskDraft[] = [];
@@ -96,31 +98,37 @@ export function DesktopRail({ detected }: DesktopRailProps) {
         Team weather
       </div>
       <div className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5">
-        <Weather level={0.62} size={48} />
+        <Weather level={mood.value} size={48} />
         <div>
-          <div className="text-sm font-bold text-ink">A little tense</div>
-          <div className="text-xs text-ink-3">Launch is bunching everyone up</div>
+          <div className="text-sm font-bold text-ink">{mood.label}</div>
+          <div className="text-xs text-ink-3">{mood.note}</div>
         </div>
       </div>
 
       {/* Load guardian */}
-      <div className="rounded-2xl border border-glow bg-gradient-to-b from-glow-soft to-transparent p-3.5">
-        <div className="mb-1.5 flex items-center gap-2">
-          <Icon name="shield" size={16} color="var(--color-glow)" />
-          <span className="text-[13px] font-bold text-glow">Load guardian</span>
+      {loadGuardian && (
+        <div className="rounded-2xl border border-glow bg-gradient-to-b from-glow-soft to-transparent p-3.5">
+          <div className="mb-1.5 flex items-center gap-2">
+            <Icon name="shield" size={16} color="var(--color-glow)" />
+            <span className="text-[13px] font-bold text-glow">Load guardian</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <Avatar who={loadGuardian.who} size={34} />
+            <div className="text-xs leading-relaxed text-ink-2">
+              {loadGuardian.title}
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            full
+            className="mt-2.5 text-[13px]"
+            onClick={() => router.push("/crew")}
+          >
+            Even it out
+          </Button>
         </div>
-        <div className="text-xs leading-relaxed text-ink-2">
-          Theo is carrying the most. Suggest a pair‑start or hand one item over?
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          full
-          className="mt-2.5 text-[13px]"
-        >
-          Even it out
-        </Button>
-      </div>
+      )}
     </aside>
   );
 }

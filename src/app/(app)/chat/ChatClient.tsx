@@ -18,9 +18,11 @@ import { DesktopRail } from "./DesktopRail";
 interface ChatClientProps {
   channelId: string;
   channelName: string;
+  mood: { value: number; label: string; note: string };
+  loadGuardian: { who: string; title: string; note: string } | null;
 }
 
-export function ChatClient({ channelId, channelName }: ChatClientProps) {
+export function ChatClient({ channelId, channelName, mood, loadGuardian }: ChatClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const { messages, isLoading, sendMessage, detected: detectedFromSend, isSending, queryError } =
@@ -232,7 +234,11 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
 
       {/* Desktop right rail */}
       <div className="hidden xl:flex">
-        <DesktopRail detected={detected} />
+        <DesktopRail
+          detected={detected}
+          mood={mood}
+          loadGuardian={loadGuardian}
+        />
       </div>
     </div>
   );

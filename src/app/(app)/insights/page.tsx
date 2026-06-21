@@ -2,16 +2,17 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
+import { recoveredMinutesByDay } from "@/server/lib/metrics";
 import { Mira, TopBar } from "@/shared/ui";
 
-const WEEK = [
-  { d: "M", v: 22 },
-  { d: "T", v: 36 },
-  { d: "W", v: 14 },
-  { d: "T", v: 41 },
-  { d: "F", v: 18 },
+const FALLBACK_WEEK = [
+  { d: "M", v: 0 },
+  { d: "T", v: 0 },
+  { d: "W", v: 0 },
+  { d: "T", v: 0 },
+  { d: "F", v: 0 },
   { d: "S", v: 0, calm: true },
-  { d: "S", v: 8 },
+  { d: "S", v: 0 },
 ];
 
 export default async function InsightsPage() {
@@ -21,13 +22,31 @@ export default async function InsightsPage() {
     include: { profile: true },
   });
 
-  const starts = Math.round(
-    (await prisma.userMetric.count({
-      where: { userId: user?.id, type: "rituals_completed" },
-    })) || 12
-  );
+  const week = user
+    ? await recoveredMinutesByDay(user.id, 7)
+    : [];
 
-  const max = 45;
+  const WEEK =
+    week.length === 7
+      ? week.map((b) => {
+          const dow = b.date.getDay();
+          const isWeekend = dow === 0 || dow === 6;
+          return {
+            d: b.label,
+            v: Math.round(b.minutes),
+            calm: isWeekend && b.minutes === 0,
+          };
+        })
+      : FALLBACK_WEEK;
+
+  const starts = user
+    ? await prisma.userMetric.count({
+        where: { userId: user.id, type: "rituals_completed" },
+      })
+    : 0;
+
+  const dotCount = Math.max(1, starts);
+  const max = Math.max(45, ...WEEK.map((w) => w.v));
 
   return (
     <div className="flex h-full flex-col">
@@ -74,7 +93,7 @@ export default async function InsightsPage() {
               Gentle starts
             </p>
             <div className="mt-3.5 flex flex-wrap gap-2">
-              {Array.from({ length: 12 }).map((_, i) => (
+              {Array.from({ length: dotCount }).map((_, i) => (
                 <div
                   key={i}
                   className="h-[22px] w-[22px] rounded-full opacity-90"
@@ -86,7 +105,7 @@ export default async function InsightsPage() {
               ))}
             </div>
             <p className="mt-3.5 text-ink-2">
-              {starts} times you crossed the hardest part — the start. That’s the whole game.
+              {starts} time{starts === 1 ? "" : "s"} you crossed the hardest part — the start. That’s the whole game.
             </p>
           </div>
 

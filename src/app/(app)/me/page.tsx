@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
+import { sumRecoveredMinutesThisWeek } from "@/server/lib/metrics";
 import { Mira, HubRow, Button } from "@/shared/ui";
 
 export default async function MePage() {
@@ -14,14 +15,9 @@ export default async function MePage() {
   const name = user?.name?.split(" ")[0] ?? "you";
   const warm = user?.profile?.tone === "balanced" ? false : true;
 
-  // Recovered minutes this week from user metrics.
-  const recovered = await prisma.userMetric.findFirst({
-    where: { userId: user?.id, type: "recovered_minutes" },
-    orderBy: { date: "desc" },
-  });
-  const minutes = Math.round(recovered?.value ?? 108);
+  const minutes = user ? await sumRecoveredMinutesThisWeek(user.id) : 0;
   const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const mins = Math.round(minutes % 60);
   const recoveredLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
   return (

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/lib/prisma";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
+import { recordTaskCompletion } from "@/server/lib/metrics";
 
 const patchSchema = z.object({
   status: z.string().min(1).optional(),
@@ -91,13 +92,18 @@ export async function PATCH(
       );
     }
 
+    const nextStatus = parsed.data.status ?? existing.status;
     const task = await prisma.task.update({
       where: { id },
       data: {
-        status: parsed.data.status ?? existing.status,
+        status: nextStatus,
         completedAt: parsed.data.completedAt ? new Date(parsed.data.completedAt) : existing.completedAt,
       },
     });
+
+    if (nextStatus === "done" && existing.status !== "done") {
+      await recordTaskCompletion(user.id);
+    }
 
     return NextResponse.json({ task });
   } catch (error) {

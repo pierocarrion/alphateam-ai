@@ -68,6 +68,8 @@ export async function getTestPrisma(): Promise<PrismaClient> {
 export async function resetDatabase() {
   const client = await getTestPrisma();
   await client.$transaction([
+    client.userMetric.deleteMany(),
+    client.teamMetric.deleteMany(),
     client.ritualSession.deleteMany(),
     client.task.deleteMany(),
     client.message.deleteMany(),

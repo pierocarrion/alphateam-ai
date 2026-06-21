@@ -24,6 +24,7 @@ export function RitualClient({ task, warm }: RitualClientProps) {
   const [step, setStep] = useState<"unlock" | "focus" | "reward">("unlock");
   const [feelingId, setFeelingId] = useState<string | null>(null);
   const [ritualId, setRitualId] = useState<string | null>(null);
+  const [recoveredMinutes, setRecoveredMinutes] = useState<number | null>(null);
 
   const handleStartFocus = async (selectedFeelingId: string) => {
     try {
@@ -46,11 +47,17 @@ export function RitualClient({ task, warm }: RitualClientProps) {
   const handleComplete = async () => {
     if (ritualId) {
       try {
-        await fetchJson(`/api/rituals/${ritualId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ completed: true }),
-        });
+        const data = await fetchJson<{ recoveredMinutes?: number }>(
+          `/api/rituals/${ritualId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ completed: true }),
+          }
+        );
+        if (typeof data.recoveredMinutes === "number") {
+          setRecoveredMinutes(data.recoveredMinutes);
+        }
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "We couldn't save your progress. Please try again.");
       }
@@ -79,7 +86,11 @@ export function RitualClient({ task, warm }: RitualClientProps) {
         />
       )}
       {step === "reward" && (
-        <RewardStep warm={warm} onHome={() => router.push("/home")} />
+        <RewardStep
+          warm={warm}
+          recoveredMinutes={recoveredMinutes}
+          onHome={() => router.push("/home")}
+        />
       )}
     </Overlay>
   );
@@ -381,9 +392,11 @@ function FocusStep({
 
 function RewardStep({
   warm,
+  recoveredMinutes,
   onHome,
 }: {
   warm: boolean;
+  recoveredMinutes: number | null;
   onHome: () => void;
 }) {
   const [boom, setBoom] = useState(false);
@@ -391,6 +404,8 @@ function RewardStep({
     const t = setTimeout(() => setBoom(true), 220);
     return () => clearTimeout(t);
   }, []);
+
+  const minutes = recoveredMinutes ?? 14;
 
   return (
     <div className="flex h-full flex-col justify-center">
@@ -417,7 +432,7 @@ function RewardStep({
           </div>
           <div>
             <div className="text-[15.5px] font-bold text-ink">
-              ~14 minutes recovered
+              ~{minutes} minute{minutes === 1 ? "" : "s"} recovered
             </div>
             <div className="text-xs text-ink-3">
               Time you’d have spent circling it. Yours again.

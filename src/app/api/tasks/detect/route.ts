@@ -6,6 +6,7 @@ import { requireUser } from "@/server/lib/auth";
 
 const bodySchema = z.object({
   text: z.string().min(1),
+  force: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const detected = looksLikeTask(text) ? await deriveTaskEnhanced(text) : null;
+    const shouldDetect = parsed.data.force || looksLikeTask(text);
+    const detected = shouldDetect ? await deriveTaskEnhanced(text) : null;
 
     return NextResponse.json({ detected });
   } catch (error) {
