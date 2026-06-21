@@ -34,35 +34,22 @@ jobs:
         run: |
           set +e
           gcloud config set project alphalead-ai
-          echo "=== Test 1: no-source build ==="
-          NOSRC_OUT=$(gcloud builds submit --no-source --config=cloudbuild.yaml --project=alphalead-ai --substitutions=_VERSION=$GITHUB_SHA 2>&1)
-          NOSRC_STATUS=$?
-          echo "$NOSRC_OUT"
-          if [ $NOSRC_STATUS -eq 0 ]; then
-            echo "no-source build succeeded!"
-            exit 0
+          echo "=== Test: direct API call ==="
+          TOKEN=$(gcloud auth print-access-token)
+          API_OUT=$(curl -s -X POST "https://cloudbuild.googleapis.com/v1/projects/alphalead-ai/builds" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"steps":[{"name":"busybox","args":["echo","hello world"]}],"options":{"logging":"CLOUD_LOGGING_ONLY"}}' 2>&1)
+          echo "$API_OUT"
+          if echo "$API_OUT" | grep -q "error"; then
+            echo "::error::Cloud Build API error: $API_OUT"
           fi
-          echo "no-source failed, trying with uploaded source..."
-          echo "=== Creating source tarball ==="
-          tar -czf /tmp/source.tar.gz .
-          echo "=== Uploading to GCS ==="
-          UPLOAD_OUT=$(gsutil cp /tmp/source.tar.gz gs://alphalead-ai-build-source/source-$GITHUB_SHA.tar.gz 2>&1)
-          UPLOAD_STATUS=$?
-          echo "$UPLOAD_OUT"
-          if [ $UPLOAD_STATUS -ne 0 ]; then
-            echo "::error::GCS upload failed (exit $UPLOAD_STATUS): $UPLOAD_OUT"
-            exit 1
-          fi
-          echo "=== Submitting Cloud Build ==="
-          OUTPUT=$(gcloud builds submit \
-            gs://alphalead-ai-build-source/source-$GITHUB_SHA.tar.gz \
-            --config=cloudbuild.yaml \
-            --project=alphalead-ai \
-            --substitutions=_VERSION=$GITHUB_SHA 2>&1)
+          echo "=== Test: gcloud builds submit --no-source ==="
+          OUTPUT=$(gcloud builds submit --no-source --config=cloudbuild.yaml --project=alphalead-ai --substitutions=_VERSION=$GITHUB_SHA 2>&1)
           STATUS=$?
           echo "$OUTPUT"
           if [ $STATUS -ne 0 ]; then
-            MSG=$(echo "$OUTPUT" | tail -15 | tr '\n' ' ' | sed 's/|/ /g')
+            MSG=$(echo "$OUTPUT" | tail -10 | tr '\n' ' ' | sed 's/|/ /g')
             echo "::error::Build submit failed (exit $STATUS): $MSG"
             exit 1
           fi
