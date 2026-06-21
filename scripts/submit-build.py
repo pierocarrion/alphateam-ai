@@ -56,7 +56,12 @@ except urllib.error.HTTPError as e:
     print(f"ERROR creating build: {e.code} {body}", file=sys.stderr)
     sys.exit(1)
 
-build_id = result.get("id")
+print(f"API response keys: {list(result.keys())}")
+build_id = result.get("id") or result.get("metadata", {}).get("build", {}).get("id")
+if not build_id:
+    print(f"Could not find build ID in response: {json.dumps(result)[:500]}", file=sys.stderr)
+    sys.exit(1)
+
 build_url = result.get("logUrl", "")
 print(f"Build created: {build_id}")
 print(f"Logs: {build_url}")

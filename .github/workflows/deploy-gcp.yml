@@ -53,11 +53,9 @@ jobs:
           export GCS_SOURCE=gs://alphalead-ai-build-source/source-$GITHUB_SHA.tar.gz
           export VERSION=$GITHUB_SHA
           export GCP_ACCESS_TOKEN=$(gcloud auth print-access-token)
-          PY_OUT=$(python3 scripts/submit-build.py 2>&1)
+          python3 scripts/submit-build.py
           STATUS=$?
-          echo "$PY_OUT"
           if [ $STATUS -ne 0 ]; then
-            MSG=$(echo "$PY_OUT" | tail -20 | tr '\n' ' ' | sed 's/|/ /g')
-            echo "::error::Python build script failed (exit $STATUS): $MSG"
+            echo "::error::Python build script failed (exit $STATUS)"
             exit 1
           fi
