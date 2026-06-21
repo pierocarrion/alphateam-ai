@@ -32,6 +32,9 @@ jobs:
 
       - name: Submit Cloud Build
         run: |
+          set -x
+          gcloud config set project alphalead-ai
+          gcloud auth list
           gcloud builds submit . \
             --config=cloudbuild.yaml \
             --project=alphalead-ai \
