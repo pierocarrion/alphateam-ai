@@ -30,6 +30,18 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Diagnostics
+        run: |
+          set +e
+          echo "=== AUTH LIST ==="
+          gcloud auth list
+          echo "=== CONFIG ==="
+          gcloud config list
+          echo "=== GCS ACCESS TEST ==="
+          gsutil ls gs://alphalead-ai-build-source 2>&1 || echo "GCS LS FAILED: $?"
+          echo "=== ACTIVE ACCOUNT ==="
+          gcloud auth list --filter=status:ACTIVE --format="value(account)"
+
       - name: Submit Cloud Build
         run: |
           set +e
