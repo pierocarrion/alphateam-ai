@@ -34,6 +34,15 @@ jobs:
         run: |
           set +e
           gcloud config set project alphalead-ai
+          echo "=== Test 1: no-source build ==="
+          NOSRC_OUT=$(gcloud builds submit --no-source --config=cloudbuild.yaml --project=alphalead-ai --substitutions=_VERSION=$GITHUB_SHA 2>&1)
+          NOSRC_STATUS=$?
+          echo "$NOSRC_OUT"
+          if [ $NOSRC_STATUS -eq 0 ]; then
+            echo "no-source build succeeded!"
+            exit 0
+          fi
+          echo "no-source failed, trying with uploaded source..."
           echo "=== Creating source tarball ==="
           tar -czf /tmp/source.tar.gz .
           echo "=== Uploading to GCS ==="
