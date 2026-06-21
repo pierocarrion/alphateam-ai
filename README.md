@@ -17,7 +17,7 @@ Built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **
 
 ## Local development
 
-The fastest way to run the project locally is with Docker Compose. It starts PostgreSQL, generates the Prisma client, pushes the schema, seeds demo data, and runs the Next.js dev server with hot reload.
+The fastest way to run the project locally is with Docker Compose. It starts PostgreSQL, generates the Prisma client, pushes the schema, and runs the Next.js dev server with hot reload.
 
 ### Requirements
 
@@ -32,7 +32,7 @@ docker-compose up --build
 Wait until you see:
 
 ```
-✅ Seed complete
+✅ PostgreSQL is ready
 🚀 Starting Next.js dev server...
 ✓ Ready in ...
 ```
@@ -42,11 +42,6 @@ Wait until you see:
 ```text
 http://localhost:3000
 ```
-
-### Demo login
-
-- **Email:** `maya@example.com`
-- **Password:** `demo1234`
 
 ### Stop
 
@@ -67,7 +62,6 @@ npm install
 # Start PostgreSQL manually, then:
 npx prisma generate
 npx prisma migrate dev
-npm run db:seed
 npm run dev
 ```
 
@@ -130,7 +124,7 @@ src/
   features/      # Domain-driven modules (auth, chat, tasks, rituals)
   server/lib/    # Prisma, Stripe, AI coordinator, health engine
   shared/ui/     # Reusable UI components (Mira, Button, etc.)
-prisma/          # Schema, migrations, seed
+prisma/          # Schema, migrations
 scripts/         # Evidence export and utilities
 ```
 

@@ -7,11 +7,17 @@ import { ChatMessageData } from "./ChatMessage";
 interface DesktopMessageProps {
   message: ChatMessageData;
   highlight?: boolean;
+  isYou?: boolean;
 }
 
-export function DesktopMessage({ message, highlight }: DesktopMessageProps) {
-  const isYou = message.who === "maya";
-  const name = isYou ? "Maya (you)" : message.who ? message.who.charAt(0).toUpperCase() + message.who.slice(1) : "Mira";
+export function DesktopMessage({ message, highlight, isYou }: DesktopMessageProps) {
+  const name = isYou
+    ? `${message.name || "You"} (you)`
+    : message.name
+    ? message.name
+    : message.who
+    ? message.who.charAt(0).toUpperCase() + message.who.slice(1)
+    : "Mira";
 
   return (
     <div

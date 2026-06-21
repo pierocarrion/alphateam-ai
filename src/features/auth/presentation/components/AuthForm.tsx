@@ -27,7 +27,10 @@ export function AuthForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to sign up");
+        setError(
+          data.error ||
+            "We couldn't create your account right now. Please try again."
+        );
         setLoading(false);
         return;
       }
@@ -41,7 +44,11 @@ export function AuthForm() {
     });
 
     if (result?.error) {
-      setError(result.error);
+      setError(
+        result.error === "CredentialsSignin"
+          ? "That email or password doesn't match. Try again."
+          : result.error
+      );
       setLoading(false);
       return;
     }

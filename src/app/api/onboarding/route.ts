@@ -6,28 +6,33 @@ import {
   completeOnboardingSchema,
 } from "@/features/auth/application/use-cases/CompleteOnboarding";
 import { container } from "@/server/lib/container";
+import { jsonError, parseRequestBody } from "@/server/lib/apiErrors";
 
 const completeOnboarding = new CompleteOnboarding(container.userRepository);
 
 export async function POST(request: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await container.userRepository.findByEmail(session.user.email);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
   try {
-    const body = await request.json();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { error: "Please sign in to continue." },
+        { status: 401 }
+      );
+    }
+
+    const user = await container.userRepository.findByEmail(session.user.email);
+    if (!user) {
+      return NextResponse.json(
+        { error: "We couldn't find your account. Please sign in again." },
+        { status: 404 }
+      );
+    }
+
+    const body = (await parseRequestBody(request)) as Record<string, unknown>;
     const input = completeOnboardingSchema.parse({ ...body, userId: user.id });
     const profile = await completeOnboarding.execute(input);
     return NextResponse.json({ profile });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Something went wrong";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return jsonError(error);
   }
 }

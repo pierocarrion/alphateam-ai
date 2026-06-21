@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, PEOPLE, type PersonId } from "@/shared/ui";
+import { Avatar, getPerson, type PersonId } from "@/shared/ui";
 
 export interface ChatMessageData {
   id: string;
@@ -14,11 +14,12 @@ export interface ChatMessageData {
 interface ChatMessageProps {
   message: ChatMessageData;
   highlight?: boolean;
+  isYou?: boolean;
 }
 
-export function ChatMessage({ message, highlight }: ChatMessageProps) {
-  const person = PEOPLE[message.who] ?? PEOPLE.daniel;
-  const you = person.you;
+export function ChatMessage({ message, highlight, isYou }: ChatMessageProps) {
+  const person = getPerson(message.who);
+  const you = isYou ?? false;
 
   return (
     <div
@@ -30,7 +31,7 @@ export function ChatMessage({ message, highlight }: ChatMessageProps) {
       <div className="max-w-[78%]">
         {!you && (
           <div className="mb-1 flex items-baseline gap-2">
-            <span className="text-sm font-bold text-ink">{person.name}</span>
+            <span className="text-sm font-bold text-ink">{message.name || person.name}</span>
             <span className="text-xs text-ink-3">{message.time}</span>
           </div>
         )}

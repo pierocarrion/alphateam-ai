@@ -13,8 +13,5 @@ npx prisma generate
 echo "🗄️ Pushing schema to database..."
 npx prisma db push --accept-data-loss
 
-echo "🌱 Seeding demo data..."
-npm run db:seed
-
 echo "🚀 Starting Next.js dev server..."
 npm run dev

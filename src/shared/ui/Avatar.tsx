@@ -2,7 +2,7 @@
 
 import { cn } from "@/shared/lib/cn";
 
-export type PersonId = "maya" | "daniel" | "sofia" | "theo" | "priya";
+export type PersonId = string;
 
 interface Person {
   name: string;
@@ -11,13 +11,33 @@ interface Person {
   you: boolean;
 }
 
-export const PEOPLE: Record<PersonId, Person> = {
-  maya: { name: "Maya", initials: "M", color: "#E6AC73", you: true },
-  daniel: { name: "Daniel", initials: "D", color: "#9FB8E0", you: false },
-  sofia: { name: "Sofía", initials: "S", color: "#E6A0B0", you: false },
-  theo: { name: "Theo", initials: "T", color: "#93C2A2", you: false },
-  priya: { name: "Priya", initials: "P", color: "#C7A6E0", you: false },
-};
+const PALETTE = [
+  "#E6AC73",
+  "#9FB8E0",
+  "#E6A0B0",
+  "#93C2A2",
+  "#C7A6E0",
+  "#E6C773",
+  "#73B8E6",
+  "#A0E6C7",
+];
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function generatePerson(id: string): Person {
+  const name = id.charAt(0).toUpperCase() + id.slice(1);
+  const initials = id.charAt(0).toUpperCase() || "?";
+  const color = PALETTE[hashString(id) % PALETTE.length];
+  return { name, initials, color, you: false };
+}
+
+export function getPerson(id: string): Person {
+  return generatePerson(id);
+}
 
 function shade(hex: string, amount: number): string {
   const n = parseInt(hex.slice(1), 16);
@@ -37,8 +57,8 @@ interface AvatarProps {
   style?: React.CSSProperties;
 }
 
-export function Avatar({ who = "daniel", size = 38, className, style }: AvatarProps) {
-  const person = PEOPLE[who] ?? PEOPLE.daniel;
+export function Avatar({ who, size = 38, className, style }: AvatarProps) {
+  const person = who ? getPerson(who) : generatePerson("?");
   return (
     <div
       className={cn(

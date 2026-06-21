@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { SignUpUser, signUpUserSchema } from "./SignUpUser";
 import { PrismaUserRepository } from "../../infrastructure/repositories/PrismaUserRepository";
 import { getTestPrisma } from "@/tests/helpers/db";
+import { UserFacingError } from "@/server/lib/errors";
 
 const createUseCase = () => new SignUpUser(new PrismaUserRepository());
 
@@ -38,7 +39,24 @@ describe("SignUpUser", () => {
         name: "Second",
         password: "password123",
       })
-    ).rejects.toThrow("Email already registered");
+    ).rejects.toThrow(/already registered/i);
+  });
+
+  it("throws a user-facing error for duplicate emails", async () => {
+    const useCase = createUseCase();
+    await useCase.execute({
+      email: "dup2@example.com",
+      name: "First",
+      password: "password123",
+    });
+
+    await expect(
+      useCase.execute({
+        email: "dup2@example.com",
+        name: "Second",
+        password: "password123",
+      })
+    ).rejects.toBeInstanceOf(UserFacingError);
   });
 
   it("schema rejects short passwords", () => {

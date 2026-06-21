@@ -10,7 +10,6 @@ import { DesktopMessage } from "@/features/chat/presentation/components/DesktopM
 import { DayDivider } from "@/features/chat/presentation/components/DayDivider";
 import { TypingRow } from "@/features/chat/presentation/components/TypingRow";
 import { InterceptCard } from "@/features/chat/presentation/components/InterceptCard";
-import { PEOPLE, type PersonId } from "@/shared/ui";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { DesktopRail } from "./DesktopRail";
 
@@ -30,7 +29,10 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
   const [detectedFromApi, setDetectedFromApi] = useState<DetectedTaskDraft | null>(null);
   const detected = detectedFromSend ?? detectedFromApi;
 
-  const warm = true; // Could come from profile; default warm for the demo flow
+  const warm = true;
+
+  const currentUserId = session?.user?.id as string | undefined;
+  const isYou = (m: { userId?: string }) => m.userId === currentUserId;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -69,7 +71,7 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
 
   const lastMessage = messages[messages.length - 1];
   const showIntercept =
-    detected && !dismissed && lastMessage?.who === "maya";
+    detected && !dismissed && lastMessage && isYou(lastMessage);
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
@@ -86,7 +88,7 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
                 {channelName}
               </div>
               <div className="text-xs text-ink-3">
-                Daniel, Sofía, Theo, Priya · you
+                {session?.user?.name || "You"} · you
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -106,7 +108,7 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
               {channelName}
             </div>
             <div className="text-xs text-ink-3">
-              Daniel, Sofía, Theo, Priya, you · Mira is listening quietly
+              {session?.user?.name || "You"} · Mira is listening quietly
             </div>
           </div>
           <Mira size={28} mood="calm" />
@@ -127,9 +129,10 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
                   <div className="lg:hidden">
                     <ChatMessage
                       message={m}
+                      isYou={isYou(m)}
                       highlight={Boolean(
                         showIntercept &&
-                          m.who === "maya" &&
+                          isYou(m) &&
                           m.id === lastMessage.id
                       )}
                     />
@@ -137,9 +140,10 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
                   <div className="hidden lg:block">
                     <DesktopMessage
                       message={m}
+                      isYou={isYou(m)}
                       highlight={Boolean(
                         showIntercept &&
-                          m.who === "maya" &&
+                          isYou(m) &&
                           m.id === lastMessage.id
                       )}
                     />
@@ -156,7 +160,7 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
                   )}
                 </div>
               ))}
-              {isSending && <TypingRow who={randomTeammate()} />}
+              {isSending && <TypingRow who={currentUserId ?? "you"} />}
             </>
           )}
           <div className="h-1.5" />
@@ -171,7 +175,7 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend();
               }}
-              placeholder="Message #q3-launch…"
+              placeholder={`Message #${channelName}…`}
               className="flex-1 bg-transparent py-2 text-[15.5px] text-ink outline-none placeholder:text-ink-3"
             />
             <button
@@ -204,7 +208,7 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend();
               }}
-              placeholder="Message #q3-launch —  try “I need to write the launch report”"
+              placeholder={`Message #${channelName}`}
               className="flex-1 bg-transparent py-2 text-[15px] text-ink outline-none placeholder:text-ink-3"
             />
             <Button
@@ -224,9 +228,4 @@ export function ChatClient({ channelId, channelName }: ChatClientProps) {
       </div>
     </div>
   );
-}
-
-function randomTeammate(): PersonId {
-  const ids: PersonId[] = ["daniel", "sofia", "theo", "priya"];
-  return ids[Math.floor(Math.random() * ids.length)];
 }

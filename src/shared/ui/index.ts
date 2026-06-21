@@ -1,4 +1,4 @@
-export { Avatar, PEOPLE, type PersonId } from "./Avatar";
+export { Avatar, getPerson, type PersonId } from "./Avatar";
 export { Button } from "./Button";
 export { Card } from "./Card";
 export { FeedbackWidget } from "./FeedbackWidget";

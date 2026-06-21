@@ -32,6 +32,9 @@ describe("POST /api/auth/signup", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("Please enter a valid email address.");
+    expect(data.error).not.toContain("Invalid");
   });
 
   it("rejects duplicate emails", async () => {
@@ -48,5 +51,20 @@ describe("POST /api/auth/signup", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toMatch(/already registered/i);
+  });
+
+  it("returns a friendly message for malformed JSON", async () => {
+    const request = new Request("http://localhost:3000/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not-valid-json",
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("Please send a valid request.");
   });
 });

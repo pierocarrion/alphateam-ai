@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { IUserRepository } from "../../domain/repositories/IUserRepository";
 import { User } from "../../domain/entities/User";
+import { UserFacingError } from "@/server/lib/errors";
 
 export const signUpUserSchema = z.object({
   email: z.string().email(),
@@ -17,7 +18,9 @@ export class SignUpUser {
   async execute(input: SignUpUserInput): Promise<User> {
     const existing = await this.userRepository.findByEmail(input.email);
     if (existing) {
-      throw new Error("Email already registered");
+      throw new UserFacingError(
+        "That email is already registered — try signing in instead."
+      );
     }
     const passwordHash = await bcrypt.hash(input.password, 10);
     return this.userRepository.create({
