@@ -87,6 +87,22 @@ while time.time() < deadline:
         else:
             results = status_data.get("results", {})
             print(f"Build {status}. Results: {json.dumps(results)}", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("=== Build steps ===", file=sys.stderr)
+            for i, step in enumerate(status_data.get("steps", [])):
+                step_status = step.get("status", "UNKNOWN")
+                print(f"  Step {i}: {step_status}", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("=== Build logs (last 200 lines) ===", file=sys.stderr)
+            try:
+                log_url = f"https://cloudbuild.googleapis.com/v1/projects/{PROJECT_ID}/builds/{build_id}/logs"
+                log_req = urllib.request.Request(log_url, headers=headers)
+                with urllib.request.urlopen(log_req) as log_resp:
+                    log_text = log_resp.read().decode(errors="replace")
+                for line in log_text.splitlines()[-200:]:
+                    print(line, file=sys.stderr)
+            except Exception as log_err:
+                print(f"(Could not fetch logs: {log_err})", file=sys.stderr)
             sys.exit(1)
 
 print("Build timed out waiting for completion", file=sys.stderr)
