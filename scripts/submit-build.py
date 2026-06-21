@@ -23,7 +23,6 @@ substitutions = config.get("substitutions", {})
 images = config.get("images", [])
 
 substitutions["_VERSION"] = VERSION
-substitutions["PROJECT_ID"] = PROJECT_ID
 
 build_body = {
     "steps": steps,
