@@ -51,4 +51,6 @@ export interface IProjectRepository {
     decision: JoinRequestStatus,
     decidedById: string
   ): Promise<JoinRequest>;
+  findOrCreateCommunity(): Promise<Project>;
+  addMember(workspaceId: string, userId: string): Promise<void>;
 }

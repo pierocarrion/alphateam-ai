@@ -6,6 +6,7 @@ import { Mira, Button, Card } from "@/shared/ui";
 import { toast } from "sonner";
 import { fetchJson, ApiError } from "@/shared/lib/api";
 import { normalizeHashtag } from "@/features/projects/domain/hashtag";
+import { COMMUNITY_PROJECT } from "@/features/projects/domain/community";
 
 interface ProjectSummary {
   id: string;
@@ -30,13 +31,14 @@ interface MyRequest {
   };
 }
 
-export function ProjectSearch() {
+export function ProjectSearch({ initialHasProjects = false }: { initialHasProjects?: boolean }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [joiningCommunity, setJoiningCommunity] = useState(false);
   const [message, setMessage] = useState<Record<string, string>>({});
   const [debounced, setDebounced] = useState("");
 
@@ -113,6 +115,23 @@ export function ProjectSearch() {
     }
   };
 
+  const joinCommunity = async () => {
+    setJoiningCommunity(true);
+    try {
+      await fetchJson("/api/projects/join-community", { method: "POST" });
+      toast.success("¡Bienvenido al espacio compartido!");
+      router.push("/home");
+      router.refresh();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "No pudimos unirte al espacio compartido.";
+      toast.error(msg);
+      setJoiningCommunity(false);
+    }
+  };
+
   const approved = myRequests.find((r) => r.status === "approved");
 
   return (
@@ -162,13 +181,20 @@ export function ProjectSearch() {
         )}
 
         {!loading && debounced.trim() && results.length === 0 && (
-          <div className="mt-4 rounded-2xl border border-line bg-surface p-6 text-center">
-            <p className="text-[15px] text-ink-2">
-              No encontramos proyectos para “{debounced}”.
-            </p>
-            <p className="mt-1 text-xs text-ink-3">
-              Pide el hashtag exacto a tu líder.
-            </p>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-2xl border border-line bg-surface p-6 text-center">
+              <p className="text-[15px] text-ink-2">
+                No encontramos proyectos para “{debounced}”.
+              </p>
+              <p className="mt-1 text-xs text-ink-3">
+                Pide el hashtag exacto a tu líder, o empieza en el espacio
+                compartido.
+              </p>
+            </div>
+            <CommunityCard
+              joining={joiningCommunity}
+              onJoin={joinCommunity}
+            />
           </div>
         )}
 
@@ -239,11 +265,34 @@ export function ProjectSearch() {
         </div>
 
         {!debounced.trim() && (
-          <div className="mt-4 rounded-2xl border border-line bg-surface p-6">
-            <p className="text-sm text-ink-2">
-              Escribe el nombre o hashtag de tu proyecto. Tu líder te dará el
-              hashtag exacto (como <span className="font-mono">#q3-launch</span>).
-            </p>
+          <div className="mt-4 space-y-3">
+            {!initialHasProjects ? (
+              <>
+                <div className="rounded-[24px] border border-line-2 bg-gradient-to-br from-surface-2 to-surface p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
+                    Aún no hay proyectos
+                  </p>
+                  <p className="mt-2 text-[15px] text-ink-2">
+                    Nadie ha creado un proyecto todavía. Puedes empezar en el
+                    espacio compartido por todo el mundo mientras llegan más,
+                    o volver más tarde con el hashtag que te dé un líder.
+                  </p>
+                </div>
+                <CommunityCard
+                  joining={joiningCommunity}
+                  onJoin={joinCommunity}
+                  prominent
+                />
+              </>
+            ) : (
+              <div className="rounded-2xl border border-line bg-surface p-6">
+                <p className="text-sm text-ink-2">
+                  Escribe el nombre o hashtag de tu proyecto. Tu líder te dará
+                  el hashtag exacto (como{" "}
+                  <span className="font-mono">#q3-launch</span>).
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -289,5 +338,49 @@ export function ProjectSearch() {
         )}
       </div>
     </div>
+  );
+}
+
+function CommunityCard({
+  joining,
+  onJoin,
+  prominent,
+}: {
+  joining: boolean;
+  onJoin: () => void;
+  prominent?: boolean;
+}) {
+  return (
+    <Card
+      className={`flex flex-col gap-3 ${
+        prominent ? "border-accent bg-accent-soft" : ""
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-surface-2 text-xl">
+          {COMMUNITY_PROJECT.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-display text-[17px] text-ink">
+              {COMMUNITY_PROJECT.name}
+            </span>
+            <span className="font-mono text-xs text-ink-3">
+              {COMMUNITY_PROJECT.hashtag}
+            </span>
+          </div>
+          <p className="mt-0.5 text-sm text-ink-2">
+            {COMMUNITY_PROJECT.description}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-2 text-xs text-ink-3">
+            <span>· {COMMUNITY_PROJECT.industry}</span>
+            <span>· Compartido por todo el mundo</span>
+          </div>
+        </div>
+      </div>
+      <Button full size="sm" disabled={joining} onClick={onJoin}>
+        {joining ? "Uniéndose…" : "Unirme al espacio compartido"}
+      </Button>
+    </Card>
   );
 }

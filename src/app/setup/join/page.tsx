@@ -16,5 +16,7 @@ export default async function SetupJoinPage() {
   if (!user.profile?.onboarded) redirect("/onboarding");
   if (user.memberships.length > 0) redirect("/home");
 
-  return <ProjectSearch />;
+  const projectCount = await prisma.workspace.count();
+
+  return <ProjectSearch initialHasProjects={projectCount > 0} />;
 }

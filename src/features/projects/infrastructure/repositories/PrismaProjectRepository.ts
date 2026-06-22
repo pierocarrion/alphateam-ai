@@ -12,6 +12,10 @@ import {
   JoinRequestWithUser,
   PendingRequestWithUser,
 } from "../../domain/entities/JoinRequest";
+import {
+  COMMUNITY_HASHTAG,
+  COMMUNITY_PROJECT,
+} from "../../domain/community";
 
 function toProject(row: {
   id: string;
@@ -300,5 +304,43 @@ export class PrismaProjectRepository implements IProjectRepository {
     });
 
     return toJoinRequest(updated);
+  }
+
+  async findOrCreateCommunity(): Promise<Project> {
+    const existing = await prisma.workspace.findUnique({
+      where: { hashtag: COMMUNITY_HASHTAG },
+    });
+    if (existing) return toProject(existing);
+
+    const created = await prisma.$transaction(async (tx) => {
+      const workspace = await tx.workspace.create({
+        data: {
+          name: COMMUNITY_PROJECT.name,
+          slug: COMMUNITY_PROJECT.slug,
+          hashtag: COMMUNITY_PROJECT.hashtag,
+          description: COMMUNITY_PROJECT.description,
+          industry: COMMUNITY_PROJECT.industry,
+          category: COMMUNITY_PROJECT.category,
+          emoji: COMMUNITY_PROJECT.emoji,
+        },
+      });
+      await tx.workspaceSubscription.create({
+        data: { workspaceId: workspace.id, plan: "free", status: "active" },
+      });
+      await tx.channel.create({
+        data: { workspaceId: workspace.id, name: "general", type: "channel" },
+      });
+      return workspace;
+    });
+
+    return toProject(created);
+  }
+
+  async addMember(workspaceId: string, userId: string): Promise<void> {
+    await prisma.membership.upsert({
+      where: { userId_workspaceId: { userId, workspaceId } },
+      create: { workspaceId, userId, role: "member" },
+      update: {},
+    });
   }
 }
