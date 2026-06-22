@@ -57,7 +57,7 @@ describe("OnboardingFlow", () => {
       );
     });
 
-    expect(push).toHaveBeenCalledWith("/home");
+    expect(push).toHaveBeenCalledWith("/setup/join");
   });
 
   it("disables continue until an option is selected", () => {
@@ -67,5 +67,32 @@ describe("OnboardingFlow", () => {
 
     fireEvent.click(screen.getByText("I build / make"));
     expect(continueButton).not.toBeDisabled();
+  });
+
+  it("routes a leader to the project setup", async () => {
+    vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ profile: { onboarded: true } }),
+    } as Response);
+
+    render(<OnboardingFlow />);
+
+    fireEvent.click(screen.getByText("I lead a team"));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await screen.findByText("When is starting hardest?");
+    fireEvent.click(screen.getByText("Mornings — facing the day"));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await screen.findByText("What pulls you off the most?");
+    fireEvent.click(screen.getByText("Too many things — I freeze"));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await screen.findByText("Take me in");
+    fireEvent.click(screen.getByRole("button", { name: /take me in/i }));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/setup/project");
+    });
   });
 });

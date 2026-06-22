@@ -60,7 +60,10 @@ export function OnboardingFlow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, hardMoment: hard, profileId: profile, tone }),
       });
-      router.push("/home");
+      // Route to project setup. Leaders create a project; everyone else joins one.
+      const isLeader =
+        role.toLowerCase().includes("lead") || role.toLowerCase().includes("lider");
+      router.push(isLeader ? "/setup/project" : "/setup/join");
       router.refresh();
     } catch (err) {
       const message =

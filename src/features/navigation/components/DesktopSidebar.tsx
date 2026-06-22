@@ -21,12 +21,15 @@ export interface SidebarMember {
 
 interface DesktopSidebarProps {
   workspaceName: string;
+  workspaceEmoji?: string | null;
+  workspaceHashtag?: string | null;
   channels: SidebarChannel[];
   members: SidebarMember[];
   dmByPeer: Record<string, string>;
   userName: string;
   userRole: string;
   showBackstage: boolean;
+  pendingRequests?: number;
 }
 
 interface SideRowProps {
@@ -61,12 +64,15 @@ function SideLabel({ children }: { children: React.ReactNode }) {
 
 export function DesktopSidebar({
   workspaceName,
+  workspaceEmoji,
+  workspaceHashtag,
   channels,
   members,
   dmByPeer,
   userName,
   userRole,
   showBackstage,
+  pendingRequests,
 }: DesktopSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -101,9 +107,14 @@ export function DesktopSidebar({
       {/* Workspace header */}
       <div className="flex items-center gap-2.5 border-b border-line px-[18px] py-[18px] pb-3.5">
         <Mira size={30} mood="calm" />
-        <div>
-          <div className="font-display text-base text-ink">AlphaTeam</div>
-          <div className="text-[11px] text-ink-3">{workspaceName} · workspace</div>
+        <div className="min-w-0">
+          <div className="truncate font-display text-base text-ink">
+            {workspaceEmoji ? `${workspaceEmoji} ` : ""}
+            {workspaceName}
+          </div>
+          <div className="truncate text-[11px] text-ink-3">
+            {workspaceHashtag ?? "proyecto"} · espacio
+          </div>
         </div>
       </div>
 
@@ -152,7 +163,7 @@ export function DesktopSidebar({
         {showBackstage && (
           <>
             <div className="h-3.5" />
-            <SideLabel>Coordinator</SideLabel>
+            <SideLabel>Coordinación</SideLabel>
             <SideRow href="/backstage" active={pathname === "/backstage"}>
               <Icon
                 name="shield"
@@ -164,6 +175,23 @@ export function DesktopSidebar({
                 }
               />
               Backstage
+            </SideRow>
+            <SideRow href="/requests" active={pathname === "/requests"}>
+              <Icon
+                name="crew"
+                size={16}
+                color={
+                  pathname === "/requests"
+                    ? "var(--color-accent)"
+                    : "var(--color-ink-3)"
+                }
+              />
+              Solicitudes
+              {pendingRequests && pendingRequests > 0 ? (
+                <span className="ml-auto rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
+                  {pendingRequests}
+                </span>
+              ) : null}
             </SideRow>
           </>
         )}

@@ -32,39 +32,52 @@ export default async function AppLayout({
   }
 
   const primaryMembership = user.memberships[0];
-  const workspace = primaryMembership?.workspace;
-  const userRole = primaryMembership?.role ?? "member";
+
+  // No project yet -> route the user to setup (create or join based on role).
+  if (!primaryMembership) {
+    redirect("/setup");
+  }
+
+  const workspace = primaryMembership.workspace;
+  const userRole = primaryMembership.role ?? "member";
 
   let channels: SidebarChannel[] = [];
   let members: SidebarMember[] = [];
   let dmByPeer: Record<string, string> = {};
-  let workspaceName = "Acme";
+  let workspaceName = "Mi proyecto";
+  let pendingRequests = 0;
 
   if (workspace) {
-    const [workspaceChannels, workspaceMembers, dmChannels] = await Promise.all([
-      prisma.channel.findMany({
-        where: { workspaceId: workspace.id, type: "channel" },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-      prisma.membership.findMany({
-        where: {
-          workspaceId: workspace.id,
-          userId: { not: user.id },
-        },
-        include: { user: { select: { id: true, name: true } } },
-      }),
-      prisma.channel.findMany({
-        where: {
-          workspaceId: workspace.id,
-          type: "dm",
-          participants: { some: { userId: user.id } },
-        },
-        include: {
-          participants: { select: { userId: true } },
-        },
-      }),
-    ]);
+    const [workspaceChannels, workspaceMembers, dmChannels, pending] =
+      await Promise.all([
+        prisma.channel.findMany({
+          where: { workspaceId: workspace.id, type: "channel" },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        }),
+        prisma.membership.findMany({
+          where: {
+            workspaceId: workspace.id,
+            userId: { not: user.id },
+          },
+          include: { user: { select: { id: true, name: true } } },
+        }),
+        prisma.channel.findMany({
+          where: {
+            workspaceId: workspace.id,
+            type: "dm",
+            participants: { some: { userId: user.id } },
+          },
+          include: {
+            participants: { select: { userId: true } },
+          },
+        }),
+        (userRole === "leader" || userRole === "admin")
+          ? prisma.joinRequest.count({
+              where: { workspaceId: workspace.id, status: "pending" },
+            })
+          : Promise.resolve(0),
+      ]);
 
     channels = workspaceChannels;
     members = workspaceMembers.map((m) => ({
@@ -72,6 +85,7 @@ export default async function AppLayout({
       name: m.user.name ?? "Someone",
     }));
     workspaceName = workspace.name;
+    pendingRequests = pending;
     dmByPeer = {};
     for (const c of dmChannels) {
       const peerId = c.participants.find((p) => p.userId !== user.id)?.userId;
@@ -86,12 +100,15 @@ export default async function AppLayout({
       {/* Desktop sidebar */}
       <DesktopSidebar
         workspaceName={workspaceName}
+        workspaceEmoji={workspace?.emoji}
+        workspaceHashtag={workspace?.hashtag}
         channels={channels}
         members={members}
         dmByPeer={dmByPeer}
         userName={user.name ?? "you"}
         userRole={userRole}
         showBackstage={showBackstage}
+        pendingRequests={pendingRequests}
       />
 
       {/* Main area + mobile nav */}

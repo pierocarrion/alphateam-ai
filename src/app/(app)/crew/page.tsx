@@ -13,21 +13,31 @@ export default async function CrewPage() {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    include: { profile: true },
+    include: {
+      profile: true,
+      memberships: {
+        include: {
+          workspace: {
+            include: {
+              memberships: { include: { user: { select: { id: true, name: true } } } },
+              goals: {
+                include: { milestones: { orderBy: { dueDate: "asc" } } },
+                take: 1,
+              },
+            },
+          },
+        },
+      },
+    },
   });
   if (!user) redirect("/login");
 
+  const membership = user.memberships[0];
+  if (!membership) redirect("/setup");
+
+  const workspace = membership.workspace;
+
   const warm = user.profile?.tone === "balanced" ? false : true;
-
-  const workspace = await prisma.workspace.findUnique({
-    where: { slug: "acme" },
-    include: {
-      memberships: { include: { user: { select: { id: true, name: true } } } },
-      goals: { include: { milestones: { orderBy: { dueDate: "asc" } } }, take: 1 },
-    },
-  });
-
-  if (!workspace) redirect("/home");
 
   const mood = await computeWorkspaceMood(workspace.id);
   const load = await computeLoadBalance(workspace.id);

@@ -66,6 +66,7 @@ model User {
   pairMatchesAsPartner   PairMatch[] @relation("Partner")
   rewards       Reward[]
   feedback      Feedback[]
+  joinRequests  JoinRequest[]
 }
 
 model UserProfile {
@@ -87,10 +88,16 @@ model UserProfile {
 }
 
 model Workspace {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  hashtag     String   @unique
+  description String?  @db.Text
+  industry    String?
+  category    String?
+  emoji       String?  @default("🚀")
+  teamSize    String?
+  createdAt   DateTime @default(now())
 
   channels     Channel[]
   memberships  Membership[]
@@ -102,6 +109,7 @@ model Workspace {
   methodologies Methodology[]
   industryDatabases IndustryDatabase[]
   subscriptions WorkspaceSubscription[]
+  joinRequests JoinRequest[]
   feedback      Feedback[]
 }
 
@@ -396,4 +404,21 @@ model Feedback {
 
   @@index([workspaceId, type])
   @@index([createdAt])
+}
+
+model JoinRequest {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  message     String?   @db.Text
+  status      String    @default("pending") // pending, approved, rejected
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([status])
 }

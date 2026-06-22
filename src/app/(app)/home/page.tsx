@@ -43,12 +43,12 @@ export default async function HomePage() {
             Right now
           </p>
           <h1 className="mt-3 font-display text-[27px] leading-tight text-ink">
-            {heroTask ? heroTask.micro : "Open the deck. Type one messy sentence."}
+            {heroTask ? heroTask.micro : "¿Qué tienes en mente hoy?"}
           </h1>
           <p className="mt-3 text-ink-2">
             {heroTask
-              ? `From “${heroTask.title}”. Mira already shrank it down for you.`
-              : "From Daniel’s note in #q3-launch. Mira already shrank it down for you."}
+              ? `De “${heroTask.title}”. Mira ya lo redujo a un primer paso pequeño.`
+              : "Escribe una frase y Mira la convierte en un primer paso de 2 minutos."}
           </p>
           <div className="mt-5">
             <Button

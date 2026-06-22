@@ -73,8 +73,14 @@ export async function resetDatabase() {
     client.ritualSession.deleteMany(),
     client.task.deleteMany(),
     client.message.deleteMany(),
+    client.milestone.deleteMany(),
+    client.goal.deleteMany(),
+    client.knowledgeBaseItem.deleteMany(),
+    client.channelParticipant.deleteMany(),
     client.channel.deleteMany(),
+    client.joinRequest.deleteMany(),
     client.membership.deleteMany(),
+    client.workspaceSubscription.deleteMany(),
     client.workspace.deleteMany(),
     client.userProfile.deleteMany(),
     client.session.deleteMany(),
@@ -91,6 +97,7 @@ export async function seedWorkspace() {
     data: {
       name: "Acme",
       slug,
+      hashtag: `#${slug}`,
     },
   });
   const channel = await client.channel.create({

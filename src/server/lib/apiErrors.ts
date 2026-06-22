@@ -54,6 +54,12 @@ const FIELD_HINTS: Record<string, string> = {
   due: "Please provide a due date.",
   selfMade: "Please tell us if this is self-assigned.",
   confidence: "Please provide a confidence level.",
+  hashtag: "El hashtag debe empezar con #, usar minúsculas y guiones (ej: #q3-launch).",
+  emoji: "Elige un emoji para tu proyecto.",
+  description: "Cuéntanos brevemente de qué trata tu proyecto.",
+  industry: "Elige la industria del proyecto.",
+  decision: "Elige si aprobar o rechazar la solicitud.",
+  goal: "Escribe el objetivo del proyecto.",
 };
 
 function isPrismaKnown(error: unknown): error is PrismaKnownError {
