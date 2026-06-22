@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+﻿import { execSync } from "node:child_process";
 import { PGlite } from "@electric-sql/pglite";
 import { PrismaPGlite } from "pglite-prisma-adapter";
 import { PrismaClient } from "@prisma/client";
@@ -25,7 +25,7 @@ function getSchemaSql(): string {
         env: {
           ...process.env,
           DATABASE_URL:
-            process.env.DATABASE_URL ?? "postgresql://localhost:5432/alphateam-ai",
+            process.env.DATABASE_URL ?? "postgresql://localhost:5432/alphalead-ai",
         },
       }
     );

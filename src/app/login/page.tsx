@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Mira } from "@/shared/ui";
 import { AuthForm } from "@/features/auth/presentation/components/AuthForm";
@@ -11,7 +11,7 @@ export default function LoginPage() {
         href="/"
         className="absolute left-6 top-6 text-sm font-semibold text-ink-3 hover:text-ink"
       >
-        ← Back to AlphaTeam
+        ← Back to AlphaLead
       </Link>
       <div className="relative mb-8">
         <Mira size={110} mood="happy" ring />

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -104,7 +104,7 @@ export function SettingsClient({
         </SettingsGroup>
 
         <p className="px-5 pt-1 text-center text-xs text-ink-3 text-wrap-pretty">
-          AlphaTeam never shows overdue items, broken streaks, or public scores. Promise.
+          AlphaLead never shows overdue items, broken streaks, or public scores. Promise.
         </p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-// web.jsx — Desktop/web surface: sidebar + chat + Mira rail, coordinator Backstage,
+﻿// web.jsx — Desktop/web surface: sidebar + chat + Mira rail, coordinator Backstage,
 //            and the personal hub (You & Mira, Insights, Day mode, Night, Settings) + Crew.
 const { useState: useStateWeb, useEffect: useEffectWeb, useRef: useRefWeb } = React;
 
@@ -50,7 +50,7 @@ function WebSidebar({ view, setView }) {
       <div style={{ padding: '18px 18px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--line)' }}>
         <Mira size={30} mood="calm" />
         <div>
-          <div className="display" style={{ fontSize: 16, color: 'var(--ink)' }}>AlphaTeam</div>
+          <div className="display" style={{ fontSize: 16, color: 'var(--ink)' }}>AlphaLead</div>
           <div className="tiny" style={{ fontSize: 11 }}>Acme · workspace</div>
         </div>
       </div>
@@ -580,7 +580,7 @@ function WebSettings({ tone, onBack }) {
         </WebSettingsGroup>
 
         <p className="tiny text-wrap-pretty" style={{ textAlign: 'center', marginTop: 24, padding: '0 20px' }}>
-          AlphaTeam never shows overdue items, broken streaks, or public scores. Promise.
+          AlphaLead never shows overdue items, broken streaks, or public scores. Promise.
         </p>
       </div>
     </div>

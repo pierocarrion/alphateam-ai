@@ -1,9 +1,9 @@
-import type { MetadataRoute } from "next";
+﻿import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "AlphaTeam AI",
-    short_name: "AlphaTeam",
+    name: "AlphaLead AI",
+    short_name: "AlphaLead",
     description:
       "A gentle, anti-guilt productivity companion for teams. Mira detects procrastination in team chat and shrinks tasks into 2-minute starts.",
     start_url: "/",

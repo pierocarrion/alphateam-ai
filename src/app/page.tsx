@@ -1,18 +1,18 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Mira } from "@/shared/ui";
 import { WaitlistForm } from "@/features/marketing/components/WaitlistForm";
 
 export const metadata = {
-  title: "AlphaTeam AI — Stop team procrastination before it spreads",
+  title: "AlphaLead AI — Stop team procrastination before it spreads",
   description:
-    "AlphaTeam AI is an AI teammate that detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.",
+    "AlphaLead AI is an AI teammate that detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.",
   alternates: { canonical: "/" },
 };
 
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "AlphaTeam AI",
+  name: "AlphaLead AI",
   applicationCategory: "ProductivityApplication",
   operatingSystem: "Web",
   description:
@@ -27,7 +27,7 @@ const jsonLd = {
       description: "per user / month",
     },
   ],
-  publisher: { "@type": "Organization", name: "AlphaTeam AI" },
+  publisher: { "@type": "Organization", name: "AlphaLead AI" },
 };
 
 export default function LandingPage() {
@@ -41,7 +41,7 @@ export default function LandingPage() {
       <nav className="flex items-center justify-between px-6 py-5 lg:px-12">
         <div className="flex items-center gap-2.5">
           <Mira size={32} mood="happy" />
-          <span className="font-display text-xl text-ink">AlphaTeam</span>
+          <span className="font-display text-xl text-ink">AlphaLead</span>
         </div>
         <div className="flex items-center gap-6">
           <Link href="#pricing" className="hidden text-sm font-semibold text-ink-2 hover:text-ink sm:block">
@@ -66,7 +66,7 @@ export default function LandingPage() {
           Your team loses 2+ hours a day to procrastination. Mira gets it back.
         </h1>
         <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-2">
-          AlphaTeam AI listens to your team chat, turns vague tasks into tiny first steps, and helps
+          AlphaLead AI listens to your team chat, turns vague tasks into tiny first steps, and helps
           leaders spot overload before it burns the team out.
         </p>
         <div className="mt-8 flex w-full justify-center">
@@ -197,7 +197,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-line px-6 py-8 text-center text-sm text-ink-3 lg:px-12">
-        © {new Date().getFullYear()} AlphaTeam AI. Built with AI agents on Google Cloud.
+        © {new Date().getFullYear()} AlphaLead AI. Built with AI agents on Google Cloud.
       </footer>
     </main>
   );

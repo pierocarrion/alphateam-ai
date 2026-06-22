@@ -1,6 +1,6 @@
-import { ImageResponse } from "next/og";
+﻿import { ImageResponse } from "next/og";
 
-export const alt = "AlphaTeam AI — Stop team procrastination before it spreads";
+export const alt = "AlphaLead AI — Stop team procrastination before it spreads";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -41,7 +41,7 @@ export default function OpengraphImage() {
             }}
           />
           <span style={{ fontSize: 36, fontWeight: 700, color: "#f4d6a8" }}>
-            AlphaTeam AI
+            AlphaLead AI
           </span>
         </div>
         <div

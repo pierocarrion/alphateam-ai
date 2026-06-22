@@ -1,6 +1,6 @@
-# AlphaTeam AI — GCP Staging & Production Deployment Guide
+﻿# AlphaLead AI — GCP Staging & Production Deployment Guide
 
-This guide walks through deploying AlphaTeam AI to Google Cloud Platform (GCP) using a fully managed, serverless stack.
+This guide walks through deploying AlphaLead AI to Google Cloud Platform (GCP) using a fully managed, serverless stack.
 
 ## GCP services used
 
@@ -65,18 +65,18 @@ gcloud services enable \
 ### 3. Create the Artifact Registry repository
 
 ```bash
-gcloud artifacts repositories create alphateam-ai \
+gcloud artifacts repositories create alphalead-ai \
   --repository-format=docker \
   --location=$REGION \
-  --description="AlphaTeam AI container images"
+  --description="AlphaLead AI container images"
 ```
 
 ### 4. Create the Cloud SQL PostgreSQL instance
 
 ```bash
-export DB_INSTANCE=alphateam-ai-db
-export DB_NAME=alphateam-ai
-export DB_USER=alphateam-ai
+export DB_INSTANCE=alphalead-ai-db
+export DB_NAME=alphalead-ai
+export DB_USER=alphalead-ai
 export DB_PASSWORD=$(openssl rand -base64 24)
 
 gcloud sql instances create $DB_INSTANCE \
@@ -122,10 +122,10 @@ echo -n "price_..." | gcloud secrets create stripe-price-business --data-file=-
 ### 6. Create a Cloud Run service account
 
 ```bash
-export SERVICE_ACCOUNT=cloud-run-alphateam-ai
+export SERVICE_ACCOUNT=cloud-run-alphalead-ai
 
 gcloud iam service-accounts create $SERVICE_ACCOUNT \
-  --display-name="AlphaTeam Cloud Run"
+  --display-name="AlphaLead Cloud Run"
 
 # Grant required roles
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -163,7 +163,7 @@ gcloud builds submit --config cloudbuild-migrate.yaml \
 The Cloud Run service will receive `GOOGLE_CLOUD_PROJECT_ID`, `VERTEX_AI_LOCATION`, `GEMINI_ENABLED=true`, and `GEMINI_MODEL` automatically from `cloudbuild.yaml`. No additional Secret Manager entry is required for Vertex AI because authentication uses the Cloud Run service account IAM.
 
 ```bash
-export SERVICE_NAME=alphateam-staging
+export SERVICE_NAME=alphalead-staging
 export NEXTAUTH_URL="https://${SERVICE_NAME}-${PROJECT_ID_HASH}-uc.a.run.app"
 
 gcloud builds submit --config cloudbuild.yaml \
@@ -212,10 +212,10 @@ Copy the webhook signing secret into Secret Manager as `stripe-webhook-secret` a
 
 ```bash
 # Build
-docker build -t alphateam-staging .
+docker build -t alphalead-staging .
 
 # Run with env file
-docker run -p 3000:8080 --env-file .env alphateam-staging
+docker run -p 3000:8080 --env-file .env alphalead-staging
 ```
 
 ## Useful commands

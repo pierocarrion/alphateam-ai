@@ -1,17 +1,17 @@
-services:
+﻿services:
   postgres:
     image: postgres:16-alpine
-    container_name: alphateam-ai-postgres
+    container_name: alphalead-ai-postgres
     environment:
-      POSTGRES_USER: alphateam-ai
-      POSTGRES_PASSWORD: alphateam-ai
-      POSTGRES_DB: alphateam-ai
+      POSTGRES_USER: alphalead-ai
+      POSTGRES_PASSWORD: alphalead-ai
+      POSTGRES_DB: alphalead-ai
     ports:
       - "5432:5432"
     volumes:
-      - alphateam-ai_pg_data:/var/lib/postgresql/data
+      - alphalead-ai_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U alphateam-ai -d alphateam-ai"]
+      test: ["CMD-SHELL", "pg_isready -U alphalead-ai -d alphalead-ai"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,17 +20,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: alphateam-ai-app
+    container_name: alphalead-ai-app
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: "postgresql://alphateam-ai:alphateam-ai@postgres:5432/alphateam-ai?schema=public"
+      DATABASE_URL: "postgresql://alphalead-ai:alphalead-ai@postgres:5432/alphalead-ai?schema=public"
       NEXTAUTH_SECRET: "local-dev-secret-change-me-in-production"
       NEXTAUTH_URL: "http://localhost:3000"
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: alphateam-ai
-      DB_NAME: alphateam-ai
+      DB_USER: alphalead-ai
+      DB_NAME: alphalead-ai
     volumes:
       - .:/app
       - /app/node_modules
@@ -40,4 +40,4 @@ services:
         condition: service_healthy
 
 volumes:
-  alphateam-ai_pg_data:
+  alphalead-ai_pg_data:

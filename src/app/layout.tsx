@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -17,8 +17,8 @@ const nunito = Nunito({
 });
 
 const siteUrl =
-  process.env.NEXTAUTH_URL ?? "https://alphateam-lql5h6aova-uc.a.run.app";
-const title = "AlphaTeam AI";
+  process.env.NEXTAUTH_URL ?? "https://alphalead.space";
+const title = "AlphaLead AI";
 const description =
   "A gentle, anti-guilt productivity companion for teams. Mira detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.";
 const keywords = [
@@ -31,7 +31,7 @@ const keywords = [
   "focus app",
   "burnout prevention",
   "crew management",
-  "AlphaTeam AI",
+  "AlphaLead AI",
 ];
 
 export const metadata: Metadata = {
@@ -43,9 +43,9 @@ export const metadata: Metadata = {
   description,
   applicationName: title,
   keywords,
-  authors: [{ name: "AlphaTeam AI" }],
-  creator: "AlphaTeam AI",
-  publisher: "AlphaTeam AI",
+  authors: [{ name: "AlphaLead AI" }],
+  creator: "AlphaLead AI",
+  publisher: "AlphaLead AI",
   category: "Productivity",
   alternates: {
     canonical: "/",

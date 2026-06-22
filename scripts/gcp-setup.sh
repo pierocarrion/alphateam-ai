@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-# One-time GCP setup for AlphaTeam AI on project alphalead-ai.
+﻿#!/usr/bin/env bash
+# One-time GCP setup for AlphaLead AI on project alphalead-ai.
 # Run this after installing gcloud and running:
 #   gcloud auth login
 #   gcloud config set project alphalead-ai
@@ -8,14 +8,14 @@ set -euo pipefail
 
 PROJECT_ID="alphalead-ai"
 REGION="us-central1"
-DB_INSTANCE="alphateam-db"
-DB_NAME="alphateam"
-DB_USER="alphateam"
+DB_INSTANCE="alphalead-db"
+DB_NAME="alphalead"
+DB_USER="alphalead"
 DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -base64 24)}"
-SERVICE_ACCOUNT="cloud-run-alphateam-ai"
-SERVICE_NAME="alphateam"
+SERVICE_ACCOUNT="cloud-run-alphalead-ai"
+SERVICE_NAME="alphalead"
 
-echo "=== GCP setup for AlphaTeam AI ==="
+echo "=== GCP setup for AlphaLead AI ==="
 echo "Project: $PROJECT_ID"
 echo "Region:  $REGION"
 echo ""
@@ -38,10 +38,10 @@ gcloud services enable \
 
 # 3. Create Artifact Registry
 echo "Creating Artifact Registry repository..."
-gcloud artifacts repositories create alphateam-ai \
+gcloud artifacts repositories create alphalead-ai \
   --repository-format=docker \
   --location="$REGION" \
-  --description="AlphaTeam AI container images" || true
+  --description="AlphaLead AI container images" || true
 
 # 4. Create Cloud SQL PostgreSQL instance
 echo "Creating Cloud SQL PostgreSQL instance..."
@@ -77,7 +77,7 @@ echo -n "$NEXTAUTH_SECRET" | gcloud secrets create nextauth-secret --data-file=-
 # 6. Create Cloud Run service account
 echo "Creating Cloud Run service account..."
 gcloud iam service-accounts create "$SERVICE_ACCOUNT" \
-  --display-name="AlphaTeam Cloud Run" || true
+  --display-name="AlphaLead Cloud Run" || true
 
 SERVICE_ACCOUNT_EMAIL="${SERVICE_ACCOUNT}@${PROJECT_ID}.iam.gserviceaccount.com"
 

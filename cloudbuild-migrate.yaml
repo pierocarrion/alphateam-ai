@@ -1,9 +1,9 @@
-# Cloud Build job that runs Prisma migrations against Cloud SQL.
+﻿# Cloud Build job that runs Prisma migrations against Cloud SQL.
 #
 # Usage:
 #   export PROJECT_ID=your-project-id
 #   export REGION=us-central1
-#   export DB_INSTANCE=alphateam-db
+#   export DB_INSTANCE=alphalead-db
 #   export DB_SECRET=database-url
 #
 #   gcloud builds submit --config cloudbuild-migrate.yaml \
@@ -45,7 +45,7 @@ availableSecrets:
 
 substitutions:
   _REGION: us-central1
-  _DB_INSTANCE: alphateam-db
+  _DB_INSTANCE: alphalead-db
   _DB_SECRET: database-url
 
 options:

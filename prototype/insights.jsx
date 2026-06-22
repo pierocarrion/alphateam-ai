@@ -1,4 +1,4 @@
-// insights.jsx — Me hub + Insights (no guilt) + Day mode (anti-multitask) + Settings
+﻿// insights.jsx — Me hub + Insights (no guilt) + Day mode (anti-multitask) + Settings
 const { useState: useStateIn } = React;
 
 /* ---------------- Me hub ---------------- */
@@ -195,7 +195,7 @@ function SettingsScreen({ tone, onBack }) {
         </SettingsGroup>
 
         <p className="tiny text-wrap-pretty" style={{ textAlign: 'center', marginTop: 20, padding: '0 20px' }}>
-          AlphaTeam never shows overdue items, broken streaks, or public scores. Promise.
+          AlphaLead never shows overdue items, broken streaks, or public scores. Promise.
         </p>
       </div>
     </div>
