@@ -1,0 +1,15 @@
+{
+  "hosting": {
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "alphalead",
+          "region": "us-central1"
+        }
+      }
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
+  }
+}
