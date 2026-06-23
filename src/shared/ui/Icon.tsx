@@ -24,7 +24,8 @@ export type IconName =
   | "user"
   | "people"
   | "gear"
-  | "chevron";
+  | "chevron"
+  | "mic";
 
 interface IconProps {
   name: IconName;
@@ -94,6 +95,12 @@ export function Icon({
       </>
     ),
     chevron: <path d="M9 6l6 6-6 6" {...p} />,
+    mic: (
+      <>
+        <rect x="9" y="3" width="6" height="11" rx="3" {...p} />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" {...p} />
+      </>
+    ),
   };
 
   return (

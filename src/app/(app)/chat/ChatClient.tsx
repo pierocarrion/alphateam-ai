@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Avatar, Button, Icon, Mira, TopBar } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import { useChannel } from "@/features/chat/application/hooks/useChannel";
+import { useSpeechRecognition } from "@/features/chat/application/hooks/useSpeechRecognition";
 import { ChatMessage } from "@/features/chat/presentation/components/ChatMessage";
 import { DesktopMessage } from "@/features/chat/presentation/components/DesktopMessage";
 import { DayDivider } from "@/features/chat/presentation/components/DayDivider";
@@ -44,6 +45,14 @@ export function ChatClient({
   const detected = detectedFromSend ?? detectedFromApi;
 
   const warm = true;
+
+  const { supported: micSupported, listening: micListening, interim: micInterim, start: micStart, stop: micStop } =
+    useSpeechRecognition({
+      lang: "en-US",
+      onFinal: (t) => setDraft((prev) => (prev ? `${prev} ${t}` : t)),
+    });
+
+  const micActiveText = micListening && micInterim ? `${draft}${draft ? " " : ""}${micInterim}` : draft;
   const isDm = channelType === "dm";
   const titleName = isDm ? (peerName ?? "Direct message") : channelName;
   const peerPersonId = peerName ? personIdFromName(peerName) : "you";
@@ -211,7 +220,7 @@ export function ChatClient({
         <div className="flex-none bg-gradient-to-t from-bg to-transparent px-3.5 pb-3 pt-2 lg:hidden">
           <div className="flex items-center gap-2 rounded-full border border-line bg-surface p-1 pl-4">
             <input
-              value={draft}
+              value={micActiveText}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend();
@@ -219,6 +228,24 @@ export function ChatClient({
               placeholder={`Message ${isDm ? titleName : `#${titleName}`}…`}
               className="flex-1 bg-transparent py-2 text-[15.5px] text-ink outline-none placeholder:text-ink-3"
             />
+            {micSupported && (
+              <button
+                onClick={micListening ? micStop : micStart}
+                aria-label={micListening ? "Stop voice transcription" : "Transcribe with voice"}
+                className="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full transition-colors"
+                style={{
+                  background: micListening
+                    ? "var(--color-accent)"
+                    : "var(--color-surface-2)",
+                }}
+              >
+                <Icon
+                  name="mic"
+                  size={18}
+                  color={micListening ? "var(--color-accent-ink)" : "var(--color-ink-3)"}
+                />
+              </button>
+            )}
             <button
               onClick={handleSend}
               aria-label="Send"
@@ -236,7 +263,7 @@ export function ChatClient({
             </button>
           </div>
           <p className="mt-1.5 text-center text-xs text-ink-3">
-            Try “I need to write the launch report” — Mira will quietly notice.
+            {micListening ? "Listening… speak now." : "Try “I need to write the launch report” — Mira will quietly notice."}
           </p>
         </div>
 
@@ -244,7 +271,7 @@ export function ChatClient({
         <div className="hidden flex-none bg-[radial-gradient(120%_60%_at_50%_-10%,#221c2c,var(--color-bg)_60%)] px-6 pb-5 pt-2 lg:block">
           <div className="flex items-center gap-2.5 rounded-2xl border border-line-2 bg-surface p-2 pl-4">
             <input
-              value={draft}
+              value={micActiveText}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSend();
@@ -252,12 +279,30 @@ export function ChatClient({
               placeholder={`Message ${isDm ? titleName : `#${titleName}`}`}
               className="flex-1 bg-transparent py-2 text-[15px] text-ink outline-none placeholder:text-ink-3"
             />
+            {micSupported && (
+              <button
+                onClick={micListening ? micStop : micStart}
+                aria-label={micListening ? "Stop voice transcription" : "Transcribe with voice"}
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-full transition-colors"
+                style={{
+                  background: micListening
+                    ? "var(--color-accent)"
+                    : "var(--color-surface-2)",
+                }}
+              >
+                <Icon
+                  name="mic"
+                  size={18}
+                  color={micListening ? "var(--color-accent-ink)" : "var(--color-ink-3)"}
+                />
+              </button>
+            )}
             <Button
               size="sm"
               disabled={!draft.trim() || isSending}
               onClick={handleSend}
             >
-              Send
+              {micListening ? "Listening…" : "Send"}
             </Button>
           </div>
         </div>
