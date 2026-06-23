@@ -201,20 +201,76 @@ export interface MiraChatContext {
   recentTasks?: string[];
   mood?: string;
   message: string;
+  knowledge?: Array<{ title: string; content: string }>;
 }
 
 export async function generateMiraResponse(context: MiraChatContext): Promise<GeminiResponse<string>> {
-  const prompt = `You are Mira, a warm, encouraging productivity companion orb. You help people start tasks without guilt.
+  const knowledgeBlock =
+    context.knowledge && context.knowledge.length > 0
+      ? `\n\nProject knowledge base — ground your answer on this when relevant:\n${context.knowledge
+          .map((k) => `### ${k.title}\n${k.content}`)
+          .join("\n\n")}\n`
+      : "";
+
+  const prompt = `You are Mira, a warm, encouraging productivity companion embedded in a team's project chat. You were @mentioned, so reply directly.${knowledgeBlock}
 
 User: ${context.userName ?? "there"}
 Mood: ${context.mood ?? "unspecified"}
 Recent tasks: ${context.recentTasks?.join(", ") ?? "none"}
 
-User message: """${context.message}"""
+Reply in English. Be friendly and concise (max 3 sentences). If the project knowledge base answers the question, base your answer on it. If it doesn't, answer briefly from general knowledge and note that it isn't captured in the project knowledge yet. When it fits, end with one small, kind next step.
 
-Respond in a friendly, concise way (max 2 sentences). Validate any stress, then suggest one tiny next step.`;
+User message: """${context.message}"""`;
 
-  return generateContent(prompt, { maxTokens: 150, temperature: 0.4 });
+  return generateContent(prompt, { maxTokens: 220, temperature: 0.4 });
+}
+
+export interface ExtractedAnswer {
+  isAnswer: boolean;
+  title: string;
+  content: string;
+  duplicate: boolean;
+  confidence: number;
+}
+
+/**
+ * Asks Gemini to decide whether a team leader's chat reply is a reusable answer
+ * worth saving to the project knowledge base, and to produce a clean Q&A entry.
+ */
+export async function extractLeaderAnswerToKnowledge(args: {
+  question: string;
+  leaderAnswer: string;
+  existingKnowledgeTitles: string[];
+  leaderName?: string;
+}): Promise<GeminiResponse<ExtractedAnswer>> {
+  const titles = args.existingKnowledgeTitles.length
+    ? args.existingKnowledgeTitles.map((t) => `"${t}"`).join(", ")
+    : "(empty)";
+
+  const prompt = `You are a knowledge-curation assistant for a team project. Decide whether a team leader's chat reply is a reusable answer worth saving to the project knowledge base.
+
+Conversation:
+- Member question: """${args.question}"""
+${args.leaderName ? `- Leader (${args.leaderName}) reply: """${args.leaderAnswer}"""` : `- Leader reply: """${args.leaderAnswer}"""`}
+
+Existing knowledge base titles: ${titles}
+
+Rules:
+- Set "isAnswer" to true ONLY if the leader's reply is a substantive, reusable answer to the question (not a greeting, yes/no, or chitchat).
+- Set "duplicate" to true if the answer is already covered by an existing knowledge base title (compare by meaning, case-insensitive).
+- Write "title" as a short topic title (max 8 words). Write "content" as a clear, self-contained answer in English (1-4 sentences) that makes sense without the original question.
+- If it isn't a real reusable answer, set isAnswer=false and leave title and content empty.
+
+Respond with JSON only:
+{
+  "isAnswer": boolean,
+  "title": "string",
+  "content": "string",
+  "duplicate": boolean,
+  "confidence": 0.0-1.0
+}`;
+
+  return generateJSON<ExtractedAnswer>(prompt, { maxTokens: 300, temperature: 0.2 });
 }
 
 export interface CrewMoodAnalysis {

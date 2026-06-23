@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Avatar, Button, Icon, Mira, TopBar } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import { useChannel } from "@/features/chat/application/hooks/useChannel";
+import { useMention } from "@/features/chat/application/hooks/useMention";
 import { useSpeechRecognition } from "@/features/chat/application/hooks/useSpeechRecognition";
 import { ChatMessage } from "@/features/chat/presentation/components/ChatMessage";
 import { DesktopMessage } from "@/features/chat/presentation/components/DesktopMessage";
 import { DayDivider } from "@/features/chat/presentation/components/DayDivider";
 import { TypingRow } from "@/features/chat/presentation/components/TypingRow";
 import { InterceptCard } from "@/features/chat/presentation/components/InterceptCard";
+import {
+  MentionSuggestions,
+  type MentionCandidate,
+} from "@/features/chat/presentation/components/MentionSuggestions";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { fetchJson } from "@/shared/lib/api";
 import { DesktopRail } from "./DesktopRail";
@@ -36,13 +41,47 @@ export function ChatClient({
 }: ChatClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const { messages, isLoading, sendMessage, detected: detectedFromSend, isSending, queryError } =
+  const { messages, members, isLoading, sendMessage, detected: detectedFromSend, isSending, queryError } =
     useChannel(channelId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const [detectedFromApi, setDetectedFromApi] = useState<DetectedTaskDraft | null>(null);
   const detected = detectedFromSend ?? detectedFromApi;
+
+  const { mention, register: registerMention, applyMention, close: closeMention } = useMention(draft, setDraft);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const [lastQuery, setLastQuery] = useState(mention.query);
+
+  const candidates = useMemo<MentionCandidate[]>(() => {
+    const list: MentionCandidate[] = members.map((m) => ({
+      id: m.id,
+      name: m.name || "Unknown",
+      personId: m.personId,
+    }));
+    list.push({ id: "mira", name: "Mira", personId: "mira", isBot: true });
+    return list;
+  }, [members]);
+
+  const filteredCandidates = useMemo(() => {
+    const q = mention.query.trim().toLowerCase();
+    if (!q) return candidates;
+    const matched = candidates.filter((c) => c.name.toLowerCase().includes(q));
+    // Always surface Mira alongside matching members.
+    if (!matched.some((c) => c.id === "mira")) {
+      const mira = candidates.find((c) => c.id === "mira");
+      if (mira) matched.push(mira);
+    }
+    return matched;
+  }, [candidates, mention.query]);
+
+  // Reset highlight whenever the mention query changes (during render, no effect).
+  if (mention.query !== lastQuery) {
+    setLastQuery(mention.query);
+    setHighlightIndex(0);
+  }
+
+  const mentionOpen = mention.active && filteredCandidates.length > 0;
 
   const warm = true;
 
@@ -80,6 +119,38 @@ export function ChatClient({
     sendMessage.mutate(draft);
     setDraft("");
     setDismissed(false);
+  };
+
+  const handleSelectMention = (c: MentionCandidate) => {
+    applyMention(c.name);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mentionOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIndex((i) => Math.min(i + 1, filteredCandidates.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Escape") {
+        closeMention();
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        const pick = filteredCandidates[highlightIndex] ?? filteredCandidates[0];
+        if (pick) {
+          e.preventDefault();
+          applyMention(pick.name);
+          return;
+        }
+      }
+    }
+    if (e.key === "Enter") handleSend();
   };
 
   const handleShowTask = async () => {
@@ -218,13 +289,19 @@ export function ChatClient({
 
         {/* Mobile composer */}
         <div className="flex-none bg-gradient-to-t from-bg to-transparent px-3.5 pb-3 pt-2 lg:hidden">
-          <div className="flex items-center gap-2 rounded-full border border-line bg-surface p-1 pl-4">
+          <div className="relative flex items-center gap-2 rounded-full border border-line bg-surface p-1 pl-4">
+            {mentionOpen && (
+              <MentionSuggestions
+                candidates={filteredCandidates}
+                highlightIndex={highlightIndex}
+                onSelect={handleSelectMention}
+                onHover={setHighlightIndex}
+              />
+            )}
             <input
               value={micActiveText}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSend();
-              }}
+              {...registerMention("mobile")}
+              onKeyDown={handleInputKeyDown}
               placeholder={`Message ${isDm ? titleName : `#${titleName}`}…`}
               className="flex-1 bg-transparent py-2 text-[15.5px] text-ink outline-none placeholder:text-ink-3"
             />
@@ -269,13 +346,19 @@ export function ChatClient({
 
         {/* Desktop composer */}
         <div className="hidden flex-none bg-[radial-gradient(120%_60%_at_50%_-10%,#221c2c,var(--color-bg)_60%)] px-6 pb-5 pt-2 lg:block">
-          <div className="flex items-center gap-2.5 rounded-2xl border border-line-2 bg-surface p-2 pl-4">
+          <div className="relative flex items-center gap-2.5 rounded-2xl border border-line-2 bg-surface p-2 pl-4">
+            {mentionOpen && (
+              <MentionSuggestions
+                candidates={filteredCandidates}
+                highlightIndex={highlightIndex}
+                onSelect={handleSelectMention}
+                onHover={setHighlightIndex}
+              />
+            )}
             <input
               value={micActiveText}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSend();
-              }}
+              {...registerMention("desktop")}
+              onKeyDown={handleInputKeyDown}
               placeholder={`Message ${isDm ? titleName : `#${titleName}`}`}
               className="flex-1 bg-transparent py-2 text-[15px] text-ink outline-none placeholder:text-ink-3"
             />

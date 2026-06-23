@@ -1,0 +1,120 @@
+import { prisma } from "@/server/lib/prisma";
+import { container } from "@/server/lib/container";
+import {
+  extractLeaderAnswerToKnowledge,
+  generateMiraResponse,
+  isGeminiEnabled,
+} from "@/server/lib/gemini";
+import type { KnowledgeBaseItem } from "@/features/projects/domain/repositories/IProjectRepository";
+
+/**
+ * Matches "@mira", "mira," / "mira?" / "hey mira" at a word boundary.
+ * The "@" must be at the start of the message or preceded by whitespace, so
+ * substrings like "mirage", "admirable" or "email@mira" do not trigger it.
+ */
+const MIRA_MENTION_PATTERN = /(?:^|\s)@?mira\b/i;
+
+export function isMentionedMira(text: string): boolean {
+  return MIRA_MENTION_PATTERN.test(text);
+}
+
+/**
+ * Generates Mira's reply grounded in the project knowledge base.
+ * Returns null when Gemini is disabled or fails (graceful degradation).
+ */
+export async function generateMiraChannelReply(args: {
+  workspaceId: string;
+  messageText: string;
+  senderName?: string | null;
+}): Promise<string | null> {
+  if (!isGeminiEnabled()) return null;
+
+  let knowledge: Array<{ title: string; content: string }> = [];
+  try {
+    const items = await container.projectRepository.listKnowledge(args.workspaceId);
+    knowledge = items.map((k) => ({ title: k.title, content: k.content }));
+  } catch (err) {
+    console.error("[chatKnowledge] listKnowledge (reply) error:", err);
+  }
+
+  const result = await generateMiraResponse({
+    userName: args.senderName ?? undefined,
+    message: args.messageText,
+    knowledge,
+  });
+
+  if (!result.ok || !result.data) return null;
+  return result.data.trim();
+}
+
+/**
+ * When a project leader answers a question in chat, attempt to extract the Q&A
+ * and append it to the project knowledge base. Returns the created item, or null
+ * when there is nothing worth saving. Best-effort: never throws.
+ */
+export async function maybeCaptureLeaderAnswer(args: {
+  workspaceId: string;
+  channelId: string;
+  leaderUserId: string;
+  leaderMessageText: string;
+}): Promise<KnowledgeBaseItem | null> {
+  if (!isGeminiEnabled()) return null;
+  // If the leader is addressing Mira, this isn't a reusable answer to capture.
+  if (isMentionedMira(args.leaderMessageText)) return null;
+
+  try {
+    const channel = await prisma.channel.findUnique({
+      where: { id: args.channelId },
+      include: {
+        messages: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 8,
+        },
+        workspace: { include: { memberships: true } },
+      },
+    });
+    if (!channel) return null;
+
+    const leaderIds = new Set(
+      channel.workspace.memberships
+        .filter((m) => m.role === "leader" || m.role === "admin")
+        .map((m) => m.userId)
+    );
+
+    // Most recent prior message from a non-leader that looks like a question.
+    const candidate = channel.messages.find(
+      (m) =>
+        m.userId !== args.leaderUserId &&
+        !leaderIds.has(m.userId) &&
+        /\?\s*$/.test(m.content.trim())
+    );
+    if (!candidate) return null;
+
+    let existingTitles: string[] = [];
+    try {
+      const items = await container.projectRepository.listKnowledge(args.workspaceId);
+      existingTitles = items.map((k) => k.title);
+    } catch (err) {
+      console.error("[chatKnowledge] listKnowledge (titles) error:", err);
+    }
+
+    const extraction = await extractLeaderAnswerToKnowledge({
+      question: candidate.content,
+      leaderAnswer: args.leaderMessageText,
+      existingKnowledgeTitles: existingTitles,
+    });
+    if (!extraction.ok || !extraction.data) return null;
+
+    const e = extraction.data;
+    if (!e.isAnswer || e.duplicate || !e.title?.trim() || !e.content?.trim()) return null;
+
+    return await container.projectRepository.addKnowledge(args.workspaceId, {
+      title: e.title.trim(),
+      content: e.content.trim(),
+    });
+  } catch (err) {
+    console.error("[chatKnowledge] maybeCaptureLeaderAnswer error:", err);
+    return null;
+  }
+}

@@ -5,15 +5,24 @@ import { ChatMessageData } from "@/features/chat/presentation/components/ChatMes
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { fetchJson, ApiError } from "@/shared/lib/api";
 
+export interface ChannelMember {
+  id: string;
+  name: string;
+  role: string;
+  personId: string;
+}
+
 interface ChannelResponse {
   channel: { id: string; name: string };
   messages: ChatMessageData[];
   detected: DetectedTaskDraft | null;
+  members?: ChannelMember[];
 }
 
 interface SendMessageResponse {
   message: ChatMessageData;
   detected: DetectedTaskDraft | null;
+  miraReply?: ChatMessageData | null;
 }
 
 export function useChannel(channelId: string) {
@@ -37,10 +46,9 @@ export function useChannel(channelId: string) {
     onSuccess: (result) => {
       queryClient.setQueryData<ChannelResponse>(queryKey, (old) => {
         if (!old) return old;
-        return {
-          ...old,
-          messages: [...old.messages, result.message],
-        };
+        const next = [...old.messages, result.message];
+        if (result.miraReply) next.push(result.miraReply);
+        return { ...old, messages: next };
       });
     },
   });
@@ -50,6 +58,7 @@ export function useChannel(channelId: string) {
   return {
     channel: data?.channel,
     messages: data?.messages ?? [],
+    members: data?.members ?? [],
     isLoading,
     queryError,
     sendMessage,

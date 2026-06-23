@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
@@ -6,6 +7,12 @@ import { prisma } from "@/server/lib/prisma";
 import { deriveTaskEnhanced, looksLikeTask } from "@/features/tasks/lib/detect";
 import { coordinate } from "@/server/lib/aiCoordinator";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
+import { ensureMiraBotUser } from "@/server/lib/miraBot";
+import {
+  generateMiraChannelReply,
+  isMentionedMira,
+  maybeCaptureLeaderAnswer,
+} from "@/server/lib/chatKnowledge";
 
 const postSchema = z.object({
   text: z.string().min(1),
@@ -45,7 +52,7 @@ export async function GET(
           include: { user: { select: { id: true, name: true } } },
           orderBy: { createdAt: "asc" },
         },
-        workspace: { include: { memberships: true } },
+        workspace: { include: { memberships: { include: { user: { select: { id: true, name: true } } } } } },
         participants: { include: { user: { select: { id: true, name: true } } } },
       },
     });
@@ -108,6 +115,12 @@ export async function GET(
         time: formatTime(m.createdAt),
         text: m.content,
         userId: m.userId,
+      })),
+      members: channel.workspace.memberships.map((m) => ({
+        id: m.user.id,
+        name: m.user.name ?? "Unknown",
+        role: m.role,
+        personId: personIdFromName(m.user.name ?? ""),
       })),
       detected,
     });
@@ -199,6 +212,59 @@ export async function POST(
       payload: { text, channelId: id, fromUserId: user.id },
     });
 
+    // --- Mira @mention reply (awaited so it streams back with the send) ---
+    let miraReply: {
+      id: string;
+      who: string;
+      name: string | null;
+      time: string;
+      text: string;
+      userId: string;
+    } | null = null;
+    if (isMentionedMira(text)) {
+      try {
+        const replyText = await generateMiraChannelReply({
+          workspaceId: channel.workspaceId,
+          messageText: text,
+          senderName: user.name,
+        });
+        if (replyText) {
+          const bot = await ensureMiraBotUser();
+          const botMessage = await prisma.message.create({
+            data: { channelId: id, userId: bot.id, content: replyText },
+            include: { user: { select: { id: true, name: true } } },
+          });
+          miraReply = {
+            id: botMessage.id,
+            who: personIdFromName(botMessage.user.name ?? ""),
+            name: botMessage.user.name,
+            time: formatTime(botMessage.createdAt),
+            text: botMessage.content,
+            userId: botMessage.userId,
+          };
+        }
+      } catch (err) {
+        console.error("[channels/messages] mira reply error:", err);
+      }
+    }
+
+    // --- Leader Q&A auto-capture (background; never blocks the send) ---
+    const senderMembership = channel.workspace.memberships.find((m) => m.userId === user.id);
+    const isLeader =
+      senderMembership?.role === "leader" || senderMembership?.role === "admin";
+    if (!isMentionedMira(text) && isLeader) {
+      after(() =>
+        maybeCaptureLeaderAnswer({
+          workspaceId: channel.workspaceId,
+          channelId: id,
+          leaderUserId: user.id,
+          leaderMessageText: text,
+        }).catch((err) =>
+          console.error("[channels/messages] leader capture error:", err)
+        )
+      );
+    }
+
     return NextResponse.json({
       message: {
         id: message.id,
@@ -209,6 +275,7 @@ export async function POST(
         userId: message.userId,
       },
       detected,
+      miraReply,
       agentActions: actions,
       _agentLog: log,
     });
