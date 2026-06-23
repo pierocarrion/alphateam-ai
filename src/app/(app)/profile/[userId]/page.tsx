@@ -5,6 +5,11 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { sumRecoveredMinutesThisWeek } from "@/server/lib/metrics";
+import { isGoogleConnected } from "@/server/services/googleCalendar";
+import {
+  ContextMeetingProposal,
+  GoogleCalendarConnect,
+} from "@/features/calendar/presentation";
 import { Avatar, Button } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import type { PersonId } from "@/shared/ui";
@@ -72,6 +77,11 @@ export default async function ProfilePage({
   const hours = Math.floor(minutes / 60);
   const mins = Math.round(minutes % 60);
   const recoveredLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+  const [viewerConnected, expertConnected] = await Promise.all([
+    isGoogleConnected(viewer.id),
+    isGoogleConnected(profiled.id),
+  ]);
 
   const role = roleLabel(membership.role);
   const selfRole = profiled.profile?.role;
@@ -172,6 +182,21 @@ export default async function ProfilePage({
             <Button variant="ghost" href="/settings">
               Ajustes
             </Button>
+          </div>
+        )}
+
+        {isYou ? (
+          <div className="mt-4">
+            <GoogleCalendarConnect initialConnected={viewerConnected} />
+          </div>
+        ) : (
+          <div className="mt-6">
+            <ContextMeetingProposal
+              expertId={profiled.id}
+              expertName={displayName}
+              viewerConnected={viewerConnected}
+              expertConnected={expertConnected}
+            />
           </div>
         )}
       </div>

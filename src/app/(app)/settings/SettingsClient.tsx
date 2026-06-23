@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { TopBar, SettingsGroup, SettingRow, SettingRowToggle, FeedbackWidget } from "@/shared/ui";
+import { GoogleCalendarConnect } from "@/features/calendar/presentation";
 import { fetchJson } from "@/shared/lib/api";
 
 interface SettingsClientProps {
@@ -10,6 +11,7 @@ interface SettingsClientProps {
   gentleCheckIns: boolean;
   pairStartInvites: boolean;
   quietMode: boolean;
+  googleConnected: boolean;
 }
 
 interface SettingsState {
@@ -24,6 +26,7 @@ export function SettingsClient({
   gentleCheckIns,
   pairStartInvites,
   quietMode,
+  googleConnected,
 }: SettingsClientProps) {
   const [state, setState] = useState<SettingsState>({
     tone,
@@ -58,10 +61,17 @@ export function SettingsClient({
           <SettingRow title="Profile" detail="Bedtime revenge scroll" chevron last />
         </SettingsGroup>
 
-        <SettingsGroup label="Connected apps (knowledge base)">
-          <SettingRow title="Acme Deck Hub" detail="Connected" tint="var(--color-sage)" chevron />
-          <SettingRow title="Acme Docs" detail="Connected" tint="var(--color-sage)" chevron />
-          <SettingRow title="Add an app" plus last />
+        <SettingsGroup label="Apps conectadas (calendario)">
+          <div className="border-b border-line px-4 py-1">
+            <GoogleCalendarConnect initialConnected={googleConnected} />
+          </div>
+          <SettingRow
+            title="Acme Deck Hub"
+            detail="Conectado"
+            tint="var(--color-sage)"
+            chevron
+            last
+          />
         </SettingsGroup>
 
         <SettingsGroup

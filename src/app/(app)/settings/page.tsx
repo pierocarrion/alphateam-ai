@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
+import { isGoogleConnected } from "@/server/services/googleCalendar";
 import { SettingsClient } from "./SettingsClient";
 
 export default async function SettingsPage() {
@@ -14,6 +15,7 @@ export default async function SettingsPage() {
   const gentleCheckIns = user?.profile?.gentleCheckIns ?? true;
   const pairStartInvites = user?.profile?.pairStartInvites ?? true;
   const quietMode = user?.profile?.quietMode ?? false;
+  const googleConnected = user ? await isGoogleConnected(user.id) : false;
 
   return (
     <SettingsClient
@@ -21,6 +23,7 @@ export default async function SettingsPage() {
       gentleCheckIns={gentleCheckIns}
       pairStartInvites={pairStartInvites}
       quietMode={quietMode}
+      googleConnected={googleConnected}
     />
   );
 }
