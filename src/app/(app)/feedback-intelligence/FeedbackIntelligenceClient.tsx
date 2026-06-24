@@ -91,6 +91,7 @@ export function FeedbackIntelligenceClient({
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh(windowDays);
   }, [windowDays]);
 

@@ -223,11 +223,23 @@ export async function POST(
     } | null = null;
     if (isMentionedMira(text)) {
       try {
-        const replyText = await generateMiraChannelReply({
-          workspaceId: channel.workspaceId,
-          messageText: text,
-          senderName: user.name,
-        });
+        // Rich command path: @mira resume/risks/tasks/fetch/... routed through
+        // the analytical layer + Knowledge Hub RAG. Falls back to the generic
+        // grounded reply for plain mentions.
+        const { parseMiraCommand } = await import("@/features/chat/application/miraCommands");
+        const { runMiraInChannel } = await import("@/server/lib/miraCommandsService");
+        const command = parseMiraCommand(text);
+        let replyText: string | null = null;
+        if (command.command !== "general") {
+          const { result } = await runMiraInChannel({ channelId: id, text });
+          replyText = result.reply;
+        } else {
+          replyText = await generateMiraChannelReply({
+            workspaceId: channel.workspaceId,
+            messageText: text,
+            senderName: user.name,
+          });
+        }
         if (replyText) {
           const bot = await ensureMiraBotUser();
           const botMessage = await prisma.message.create({

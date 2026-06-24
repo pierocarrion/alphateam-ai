@@ -7,7 +7,7 @@ import type {
   ProjectMethodologySelection,
   SmartGoal,
   SmartGoalVersion,
-} from "../../domain/entities";
+} from "../domain/entities";
 import type {
   AddMemberInput,
   AuditEntry,
@@ -21,7 +21,7 @@ import type {
   SaveSmartGoalInput,
   SetMethodologyInput,
   UpdateMemberInput,
-} from "../../domain/repositories";
+} from "../domain/repositories";
 
 function toDate(v: Date | null | undefined): string | null {
   return v ? v.toISOString() : null;
@@ -471,8 +471,8 @@ export class PrismaAiInsightRepository implements IAiInsightRepository {
   async replace(
     workspaceId: string,
     insights: Array<{
-      type: import("../../domain/catalog").InsightType;
-      severity: import("../../domain/catalog").Severity | null;
+      type: import("../domain/catalog").InsightType;
+      severity: import("../domain/catalog").Severity | null;
       title: string;
       detail: string;
     }>

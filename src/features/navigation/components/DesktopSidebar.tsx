@@ -270,6 +270,21 @@ export function DesktopSidebar({
                 }
               />
               Feedback Intelligence
+            <SideRow
+              href="/team-insights"
+              active={pathname.startsWith("/team-insights")}
+            >
+              <Icon
+                name="trend"
+                size={16}
+                color={
+                  pathname.startsWith("/team-insights")
+                    ? "var(--color-accent)"
+                    : "var(--color-glow)"
+                }
+              />
+              Team Insights
+            </SideRow>
             </SideRow>
             <SideRow
               href="/project/settings"

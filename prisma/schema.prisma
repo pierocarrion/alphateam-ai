@@ -167,6 +167,7 @@ model Channel {
   workspace    Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   messages     Message[]
   participants ChannelParticipant[]
+  insights     ChannelInsight[]
 
   @@unique([workspaceId, name, type])
 }
@@ -189,10 +190,52 @@ model Message {
   userId    String
   content   String
   createdAt DateTime @default(now())
+  // Thread support: null for top-level messages, parent id for replies.
+  parentId  String?
 
-  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tasks   Task[]
+  channel     Channel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  parent      Message?           @relation("ThreadReply", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     Message[]          @relation("ThreadReply")
+  attachments MessageAttachment[]
+  reactions   MessageReaction[]
+
+  @@index([channelId, createdAt])
+  @@index([parentId])
+}
+
+/// Adjunto de mensaje (archivo/imagen/documento) almacenado vía IFileStorage.
+model MessageAttachment {
+  id         String   @id @default(cuid())
+  messageId  String
+  fileName   String
+  fileType   String
+  storageKey String?
+  url        String?  @db.Text
+  mimeType   String?
+  sizeBytes  Int      @default(0)
+  width      Int?
+  height     Int?
+  createdAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+/// Reacción emoji a un mensaje (un usuario, un emoji por mensaje).
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 model Task {
@@ -888,6 +931,26 @@ model KnowledgeSuggestion {
 
   @@index([workspaceId, createdAt])
   @@index([targetUserId, dismissed])
+}
+
+// ===== Group Chat enriquecido: insights de Mira (Wolf) por canal =====
+
+/// Extracción analítica de Mira sobre una conversación: resumen, tareas,
+/// riesgos, decisiones, acuerdos, próximos pasos. type + payload (JSON).
+model ChannelInsight {
+  id         String   @id @default(cuid())
+  channelId  String
+  workspaceId String
+  type       String   // summary | tasks | risks | decisions | next_steps | retrospective | strategy | fetch
+  payload    Json
+  sourceMessageId String?
+  createdById String?
+  createdAt  DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, type, createdAt])
+  @@index([workspaceId, createdAt])
 }
 
 

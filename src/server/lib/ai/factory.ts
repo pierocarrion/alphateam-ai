@@ -8,7 +8,11 @@ export type AiProviderName = "gemini" | "openai" | "azure-openai" | "claude";
 
 /**
  * Selects the chat/completion provider from `AI_PROVIDER`.
- * Defaults to "gemini" (the existing Mira engine) to preserve behavior.
+ *
+ * CENTRALIZATION CONTRACT: Gemini (via Vertex AI) is the single canonical chat
+ * provider. The other branches (openai / azure-openai / claude) are kept for
+ * backward compatibility and experimental use, but every deployment should
+ * default to `AI_PROVIDER="gemini"`. Unknown / empty values fall back to gemini.
  *
  * Open/Closed: adding a new vendor = new file + one branch here. Nothing else
  * in the codebase changes because every consumer depends on {@link IAiProvider}.
@@ -32,8 +36,14 @@ export function createAiProvider(
 
 /**
  * Resolves the embedder independently. Anthropic and (optionally) Azure lack
- * embeddings, so a separate `AI_EMBEDDING_PROVIDER` (default openai, then
- * gemini fallback) keeps RAG working regardless of the chat vendor.
+ * embeddings, so a separate `AI_EMBEDDING_PROVIDER` keeps RAG working regardless
+ * of the chat vendor.
+ *
+ * CENTRALIZATION CONTRACT: the default embedder is `openai`, but the OpenAI
+ * provider is routed through Vertex AI Model Garden (OpenAI-compatible endpoint,
+ * GCP Application Default Credentials), so all embedding traffic & billing also
+ * flows through the same GCP project as Gemini chat. Fallback order:
+ *   requested -> openai (Model Garden) -> gemini (native text-embedding-004).
  */
 export function createEmbedder(
   name?: AiProviderName,
