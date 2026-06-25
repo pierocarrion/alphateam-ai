@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { cn } from "@/shared/lib/cn";
 import { Icon } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 
 export interface SwitcherWorkspace {
   id: string;
@@ -30,6 +32,8 @@ export function WorkspaceSwitcher({
   activeHashtag,
 }: WorkspaceSwitcherProps) {
   const router = useRouter();
+  const [locale] = useLocale();
+  const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
 
@@ -51,7 +55,7 @@ export function WorkspaceSwitcher({
       toast.error(
         err instanceof Error
           ? err.message
-          : "No pudimos cambiar de proyecto. Inténtalo de nuevo."
+          : tr("nav.switchError")
       );
     } finally {
       setSwitching(null);
@@ -78,7 +82,7 @@ export function WorkspaceSwitcher({
             {activeName}
           </div>
           <div className="truncate text-[11px] leading-tight text-ink-3">
-            {activeHashtag ?? "proyecto"} · espacio
+            {activeHashtag ?? tr("nav.project")} · {tr("nav.space")}
           </div>
         </div>
         <span
@@ -103,7 +107,7 @@ export function WorkspaceSwitcher({
             className="absolute left-0 right-0 top-[calc(100%+4px)] z-40 overflow-hidden rounded-2xl border border-line bg-bg-2 p-1 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)]"
           >
             <div className="px-2 pb-1 pt-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-3">
-              Tus proyectos
+              {tr("nav.yourProjects")}
             </div>
             {workspaces.map((w) => {
               const isActive = w.id === activeId;
@@ -157,7 +161,7 @@ export function WorkspaceSwitcher({
                 <Icon name="plus" size={14} color="var(--color-accent)" />
               </span>
               <span className="text-[13.5px] font-semibold">
-                Crear nuevo proyecto
+                {tr("nav.createProject")}
               </span>
             </button>
           </div>

@@ -20,6 +20,8 @@ import {
 } from "@/features/chat/presentation/components/MentionSuggestions";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { fetchJson } from "@/shared/lib/api";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import { DesktopRail } from "./DesktopRail";
 
 interface ChatClientProps {
@@ -41,6 +43,8 @@ export function ChatClient({
 }: ChatClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const [locale] = useLocale();
+  const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const { messages, members, isLoading, sendMessage, detected: detectedFromSend, isSending, queryError } =
     useChannel(channelId);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -163,7 +167,7 @@ export function ChatClient({
       });
       router.push(`/task/${data.task.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "We couldn't create that task. Please try again.");
+      toast.error(err instanceof Error ? err.message : tr("chat.createTaskError"));
     }
   };
 
@@ -178,7 +182,7 @@ export function ChatClient({
         {/* Mobile header */}
         <div className="lg:hidden">
           <div className="h-[58px] flex-none" />
-          <TopBar kicker={isDm ? "Direct message" : "Team"} title={isDm ? titleName : `# ${titleName}`} />
+          <TopBar kicker={isDm ? tr("chat.dm") : tr("chat.team")} title={isDm ? titleName : `# ${titleName}`} />
           <div className="flex flex-none items-center gap-2 border-b border-line px-4 pb-3 pt-0">
             <div className="flex-1">
               <div className="flex items-center gap-1.5 font-display text-lg text-ink">
@@ -195,13 +199,13 @@ export function ChatClient({
                 )}
               </div>
               <div className="text-xs text-ink-3">
-                {session?.user?.name || "You"} · you
+                {session?.user?.name || tr("chat.you")} · {tr("chat.you").toLowerCase()}
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Mira size={26} mood="calm" />
               <span className="text-xs text-ink-3">
-                {warm ? "Mira’s here" : "Mira"}
+                {warm ? tr("chat.miraHere") : tr("chat.mira")}
               </span>
             </div>
           </div>
@@ -224,7 +228,7 @@ export function ChatClient({
               )}
             </div>
             <div className="text-xs text-ink-3">
-              {session?.user?.name || "You"} · Mira is listening quietly
+              {session?.user?.name || tr("chat.you")} · {tr("chat.listeningQuietly")}
             </div>
           </div>
           <Mira size={28} mood="calm" />
@@ -236,15 +240,15 @@ export function ChatClient({
           className="flex-1 overflow-y-auto px-4 pb-2 pt-3 scrollbar-hide lg:px-6 lg:pb-3 lg:pt-5"
         >
           {isLoading ? (
-            <div className="py-10 text-center text-ink-3">Loading chat…</div>
+            <div className="py-10 text-center text-ink-3">{tr("chat.loading")}</div>
           ) : queryError ? (
             <div className="py-10 text-center">
               <p className="text-sm text-red-400">{queryError.message}</p>
-              <p className="mt-1 text-xs text-ink-3">Please refresh to try again.</p>
+              <p className="mt-1 text-xs text-ink-3">{tr("chat.errorRetry")}</p>
             </div>
           ) : (
             <>
-              <DayDivider label="Today" />
+              <DayDivider label={tr("chat.today")} />
               {messages.map((m) => (
                 <div key={m.id}>
                   <div className="lg:hidden">
@@ -302,7 +306,7 @@ export function ChatClient({
               value={micActiveText}
               {...registerMention("mobile")}
               onKeyDown={handleInputKeyDown}
-              placeholder={`Message ${isDm ? titleName : `#${titleName}`}…`}
+              placeholder={tr("chat.placeholder", { target: isDm ? titleName : `#${titleName}` }) + "…"}
               className="flex-1 bg-transparent py-2 text-[15.5px] text-ink outline-none placeholder:text-ink-3"
             />
             {micSupported && (
@@ -340,7 +344,7 @@ export function ChatClient({
             </button>
           </div>
           <p className="mt-1.5 text-center text-xs text-ink-3">
-            {micListening ? "Listening… speak now." : "Try “I need to write the launch report” — Mira will quietly notice."}
+            {micListening ? tr("chat.listeningHint") : tr("chat.micHint")}
           </p>
         </div>
 
@@ -359,7 +363,7 @@ export function ChatClient({
               value={micActiveText}
               {...registerMention("desktop")}
               onKeyDown={handleInputKeyDown}
-              placeholder={`Message ${isDm ? titleName : `#${titleName}`}…`}
+              placeholder={tr("chat.placeholder", { target: isDm ? titleName : `#${titleName}` }) + "…"}
               className="flex-1 bg-transparent py-2 text-[15px] text-ink outline-none placeholder:text-ink-3"
             />
             {micSupported && (
@@ -385,7 +389,7 @@ export function ChatClient({
               disabled={!draft.trim() || isSending}
               onClick={handleSend}
             >
-              {micListening ? "Listening…" : "Send"}
+              {micListening ? tr("chat.listening") : tr("chat.send")}
             </Button>
           </div>
         </div>

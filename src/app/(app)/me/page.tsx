@@ -5,6 +5,8 @@ import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { sumRecoveredMinutesThisWeek } from "@/server/lib/metrics";
 import { HubRow, Button } from "@/shared/ui";
 import { WorkspaceSwitcher } from "@/features/navigation/components/WorkspaceSwitcher";
+import { getLocale } from "@/i18n/server";
+import { t } from "@/i18n/messages";
 
 export default async function MePage() {
   const session = await getServerSession(authOptions);
@@ -23,6 +25,9 @@ export default async function MePage() {
   const hours = Math.floor(minutes / 60);
   const mins = Math.round(minutes % 60);
   const recoveredLabel = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const locale = await getLocale();
+  const tr = (k: string, v?: Record<string, string | number>) =>
+    t(locale, k, v);
 
   return (
     <div className="flex h-full flex-col">
@@ -55,40 +60,38 @@ export default async function MePage() {
             }}
           >
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-              This week, together
+              {tr("me.thisWeek")}
             </p>
             <div className="mt-2 font-display text-[34px] text-ink">{recoveredLabel}</div>
-            <p className="mt-1 text-ink-2">
-              recovered from circling — yours to spend however you like.
-            </p>
+            <p className="mt-1 text-ink-2">{tr("me.recovered")}</p>
           </div>
 
           <HubRow
             icon="spark"
             tint="var(--color-accent)"
-            title="Insights"
-            sub="Your progress, told kindly"
+            title={tr("me.insights")}
+            sub={tr("me.insightsSub")}
             href="/insights"
           />
           <HubRow
             icon="doc"
             tint="var(--color-glow)"
-            title="One thing at a time"
-            sub="Hide the pile, focus the day"
+            title={tr("me.focus")}
+            sub={tr("me.focusSub")}
             href="/day"
           />
           <HubRow
             icon="moon"
             tint="#9FB8E0"
-            title="Wind down"
-            sub="A calm close to the night"
+            title={tr("me.wind")}
+            sub={tr("me.windSub")}
             href="/night"
           />
           <HubRow
             icon="bell"
             tint="var(--color-sage)"
-            title="Settings"
-            sub="Rhythm, apps, gentle nudges"
+            title={tr("me.settings")}
+            sub={tr("me.settingsSub")}
             href="/settings"
           />
 
@@ -97,7 +100,7 @@ export default async function MePage() {
             className="mt-0.5"
             href={warm ? "/onboarding?replay=1" : "/settings"}
           >
-            Replay the welcome
+            {tr("me.replay")}
           </Button>
         </div>
       </div>

@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { Icon } from "@/shared/ui";
 import type { LeaderBriefingResult } from "@/server/lib/leaderBriefing";
+import type { Locale } from "@/i18n/messages";
+import { t } from "@/i18n/messages";
 
 interface LeaderHomeProps {
   leaderName: string;
   workspaceName: string;
   briefing: LeaderBriefingResult;
+  locale: Locale;
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -15,19 +18,15 @@ const RISK_COLORS: Record<string, string> = {
   critical: "#e87878",
 };
 
-const RISK_LABEL: Record<string, string> = {
-  low: "Low risk",
-  medium: "Watch",
-  high: "High risk",
-  critical: "Critical",
-};
-
-function healthFromRisk(score: number): { value: number; label: string } {
+function healthFromRisk(
+  locale: Locale,
+  score: number
+): { value: number; label: string } {
   const value = Math.max(0, 100 - score);
-  if (value >= 80) return { value, label: "Good" };
-  if (value >= 60) return { value, label: "Fair" };
-  if (value >= 40) return { value, label: "At risk" };
-  return { value, label: "Critical" };
+  if (value >= 80) return { value, label: t(locale, "leader.health.good") };
+  if (value >= 60) return { value, label: t(locale, "leader.health.fair") };
+  if (value >= 40) return { value, label: t(locale, "leader.health.atRisk") };
+  return { value, label: t(locale, "leader.health.critical") };
 }
 
 const SEV_COLOR: Record<string, string> = {
@@ -40,8 +39,11 @@ export function LeaderHome({
   leaderName,
   workspaceName,
   briefing,
+  locale,
 }: LeaderHomeProps) {
-  const health = healthFromRisk(briefing.risk.riskScore);
+  const tr = (k: string, v?: Record<string, string | number>) =>
+    t(locale, k, v);
+  const health = healthFromRisk(locale, briefing.risk.riskScore);
   const riskColor = RISK_COLORS[briefing.risk.level] ?? RISK_COLORS.low;
 
   return (
@@ -51,11 +53,11 @@ export function LeaderHome({
         <div className="flex items-center gap-2.5">
           <Icon name="shield" size={22} color="var(--color-accent)" />
           <h1 className="font-display text-2xl text-ink">
-            Good to see you, {leaderName}
+            {tr("leader.greeting", { name: leaderName })}
           </h1>
         </div>
         <p className="mt-1.5 text-sm text-ink-2">
-          {workspaceName} · Mira is watching the team so you don&apos;t have to.
+          {tr("leader.sub", { workspace: workspaceName })}
         </p>
       </div>
 
@@ -69,10 +71,12 @@ export function LeaderHome({
               <div className="relative">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
-                    Morning briefing
+                    {tr("leader.briefing")}
                   </p>
                   <span className="text-[10.5px] text-ink-3">
-                    {briefing.usedAi ? "AI distilled" : "heuristic"}
+                    {briefing.usedAi
+                      ? tr("leader.aiDistilled")
+                      : tr("leader.heuristic")}
                   </span>
                 </div>
                 <h2 className="mt-3 font-display text-[22px] leading-tight text-ink text-wrap-pretty">
@@ -92,7 +96,7 @@ export function LeaderHome({
                 {briefing.needsAttention.length > 0 && (
                   <div className="mt-4 rounded-2xl border border-line bg-surface/60 p-3.5">
                     <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-3">
-                      Needs you
+                      {tr("leader.needsYou")}
                     </p>
                     <ul className="mt-2 space-y-1.5">
                       {briefing.needsAttention.map((n, i) => (
@@ -117,7 +121,7 @@ export function LeaderHome({
             {/* Project Health */}
             <section className="flex flex-col rounded-[26px] border border-line bg-surface p-6">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                Project health
+                {tr("leader.health")}
               </p>
               <div className="mt-3 flex items-end gap-3">
                 <span className="font-display text-[56px] leading-none text-ink">
@@ -141,12 +145,12 @@ export function LeaderHome({
               </div>
               <div className="mt-4 space-y-2">
                 <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-ink-3">Delivery risk</span>
+                  <span className="text-ink-3">{tr("leader.deliveryRisk")}</span>
                   <span
                     className="font-bold"
                     style={{ color: riskColor }}
                   >
-                    {RISK_LABEL[briefing.risk.level] ?? briefing.risk.level} ·{" "}
+                    {tr(`leader.risk.${briefing.risk.level}`)} ·{" "}
                     {briefing.risk.riskScore}
                   </span>
                 </div>
@@ -162,37 +166,37 @@ export function LeaderHome({
           {/* KPI grid */}
           <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <KpiTile
-              label="Open tasks"
+              label={tr("leader.kpi.openTasks")}
               value={briefing.kpi.openTasks}
               icon="doc"
               tint="var(--color-accent)"
             />
             <KpiTile
-              label="Overdue"
+              label={tr("leader.kpi.overdue")}
               value={briefing.kpi.overdueTasks}
               icon="clock"
               tint={briefing.kpi.overdueTasks > 0 ? "var(--color-glow)" : "var(--color-sage)"}
             />
             <KpiTile
-              label="Done / week"
+              label={tr("leader.kpi.doneWeek")}
               value={briefing.kpi.completedThisWeek}
               icon="check"
               tint="var(--color-sage)"
             />
             <KpiTile
-              label="Blockers"
+              label={tr("leader.kpi.blockers")}
               value={briefing.kpi.activeBlockers}
               icon="bell"
               tint={briefing.kpi.activeBlockers > 0 ? "var(--color-glow)" : "var(--color-sage)"}
             />
             <KpiTile
-              label="Decisions"
+              label={tr("leader.kpi.decisions")}
               value={briefing.kpi.pendingDecisions}
               icon="spark"
               tint="var(--color-accent)"
             />
             <KpiTile
-              label="Overloaded"
+              label={tr("leader.kpi.overloaded")}
               value={briefing.kpi.overloadedMembers}
               icon="crew"
               tint={briefing.kpi.overloadedMembers > 0 ? "var(--color-glow)" : "var(--color-sage)"}
@@ -205,45 +209,44 @@ export function LeaderHome({
             <section className="rounded-[26px] border border-line bg-surface p-5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Eisenhower matrix
+                  {tr("leader.eisenhower")}
                 </p>
                 <Link
                   href="/backstage"
                   className="text-[12px] font-semibold text-accent hover:underline"
                 >
-                  Open backstage
+                  {tr("leader.openBackstage")}
                 </Link>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <QuadrantTile
-                  title="Do first"
-                  sub="Urgent · Important"
+                  title={tr("leader.q1")}
+                  sub={tr("leader.q1sub")}
                   count={briefing.eisenhower.q1}
                   tint="var(--color-glow)"
                 />
                 <QuadrantTile
-                  title="Schedule"
-                  sub="Important · Not urgent"
+                  title={tr("leader.q2")}
+                  sub={tr("leader.q2sub")}
                   count={briefing.eisenhower.q2}
                   tint="var(--color-accent)"
                 />
                 <QuadrantTile
-                  title="Delegate"
-                  sub="Urgent · Not important"
+                  title={tr("leader.q3")}
+                  sub={tr("leader.q3sub")}
                   count={briefing.eisenhower.q3}
                   tint="var(--color-sage)"
                 />
                 <QuadrantTile
-                  title="Eliminate"
-                  sub="Neither"
+                  title={tr("leader.q4")}
+                  sub={tr("leader.q4sub")}
                   count={briefing.eisenhower.q4}
                   tint="var(--color-ink-3)"
                 />
               </div>
               {briefing.eisenhower.unsorted > 0 && (
                 <p className="mt-3 text-[12px] text-ink-3">
-                  {briefing.eisenhower.unsorted} task(s) still unsorted — Mira can
-                  file them from the backstage.
+                  {tr("leader.unsorted", { count: briefing.eisenhower.unsorted })}
                 </p>
               )}
             </section>
@@ -251,13 +254,13 @@ export function LeaderHome({
             {/* Active blockers */}
             <section className="rounded-[26px] border border-line bg-surface p-5">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                Active blockers
+                {tr("leader.blockers")}
               </p>
               {briefing.blockers.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-dashed border-line-2 p-5 text-center">
                   <Icon name="check" size={22} color="var(--color-sage)" />
                   <p className="mt-2 text-[13.5px] text-ink-2">
-                    No blockers right now. The path is clear.
+                    {tr("leader.noBlockers")}
                   </p>
                 </div>
               ) : (
@@ -294,8 +297,8 @@ export function LeaderHome({
           {/* Decisions + Mentions */}
           <div className="grid gap-5 lg:grid-cols-2">
             <ListCard
-              title="Pending decisions"
-              empty="Nothing is waiting on your call."
+              title={tr("leader.decisions")}
+              empty={tr("leader.decisionsEmpty")}
               items={briefing.decisions.map((d) => ({
                 id: d.id,
                 author: d.author,
@@ -304,8 +307,8 @@ export function LeaderHome({
               tint="var(--color-accent)"
             />
             <ListCard
-              title="Mentions"
-              empty="No one tagged you. Quiet is fine."
+              title={tr("leader.mentions")}
+              empty={tr("leader.mentionsEmpty")}
               items={briefing.mentions.map((m) => ({
                 id: m.id,
                 author: m.author,
@@ -321,29 +324,29 @@ export function LeaderHome({
             <DoorCard
               icon="chat"
               tint="var(--color-glow)"
-              title="Ask Mira"
-              sub="What's late? Who's loaded?"
+              title={tr("leader.doorAsk")}
+              sub={tr("leader.doorAskSub")}
               href="/chat"
             />
             <DoorCard
               icon="crew"
               tint="var(--color-accent)"
-              title="Crew"
-              sub="Mood, load, redistribute"
+              title={tr("leader.doorCrew")}
+              sub={tr("leader.doorCrewSub")}
               href="/crew"
             />
             <DoorCard
               icon="shield"
               tint="var(--color-sage)"
-              title="Backstage"
-              sub="Every task Mira graded"
+              title={tr("leader.doorBackstage")}
+              sub={tr("leader.doorBackstageSub")}
               href="/backstage"
             />
             <DoorCard
               icon="spark"
               tint="var(--color-accent)"
-              title="Insights"
-              sub="Recovered time, momentum"
+              title={tr("leader.doorInsights")}
+              sub={tr("leader.doorInsightsSub")}
               href="/insights"
             />
           </section>

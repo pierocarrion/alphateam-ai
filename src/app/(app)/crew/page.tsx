@@ -7,6 +7,8 @@ import { computeLoadBalance, computeWorkspaceMood } from "@/server/lib/metrics";
 import { personIdFromName } from "@/shared/lib/person";
 import { CrewClient } from "./CrewClient";
 import type { PersonId } from "@/shared/ui";
+import { getLocale } from "@/i18n/server";
+import { t, type Locale } from "@/i18n/messages";
 
 export default async function CrewPage() {
   const session = await getServerSession(authOptions);
@@ -34,6 +36,7 @@ export default async function CrewPage() {
   if (!workspace) redirect("/setup");
 
   const warm = user.profile?.tone === "balanced" ? false : true;
+  const locale = await getLocale();
 
   const mood = await computeWorkspaceMood(workspace.id);
   const load = await computeLoadBalance(workspace.id);
@@ -42,9 +45,11 @@ export default async function CrewPage() {
     ? {
         who: personIdFromName(load.heavy.name) as PersonId,
         userId: load.heavy.userId,
-        title: `${load.heavy.name}’s been catching most of the work — ${load.heavy.openCount} open task${load.heavy.openCount === 1 ? "" : "s"}.`,
-        note:
-          "They procrastinate least, so the load drifts to them. Want to even it out?",
+        title: t(locale, "crew.loadTitle", {
+          name: load.heavy.name,
+          count: load.heavy.openCount,
+        }),
+        note: t(locale, "crew.loadNote"),
       }
     : null;
 
@@ -56,8 +61,8 @@ export default async function CrewPage() {
     ? {
         title: goal.milestones[0].title,
         due: goal.milestones[0].dueDate
-          ? formatDaysUntil(goal.milestones[0].dueDate)
-          : "Soon",
+          ? formatDaysUntil(goal.milestones[0].dueDate, locale)
+          : t(locale, "crew.soon"),
         contributors: contributorsAll.length
           ? contributorsAll.slice(0, 4)
           : (["maya", "sofia", "theo"] as PersonId[]),
@@ -85,10 +90,10 @@ export default async function CrewPage() {
   );
 }
 
-function formatDaysUntil(dueDate: Date): string {
+function formatDaysUntil(dueDate: Date, locale: Locale): string {
   const days = Math.max(
     1,
     Math.ceil((new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   );
-  return `In about ${days} days`;
+  return t(locale, "crew.daysUntil", { count: days });
 }

@@ -10,6 +10,8 @@ import { Avatar, Icon } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 import { personIdFromName } from "@/shared/lib/person";
 import { LanguageToggle } from "@/i18n/LanguageToggle";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import {
   WorkspaceSwitcher,
   type SwitcherWorkspace,
@@ -90,6 +92,8 @@ export function DesktopSidebar({
 }: DesktopSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [locale] = useLocale();
+  const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const [openingDm, setOpeningDm] = useState<string | null>(null);
 
   const selfPersonId = personIdFromName(userName || "you");
@@ -131,9 +135,9 @@ export function DesktopSidebar({
 
       {/* Nav */}
       <div className="flex-1 overflow-y-auto px-2.5 py-3.5">
-        <SideLabel>Canales</SideLabel>
+        <SideLabel>{tr("nav.channels")}</SideLabel>
         {channels.length === 0 && (
-          <p className="px-2.5 pb-1 text-xs text-ink-3">Sin canales aún.</p>
+          <p className="px-2.5 pb-1 text-xs text-ink-3">{tr("nav.noChannels")}</p>
         )}
         {channels.map((c) => (
           <SideRow
@@ -146,7 +150,7 @@ export function DesktopSidebar({
         ))}
 
         <div className="h-3.5" />
-        <SideLabel>Equipo</SideLabel>
+        <SideLabel>{tr("nav.team")}</SideLabel>
         <SideRow href="/members" active={pathname === "/members"}>
           <Icon
             name="people"
@@ -157,7 +161,7 @@ export function DesktopSidebar({
                 : "var(--color-ink-3)"
             }
           />
-          Miembros
+          {tr("nav.members")}
         </SideRow>
         <SideRow href="/tasks" active={pathname === "/tasks"}>
           <Icon
@@ -169,11 +173,11 @@ export function DesktopSidebar({
                 : "var(--color-ink-3)"
             }
           />
-          Tareas
+          {tr("nav.tasks")}
         </SideRow>
         {members.length === 0 && (
           <p className="px-2.5 pb-1 text-xs text-ink-3">
-            Nadie más por aquí.
+            {tr("nav.noMembers")}
           </p>
         )}
         {members.map((m) => {
@@ -204,7 +208,7 @@ export function DesktopSidebar({
         {showBackstage && (
           <>
             <div className="h-3.5" />
-            <SideLabel>Coordinación</SideLabel>
+            <SideLabel>{tr("nav.coordination")}</SideLabel>
             <SideRow href="/progress" active={pathname === "/progress"}>
               <Icon
                 name="spark"
@@ -215,7 +219,7 @@ export function DesktopSidebar({
                     : "var(--color-ink-3)"
                 }
               />
-              Progreso
+              {tr("nav.progress")}
             </SideRow>
             <SideRow href="/backstage" active={pathname === "/backstage"}>
               <Icon
@@ -227,7 +231,7 @@ export function DesktopSidebar({
                     : "var(--color-glow)"
                 }
               />
-              Backstage
+              {tr("nav.backstage")}
             </SideRow>
             <SideRow href="/requests" active={pathname === "/requests"}>
               <Icon
@@ -239,7 +243,7 @@ export function DesktopSidebar({
                     : "var(--color-ink-3)"
                 }
               />
-              Solicitudes
+              {tr("nav.requests")}
               {pendingRequests && pendingRequests > 0 ? (
                 <span className="ml-auto rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-accent-ink">
                   {pendingRequests}
@@ -256,7 +260,7 @@ export function DesktopSidebar({
                     : "var(--color-ink-3)"
                 }
               />
-              Base de conocimiento
+              {tr("nav.knowledge")}
             </SideRow>
             <SideRow href="/alpha-space" active={pathname.startsWith("/alpha-space")}>
               <Icon
@@ -268,7 +272,7 @@ export function DesktopSidebar({
                     : "var(--color-glow)"
                 }
               />
-              Alpha Space
+              {tr("nav.alphaSpace")}
             </SideRow>
             <SideRow
               href="/feedback-intelligence"
@@ -283,7 +287,7 @@ export function DesktopSidebar({
                     : "var(--color-glow)"
                 }
               />
-              Feedback Intelligence
+              {tr("nav.feedback")}
             </SideRow>
             <SideRow
               href="/team-insights"
@@ -298,7 +302,7 @@ export function DesktopSidebar({
                     : "var(--color-glow)"
                 }
               />
-              Team Insights
+              {tr("nav.teamInsights")}
             </SideRow>
             <SideRow
               href="/project/settings"
@@ -313,7 +317,7 @@ export function DesktopSidebar({
                     : "var(--color-ink-3)"
                 }
               />
-              Ajustes del proyecto
+              {tr("nav.projectSettings")}
             </SideRow>
           </>
         )}
@@ -341,8 +345,8 @@ export function DesktopSidebar({
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
-            aria-label="Cerrar sesión"
-            title="Cerrar sesión"
+            aria-label={tr("nav.logout")}
+            title={tr("nav.logout")}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-ink-3 transition-colors hover:bg-white/[0.05] hover:text-ink"
           >
             <Icon name="logout" size={17} color="currentColor" />

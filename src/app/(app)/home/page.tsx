@@ -6,6 +6,8 @@ import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { buildLeaderBriefing } from "@/server/lib/leaderBriefing";
 import { Mira, Button, Icon } from "@/shared/ui";
 import { LeaderHome } from "./LeaderHome";
+import { getLocale } from "@/i18n/server";
+import { t } from "@/i18n/messages";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -16,6 +18,7 @@ export default async function HomePage() {
 
   const { active } = await getActiveWorkspace(user?.id ?? "");
   const isLeader = active?.role === "leader" || active?.role === "admin";
+  const locale = await getLocale();
 
   if (isLeader && active && user) {
     const briefing = await buildLeaderBriefing({
@@ -29,21 +32,31 @@ export default async function HomePage() {
         leaderName={user.name ?? "Leader"}
         workspaceName={active.workspaceName}
         briefing={briefing}
+        locale={locale}
       />
     );
   }
 
-  return <MemberHome userId={user?.id ?? ""} name={user?.name ?? "you"} warm={user?.profile?.tone !== "balanced"} />;
+  return (
+    <MemberHome
+      userId={user?.id ?? ""}
+      name={user?.name ?? "you"}
+      warm={user?.profile?.tone !== "balanced"}
+      locale={locale}
+    />
+  );
 }
 
 async function MemberHome({
   userId,
   name,
   warm,
+  locale,
 }: {
   userId: string;
   name: string;
   warm: boolean;
+  locale: import("@/i18n/messages").Locale;
 }) {
   const openTasks = await prisma.task.findMany({
     where: { userId, status: "open" },
@@ -53,6 +66,8 @@ async function MemberHome({
 
   const heroTask = openTasks[0];
   const otherCount = Math.max(0, openTasks.length - 1);
+  const tr = (k: string, v?: Record<string, string | number>) =>
+    t(locale, k, v);
 
   return (
     <div className="flex h-full flex-col">
@@ -62,7 +77,7 @@ async function MemberHome({
         <div className="mb-5 flex items-center gap-3 pt-1">
           <Mira size={44} mood="happy" />
           <div>
-            <div className="text-xs text-ink-3">Good evening</div>
+            <div className="text-xs text-ink-3">{tr("home.greeting")}</div>
             <div className="font-display text-[22px] text-ink">{name}</div>
           </div>
         </div>
@@ -71,15 +86,15 @@ async function MemberHome({
         <div className="relative overflow-hidden rounded-[30px] border border-line-2 bg-gradient-to-br from-surface-2 to-surface p-6 shadow-2xl">
           <div className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-accent-soft" />
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
-            Right now
+            {tr("home.rightNow")}
           </p>
           <h1 className="mt-3 font-display text-[27px] leading-tight text-ink">
-            {heroTask ? heroTask.micro : "¿Qué tienes en mente hoy?"}
+            {heroTask ? heroTask.micro : tr("home.heroEmpty")}
           </h1>
           <p className="mt-3 text-ink-2">
             {heroTask
-              ? `De “${heroTask.title}”. Mira ya lo redujo a un primer paso pequeño.`
-              : "Escribe una frase y Mira la convierte en un primer paso de 2 minutos."}
+              ? tr("home.heroTaskSub", { title: heroTask.title })
+              : tr("home.heroEmptySub")}
           </p>
           <div className="mt-5">
             <Button
@@ -87,7 +102,7 @@ async function MemberHome({
               full
               icon="play"
             >
-              Start — 2 minutes
+              {tr("home.start")}
             </Button>
           </div>
         </div>
@@ -96,13 +111,10 @@ async function MemberHome({
         <div className="mb-5 mt-4 flex items-center gap-3 px-1">
           <Mira size={22} mood="calm" />
           <p className="flex-1 text-xs text-ink-3">
-            {warm
-              ? `I'm holding ${otherCount} other thing${
-                  otherCount === 1 ? "" : "s"
-                } for you. They can wait — no rush, no pile.`
-              : `${otherCount} other thing${
-                  otherCount === 1 ? "" : "s"
-                } are filed away. They'll keep.`}
+            {tr(
+              warm ? "home.reassuranceWarm" : "home.reassuranceBalanced",
+              { count: otherCount }
+            )}
           </p>
         </div>
 
@@ -111,22 +123,22 @@ async function MemberHome({
           <DoorRow
             icon="plus"
             tint="var(--color-accent)"
-            title="Something on your mind?"
-            sub="Say it plainly — Mira shrinks it for you"
+            title={tr("home.doorCapture")}
+            sub={tr("home.doorCaptureSub")}
             href="/capture"
           />
           <DoorRow
             icon="chat"
             tint="var(--color-glow)"
-            title="Team chat"
-            sub="Mira's listening for what's yours"
+            title={tr("home.doorChat")}
+            sub={tr("home.doorChatSub")}
             href="/chat"
           />
           <DoorRow
             icon="moon"
             tint="#9FB8E0"
-            title="Wind down"
-            sub="A calm close to the day, when you're ready"
+            title={tr("home.doorWind")}
+            sub={tr("home.doorWindSub")}
             href="/night"
           />
         </div>

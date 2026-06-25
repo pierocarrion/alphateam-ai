@@ -6,6 +6,8 @@ import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { Icon } from "@/shared/ui";
 import { TasksBoard } from "@/features/project-tasks/presentation/components/TasksBoard";
 import type { ProjectMemberOption } from "@/features/project-tasks/presentation/types";
+import { getLocale } from "@/i18n/server";
+import { t } from "@/i18n/messages";
 
 export default async function TasksPage() {
   const session = await getServerSession(authOptions);
@@ -34,21 +36,20 @@ export default async function TasksPage() {
   }));
 
   const isLeader = active.role === "leader" || active.role === "admin";
+  const locale = await getLocale();
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="border-b border-line px-6 py-5 pb-4 lg:px-8">
         <div className="flex items-center gap-2.5">
           <Icon name="target" size={22} color="var(--color-accent)" />
-          <h1 className="font-display text-2xl text-ink">Tareas</h1>
+          <h1 className="font-display text-2xl text-ink">{t(locale, "tasks.title")}</h1>
         </div>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
           {active.workspaceEmoji ?? "🚀"} {active.workspaceName} ·{" "}
           <span className="font-mono text-ink-3">{active.workspaceHashtag}</span>
           {" · "}
-          {isLeader
-            ? "Asigná tareas al equipo o creá nuevas."
-            : "Tomá tareas del proyecto o creá las tuyas."}
+          {t(locale, isLeader ? "tasks.leaderSub" : "tasks.memberSub")}
         </p>
       </div>
 
