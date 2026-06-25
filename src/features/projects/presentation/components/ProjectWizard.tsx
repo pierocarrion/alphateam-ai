@@ -9,42 +9,45 @@ import {
   isValidHashtag,
   normalizeHashtag,
 } from "@/features/projects/domain/hashtag";
+import { METHODOLOGIES } from "@/features/project-settings/domain/catalog";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 
 const EMOJIS = ["🚀", "🌱", "🎨", "🛠️", "📊", "🔬", "📚", "💡", "🎯", "⚡", "🌍", "❤️"];
 
 const INDUSTRIES = [
-  "Tecnología",
-  "Educación",
-  "Salud",
-  "Marketing",
-  "Diseño",
-  "Finanzas",
-  "Construcción",
-  "Retail",
-  "Otro",
+  { key: "tech", labelKey: "wizard.ind.tech" },
+  { key: "edu", labelKey: "wizard.ind.edu" },
+  { key: "health", labelKey: "wizard.ind.health" },
+  { key: "marketing", labelKey: "wizard.ind.marketing" },
+  { key: "design", labelKey: "wizard.ind.design" },
+  { key: "finance", labelKey: "wizard.ind.finance" },
+  { key: "construction", labelKey: "wizard.ind.construction" },
+  { key: "retail", labelKey: "wizard.ind.retail" },
+  { key: "other", labelKey: "wizard.ind.other" },
 ];
 
 const CATEGORIES = [
-  "Lanzamiento",
-  "Producto",
-  "Investigación",
-  "Campaña",
-  "Operaciones",
-  "Evento",
-  "Otro",
+  { key: "launch", labelKey: "wizard.cat.launch" },
+  { key: "product", labelKey: "wizard.cat.product" },
+  { key: "research", labelKey: "wizard.cat.research" },
+  { key: "campaign", labelKey: "wizard.cat.campaign" },
+  { key: "operations", labelKey: "wizard.cat.operations" },
+  { key: "event", labelKey: "wizard.cat.event" },
+  { key: "other", labelKey: "wizard.cat.other" },
 ];
 
 const TEAM_SIZES = [
-  { id: "solo", label: "Solo yo (por ahora)" },
-  { id: "2-5", label: "2 a 5 personas" },
-  { id: "6-15", label: "6 a 15 personas" },
-  { id: "16-50", label: "16 a 50 personas" },
-  { id: "50+", label: "Más de 50" },
+  { id: "solo", labelKey: "wizard.team.solo" },
+  { id: "2-5", labelKey: "wizard.team.2-5" },
+  { id: "6-15", labelKey: "wizard.team.6-15" },
+  { id: "16-50", labelKey: "wizard.team.16-50" },
+  { id: "50+", labelKey: "wizard.team.50+" },
 ];
 
 const TONES = [
-  { id: "warm", label: "Cálido y motivador", emoji: "🤗" },
-  { id: "balanced", label: "Equilibrado y directo", emoji: "🧭" },
+  { id: "warm", labelKey: "wizard.tone.warm", emoji: "🤗" },
+  { id: "balanced", labelKey: "wizard.tone.balanced", emoji: "🧭" },
 ];
 
 export interface KnowledgeDoc {
@@ -59,11 +62,13 @@ export interface ProjectWizardProps {
 
 export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
   const router = useRouter();
+  const [locale] = useLocale();
   const [step, setStep] = useState(0);
 
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [hashtag, setHashtag] = useState("");
+  const [hashtagTouched, setHashtagTouched] = useState(false);
   const [hashtagChecked, setHashtagChecked] = useState<{
     hashtag: string;
     available: boolean;
@@ -77,6 +82,13 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
   const [category, setCategory] = useState<string | null>(null);
   const [teamSize, setTeamSize] = useState<string | null>(null);
   const [tone, setTone] = useState<"warm" | "balanced">("warm");
+
+  const [methodologyHint, setMethodologyHint] = useState<{
+    loading: boolean;
+    data: { key: string; rationale: string; confidence: number } | null;
+    error: string | null;
+  }>({ loading: false, data: null, error: null });
+  const methodologyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [docs, setDocs] = useState<KnowledgeDoc[]>([
     { title: "", sourceUrl: "" },
@@ -117,12 +129,49 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
   const hashtagAvailable = hashtagChecked?.available === true;
   const hashtagOk = hashtagValid && hashtagAvailable && !checkingHashtag;
 
+  useEffect(() => {
+    if (step !== 1) return;
+    const desc = description.trim();
+    if (desc.length < 12 || !industry || !category) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMethodologyHint({ loading: false, data: null, error: null });
+      return;
+    }
+    if (methodologyTimer.current) clearTimeout(methodologyTimer.current);
+    methodologyTimer.current = setTimeout(async () => {
+      setMethodologyHint({ loading: true, data: null, error: null });
+      const indLabel = INDUSTRIES.find((i) => i.key === industry)?.labelKey;
+      const catLabel = CATEGORIES.find((c) => c.key === category)?.labelKey;
+      try {
+        const res = await fetchJson<{ suggestion: { key: string; rationale: string; confidence: number } }>(
+          "/api/projects/suggest-methodology",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              description: desc,
+              industry: indLabel ? t(locale, indLabel) : industry,
+              category: catLabel ? t(locale, catLabel) : category,
+            }),
+          }
+        );
+        setMethodologyHint({ loading: false, data: res.suggestion, error: null });
+      } catch (err) {
+        const message =
+          err instanceof ApiError || err instanceof Error ? err.message : null;
+        setMethodologyHint({ loading: false, data: null, error: message });
+      }
+    }, 650);
+    return () => {
+      if (methodologyTimer.current) clearTimeout(methodologyTimer.current);
+    };
+  }, [step, description, industry, category, locale]);
+
   const canContinue =
-    (step === 0 && name.trim().length >= 2) ||
-    (step === 1 && hashtagOk) ||
-    (step === 2 && description.trim().length > 0 && industry && category) ||
-    (step === 3 && !!teamSize) ||
-    step === 4;
+    (step === 0 && name.trim().length >= 2 && hashtagOk) ||
+    (step === 1 && description.trim().length > 0 && industry && category) ||
+    (step === 2 && !!teamSize) ||
+    step === 3;
 
   const submit = async () => {
     if (!name.trim() || !hashtagOk) return;
@@ -136,6 +185,8 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
           sourceUrl: d.sourceUrl.trim() || undefined,
         }));
 
+      const industryLabel = INDUSTRIES.find((i) => i.key === industry);
+      const categoryLabel = CATEGORIES.find((c) => c.key === category);
       const created = await fetchJson<{ project: { id: string } }>("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,8 +195,8 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
           emoji,
           hashtag: normalized,
           description: description.trim() || undefined,
-          industry: industry ?? undefined,
-          category: category ?? undefined,
+          industry: industryLabel ? t(locale, industryLabel.labelKey) : undefined,
+          category: categoryLabel ? t(locale, categoryLabel.labelKey) : undefined,
           teamSize: teamSize ?? undefined,
           tone,
           knowledgeBase: cleanDocs,
@@ -155,7 +206,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
               : null,
         }),
       });
-      toast.success("¡Proyecto creado!");
+      toast.success(t(locale, "wizard.created"));
 
       if (onAfterCreate) {
         await onAfterCreate(created.project.id);
@@ -167,7 +218,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
       const message =
         err instanceof ApiError || err instanceof Error
           ? err.message
-          : "No pudimos crear el proyecto. Inténtalo de nuevo.";
+          : t(locale, "wizard.createError");
       toast.error(message);
     } finally {
       setSaving(false);
@@ -184,32 +235,31 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
               <Mira size={72} mood="happy" ring />
               <div className="flex flex-col">
                 <span className="font-display text-2xl tracking-tight text-ink">
-                  Nuevo proyecto
+                  {t(locale, "wizard.newProject")}
                 </span>
                 <span className="text-xs text-ink-3">
-                  Tu espacio, tu conocimiento
+                  {t(locale, "wizard.subtitle")}
                 </span>
               </div>
             </div>
             <p className="max-w-[260px] text-[15px] leading-relaxed text-ink-2">
               {name.trim()
                 ? `${emoji} ${name.trim()}`
-                : "Pongamos nombre a lo que estás construyendo."}
+                : t(locale, "wizard.introName")}
             </p>
           </div>
           <ol className="flex flex-col gap-3">
             {[
-              "Identidad",
-              "Hashtag",
-              "De qué trata",
-              "Equipo y tono",
-              "Base de conocimiento",
-            ].map((label, i) => {
+              "wizard.step.identity",
+              "wizard.step.about",
+              "wizard.step.team",
+              "wizard.step.knowledge",
+            ].map((labelKey, i) => {
               const done = i < step;
               const active = i === step;
               return (
                 <li
-                  key={label}
+                  key={labelKey}
                   className={`flex items-center gap-3 rounded-2xl border-[1.5px] px-4 py-3 transition-colors ${
                     active
                       ? "border-accent bg-accent-soft"
@@ -235,14 +285,14 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                       active || done ? "text-ink" : "text-ink-3"
                     }`}
                   >
-                    {label}
+                    {t(locale, labelKey)}
                   </span>
                 </li>
               );
             })}
           </ol>
           <p className="text-xs text-ink-3">
-            Podrás editar todo esto después. Sin datos falsos, todo es tuyo.
+            {t(locale, "wizard.footnote")}
           </p>
         </div>
       </aside>
@@ -261,7 +311,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
               <div className="w-10" />
             )}
             <div className="flex flex-1 gap-1.5">
-              {[0, 1, 2, 3, 4].map((i) => (
+              {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
                   className={`h-1.5 flex-1 rounded-full transition-colors ${
@@ -271,7 +321,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
               ))}
             </div>
             <span className="w-10 text-right text-xs text-ink-3">
-              {step + 1}/5
+              {step + 1}/4
             </span>
           </div>
 
@@ -280,27 +330,32 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
               <div className="flex flex-col">
                 <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
-                  ¿Cómo se llama tu proyecto?
+                  {t(locale, "wizard.s0.title")}
                 </h1>
                 <p className="mt-3 text-ink-2 lg:text-[17px]">
-                  Elige un nombre y un emoji que lo represente. Lo verás cada
-                  día.
+                  {t(locale, "wizard.s0.desc")}
                 </p>
 
                 <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Nombre
+                  {t(locale, "wizard.s0.name")}
                 </label>
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ej. Lanzamiento Q3"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setName(v);
+                    if (!hashtagTouched) {
+                      setHashtag(v.trim() ? normalizeHashtag(v) : "");
+                    }
+                  }}
+                  placeholder={t(locale, "wizard.s0.namePlaceholder")}
                   maxLength={60}
                   className="mt-2 w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
                 />
 
                 <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Emoji
+                  {t(locale, "wizard.s0.emoji")}
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {EMOJIS.map((e) => (
@@ -318,27 +373,17 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {step === 1 && (
-              <div className="flex flex-col">
-                <Mira size={56} mood="thinking" className="mb-5 lg:size-[72px]" />
-                <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
-                  Define su hashtag
-                </h1>
-                <p className="mt-3 text-ink-2 lg:text-[17px]">
-                  Es el identificador único de tu proyecto. Tu equipo lo usará
-                  para unirse.
-                </p>
 
                 <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Hashtag
+                  {t(locale, "wizard.s0.hashtag")}
                 </label>
                 <input
                   type="text"
                   value={hashtag}
-                  onChange={(e) => setHashtag(e.target.value)}
+                  onChange={(e) => {
+                    setHashtagTouched(true);
+                    setHashtag(e.target.value);
+                  }}
                   placeholder="#mi-proyecto"
                   className={`mt-2 w-full rounded-2xl border-[1.5px] bg-surface px-4 py-3 font-mono text-ink placeholder:text-ink-3 outline-none ${
                     hashtag && !hashtagValid
@@ -349,14 +394,19 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                   }`}
                 />
 
+                {!hashtagTouched && name.trim().length >= 2 && (
+                  <p className="mt-2 text-xs text-ink-3">
+                    {t(locale, "wizard.s0.suggested")}
+                  </p>
+                )}
+
                 {hashtag && !hashtagValid && (
                   <p className="mt-2 text-sm text-glow">
-                    Usa minúsculas, números y guiones. Mínimo 2 caracteres tras
-                    el #. Lo verás como: <span className="font-mono">{normalized}</span>
+                    {t(locale, "wizard.s0.invalid")} <span className="font-mono">{normalized}</span>
                   </p>
                 )}
                 {checkingHashtag && (
-                  <p className="mt-2 text-sm text-ink-3">Comprobando…</p>
+                  <p className="mt-2 text-sm text-ink-3">{t(locale, "wizard.s0.checking")}</p>
                 )}
                 {hashtagValid && hashtagChecked && !checkingHashtag && (
                   <p
@@ -365,40 +415,38 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                     }`}
                   >
                     {hashtagAvailable
-                      ? `✓ ${normalized} está disponible`
-                      : `${normalized} ya está en uso. Prueba con otro.`}
+                      ? t(locale, "wizard.s0.available", { tag: normalized })
+                      : t(locale, "wizard.s0.taken", { tag: normalized })}
                   </p>
                 )}
 
                 <Card className="mt-6 flex items-center gap-3">
                   <span className="text-xl">💡</span>
                   <p className="text-sm text-ink-2">
-                    Sugerencia: algo corto y memorable, como{" "}
-                    <span className="font-mono">#landing-v2</span> o{" "}
-                    <span className="font-mono">#expo-2026</span>.
+                    {t(locale, "wizard.s0.tip")}{" "}
+                    <span className="font-mono">#landing-v2</span>.
                   </p>
                 </Card>
               </div>
             )}
 
-            {step === 2 && (
+            {step === 1 && (
               <div className="flex flex-col">
                 <Mira size={56} mood="calm" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
-                  ¿De qué trata?
+                  {t(locale, "wizard.s1.title")}
                 </h1>
                 <p className="mt-3 text-ink-2 lg:text-[17px]">
-                  Esta es la base de conocimiento inicial. Ayuda a tu equipo (y
-                  a Mira) a entender el contexto.
+                  {t(locale, "wizard.s1.desc")}
                 </p>
 
                 <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Descripción
+                  {t(locale, "wizard.s1.description")}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="En una o dos frases, ¿qué buscan lograr?"
+                  placeholder={t(locale, "wizard.s1.descPlaceholder")}
                   maxLength={600}
                   rows={3}
                   className="mt-2 w-full resize-none rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
@@ -407,36 +455,85 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                 <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                      Industria
+                      {t(locale, "wizard.s1.industry")}
                     </label>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {INDUSTRIES.map((ind) => (
                         <Chip
-                          key={ind}
-                          selected={industry === ind}
-                          onClick={() => setIndustry(ind)}
+                          key={ind.key}
+                          selected={industry === ind.key}
+                          onClick={() => setIndustry(ind.key)}
                         >
-                          {ind}
+                          {t(locale, ind.labelKey)}
                         </Chip>
                       ))}
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                      Categoría
+                      {t(locale, "wizard.s1.category")}
                     </label>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {CATEGORIES.map((cat) => (
                         <Chip
-                          key={cat}
-                          selected={category === cat}
-                          onClick={() => setCategory(cat)}
+                          key={cat.key}
+                          selected={category === cat.key}
+                          onClick={() => setCategory(cat.key)}
                         >
-                          {cat}
+                          {t(locale, cat.labelKey)}
                         </Chip>
                       ))}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {step === 1 && (
+              <MethodologySuggestionCard hint={methodologyHint} locale={locale} />
+            )}
+
+            {step === 2 && (
+              <div className="flex flex-col">
+                <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
+                <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
+                  {t(locale, "wizard.s2.title")}
+                </h1>
+                <p className="mt-3 text-ink-2 lg:text-[17px]">
+                  {t(locale, "wizard.s2.desc")}
+                </p>
+
+                <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
+                  {t(locale, "wizard.s2.teamSize")}
+                </label>
+                <div className="mt-2 space-y-2.5">
+                  {TEAM_SIZES.map((tm) => (
+                    <OptionTile
+                      key={tm.id}
+                      selected={teamSize === tm.id}
+                      onClick={() => setTeamSize(tm.id)}
+                    >
+                      {t(locale, tm.labelKey)}
+                    </OptionTile>
+                  ))}
+                </div>
+
+                <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
+                  {t(locale, "wizard.s2.tone")}
+                </label>
+                <div className="mt-2 space-y-2.5">
+                  {TONES.map((tn) => (
+                    <OptionTile
+                      key={tn.id}
+                      selected={tone === tn.id}
+                      onClick={() => setTone(tn.id as "warm" | "balanced")}
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className="text-xl">{tn.emoji}</span>
+                        <span className="font-bold">{t(locale, tn.labelKey)}</span>
+                      </span>
+                    </OptionTile>
+                  ))}
                 </div>
               </div>
             )}
@@ -445,60 +542,14 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
               <div className="flex flex-col">
                 <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
-                  Tu equipo y el tono
+                  {t(locale, "wizard.s3.title")}
                 </h1>
                 <p className="mt-3 text-ink-2 lg:text-[17px]">
-                  ¿Cuántas personas? ¿Cómo quieres que hable Mira con todos?
+                  {t(locale, "wizard.s3.desc")}
                 </p>
 
                 <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Tamaño del equipo
-                </label>
-                <div className="mt-2 space-y-2.5">
-                  {TEAM_SIZES.map((t) => (
-                    <OptionTile
-                      key={t.id}
-                      selected={teamSize === t.id}
-                      onClick={() => setTeamSize(t.id)}
-                    >
-                      {t.label}
-                    </OptionTile>
-                  ))}
-                </div>
-
-                <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Tono
-                </label>
-                <div className="mt-2 space-y-2.5">
-                  {TONES.map((t) => (
-                    <OptionTile
-                      key={t.id}
-                      selected={tone === t.id}
-                      onClick={() => setTone(t.id as "warm" | "balanced")}
-                    >
-                      <span className="flex items-center gap-3">
-                        <span className="text-xl">{t.emoji}</span>
-                        <span className="font-bold">{t.label}</span>
-                      </span>
-                    </OptionTile>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="flex flex-col">
-                <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
-                <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
-                  Base de conocimiento
-                </h1>
-                <p className="mt-3 text-ink-2 lg:text-[17px]">
-                  Documentos y links clave. Opcional, pero ayuda a empezar
-                  alineados.
-                </p>
-
-                <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Documentos y links
+                  {t(locale, "wizard.s3.docs")}
                 </label>
                 <div className="mt-2 space-y-2">
                   {docs.map((d, i) => (
@@ -516,7 +567,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                             )
                           )
                         }
-                        placeholder="Título (ej. Brief, Notion, Figma)"
+                        placeholder={t(locale, "wizard.s3.docTitlePlaceholder")}
                         className="flex-1 rounded-xl border border-line-2 bg-bg px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent"
                       />
                       <input
@@ -539,7 +590,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                             setDocs((prev) => prev.filter((_, idx) => idx !== i))
                           }
                           className="rounded-xl px-2 py-2 text-ink-3 hover:text-glow"
-                          aria-label="Quitar"
+                          aria-label={t(locale, "wizard.s3.remove")}
                         >
                           ✕
                         </button>
@@ -553,38 +604,38 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                     }
                     className="mt-1 w-full rounded-2xl border border-dashed border-line-2 py-2.5 text-sm font-semibold text-ink-2 hover:bg-surface-2"
                   >
-                    + Añadir otro
+                    {t(locale, "wizard.s3.addAnother")}
                   </button>
                 </div>
 
                 <label className="mt-6 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Primer objetivo (opcional)
+                  {t(locale, "wizard.s3.firstGoal")}
                 </label>
                 <input
                   type="text"
                   value={goalTitle}
                   onChange={(e) => setGoalTitle(e.target.value)}
-                  placeholder="Ej. Publicar MVP en 8 semanas"
+                  placeholder={t(locale, "wizard.s3.firstGoalPlaceholder")}
                   className="mt-2 w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
                 />
 
                 <label className="mt-4 block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Primer hito (opcional)
+                  {t(locale, "wizard.s3.firstMilestone")}
                 </label>
                 <input
                   type="text"
                   value={milestone}
                   onChange={(e) => setMilestone(e.target.value)}
-                  placeholder="Ej. Plan y diseño listos"
+                  placeholder={t(locale, "wizard.s3.firstMilestonePlaceholder")}
                   className="mt-2 w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
                 />
 
                 <div className="mt-7 rounded-2xl border border-line-2 bg-surface-2 p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                    Resumen
+                    {t(locale, "wizard.s3.summary")}
                   </p>
                   <p className="mt-2 text-[15px] text-ink">
-                    {emoji} <b>{name.trim() || "Tu proyecto"}</b>{" "}
+                    {emoji} <b>{name.trim() || t(locale, "wizard.s3.yourProject")}</b>{" "}
                     <span className="font-mono text-ink-3">{normalized}</span>
                   </p>
                   {description.trim() && (
@@ -596,7 +647,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
           </div>
 
           <div className="flex-none pt-4 lg:pt-6">
-            {step < 4 ? (
+            {step < 3 ? (
               <Button
                 full
                 size="lg"
@@ -604,11 +655,11 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                 disabled={!canContinue}
                 onClick={() => setStep((s) => s + 1)}
               >
-                Continuar
+                {t(locale, "wizard.continue")}
               </Button>
             ) : (
               <Button full size="lg" loading={saving} disabled={saving} onClick={submit}>
-                {saving ? "Creando…" : "Crear proyecto"}
+                {saving ? t(locale, "wizard.creating") : t(locale, "wizard.create")}
               </Button>
             )}
           </div>
@@ -660,5 +711,68 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+interface MethodologyHintState {
+  loading: boolean;
+  data: { key: string; rationale: string; confidence: number } | null;
+  error: string | null;
+}
+
+function MethodologySuggestionCard({
+  hint,
+  locale,
+}: {
+  hint: MethodologyHintState;
+  locale: import("@/i18n/messages").Locale;
+}) {
+  if (hint.loading) {
+    return (
+      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-line-2 bg-surface-2 px-4 py-3">
+        <span className="text-base">✨</span>
+        <span className="text-sm text-ink-3">
+          {t(locale, "wizard.method.loading")}
+        </span>
+      </div>
+    );
+  }
+
+  if (hint.error || !hint.data) return null;
+
+  const meta = METHODOLOGIES.find((m) => m.key === hint.data!.key);
+  if (!meta) return null;
+
+  const confidenceLabel =
+    hint.data.confidence >= 75
+      ? t(locale, "wizard.method.confHigh")
+      : hint.data.confidence >= 50
+        ? t(locale, "wizard.method.confMid")
+        : t(locale, "wizard.method.confLow");
+
+  return (
+    <div className="mt-5 rounded-2xl border border-accent/40 bg-accent-soft/50 px-4 py-3.5">
+      <div className="flex items-center gap-2">
+        <span className="text-base">✨</span>
+        <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
+          {t(locale, "wizard.method.suggests")}
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-lg">{meta.emoji}</span>
+        <span className="font-display text-[15px] text-ink">{meta.name}</span>
+        <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-ink">
+          {confidenceLabel}
+        </span>
+      </div>
+      {hint.data.rationale && (
+        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
+          {hint.data.rationale}
+        </p>
+      )}
+      <p className="mt-2 text-[11.5px] text-ink-3">
+        {t(locale, "wizard.method.note")}
+      </p>
+    </div>
   );
 }

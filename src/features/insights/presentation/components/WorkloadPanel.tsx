@@ -3,14 +3,17 @@
 import type { TeamOverview } from "../types";
 import { Panel, StatChip, EmptyState } from "./Panel";
 import { BarList, Heatmap } from "./charts";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
-const STATUS_LABEL: Record<string, string> = {
-  balanced: "Balanceado",
-  moderate: "Riesgo moderado",
-  overload: "Sobrecarga",
+const STATUS_KEY: Record<string, string> = {
+  balanced: "insights.workload.status.balanced",
+  moderate: "insights.workload.status.moderate",
+  overload: "insights.workload.status.overload",
 };
 
 export function WorkloadPanel({ overview }: { overview: TeamOverview }) {
+  const [locale] = useLocale();
   const { workload } = overview;
   const items = workload.points
     .slice()
@@ -21,17 +24,17 @@ export function WorkloadPanel({ overview }: { overview: TeamOverview }) {
 
   const heatmapRows = items.map((p) => ({
     label: p.name,
-    cells: [{ value: p.occupationPct, label: "Ocupación" }],
+    cells: [{ value: p.occupationPct, label: t(locale, "insights.workload.occupation") }],
   }));
 
   return (
     <Panel
-      kicker="Workload Balance"
-      title="Distribución de la carga"
+      kicker={t(locale, "insights.workload.kicker")}
+      title={t(locale, "insights.workload.title")}
       action={
         <div className="flex gap-1.5">
           <StatChip
-            label="Promedio"
+            label={t(locale, "insights.workload.average")}
             value={`${Math.round(workload.averageOccupationPct)}%`}
             tone={
               workload.averageOccupationPct > 120
@@ -42,7 +45,7 @@ export function WorkloadPanel({ overview }: { overview: TeamOverview }) {
             }
           />
           <StatChip
-            label="Sobrecarga"
+            label={t(locale, "insights.workload.overload")}
             value={workload.overloadedCount}
             tone={workload.overloadedCount > 0 ? "bad" : "good"}
           />
@@ -50,7 +53,7 @@ export function WorkloadPanel({ overview }: { overview: TeamOverview }) {
       }
     >
       {items.length === 0 ? (
-        <EmptyState message="Aún no hay tareas asignadas en el rango seleccionado." />
+        <EmptyState message={t(locale, "insights.workload.empty")} />
       ) : (
         <div className="flex flex-col gap-5">
           <BarList
@@ -58,7 +61,7 @@ export function WorkloadPanel({ overview }: { overview: TeamOverview }) {
               label: p.name,
               value: p.occupationPct,
               max,
-              detail: `${p.totalTasks} tareas · ${STATUS_LABEL[p.status]}`,
+              detail: `${p.totalTasks} ${t(locale, "insights.workload.tasks")} · ${t(locale, STATUS_KEY[p.status])}`,
               color:
                 p.status === "overload"
                   ? "#E0625A"
@@ -69,7 +72,7 @@ export function WorkloadPanel({ overview }: { overview: TeamOverview }) {
           />
           <div>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
-              Heatmap de ocupación
+              {t(locale, "insights.workload.heatmap")}
             </p>
             <Heatmap rows={heatmapRows} max={120} />
           </div>

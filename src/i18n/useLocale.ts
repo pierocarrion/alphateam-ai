@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale } from "./messages";
 
 function readCookieLocale(): Locale {
@@ -19,13 +18,15 @@ function readCookieLocale(): Locale {
  * pick up the new locale.
  */
 export function useLocale(): [Locale, (next: Locale) => void] {
-  const router = useRouter();
   const [locale, setLocale] = useState<Locale>(readCookieLocale);
 
   const change = (next: Locale) => {
     setLocale(next);
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    router.refresh();
+    // A hard reload is the most reliable way to guarantee every server
+    // component re-reads the locale cookie. `router.refresh()` alone can serve
+    // cached RSC payloads and leave stale translated text behind.
+    window.location.reload();
   };
 
   return [locale, change];

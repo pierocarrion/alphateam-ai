@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/server/lib/prisma";
+import { getLocale } from "@/i18n/server";
+import { t } from "@/i18n/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -74,19 +76,21 @@ function StatCard({
 
 export default async function AdminDashboard() {
   const m = await getMetrics();
+  const locale = await getLocale();
+  const roleLabel = (r: string) => t(locale, `admin.role.${r}`);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Usuarios" value={m.totalUsers} hint={`${m.blockedUsers} bloqueados`} />
-        <StatCard label="Workspaces" value={m.totalWorkspaces} />
-        <StatCard label="Sesiones Alpha" value={m.alphaSessions} />
-        <StatCard label="MRR est." value={`$${m.mrrEstimate}`} accent />
+        <StatCard label={t(locale, "admin.users")} value={m.totalUsers} hint={t(locale, "admin.blockedCount", { count: m.blockedUsers })} />
+        <StatCard label={t(locale, "admin.workspaces")} value={m.totalWorkspaces} />
+        <StatCard label={t(locale, "admin.alphaSessions")} value={m.alphaSessions} />
+        <StatCard label={t(locale, "admin.mrr")} value={`$${m.mrrEstimate}`} accent />
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <div className="rounded-[20px] border border-line bg-surface p-5">
-          <h2 className="font-display text-[16px] text-ink">Distribución de planes</h2>
+          <h2 className="font-display text-[16px] text-ink">{t(locale, "admin.planDistribution")}</h2>
           <div className="mt-4 space-y-2">
             {(["free", "team", "business"] as const).map((plan) => {
               const count = m.planCounts[plan] ?? 0;
@@ -114,18 +118,18 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="rounded-[20px] border border-line bg-surface p-5">
-          <h2 className="font-display text-[16px] text-ink">Membresías por rol</h2>
+          <h2 className="font-display text-[16px] text-ink">{t(locale, "admin.membershipsByRole")}</h2>
           <div className="mt-4 space-y-3">
             {(["member", "leader", "admin"] as const).map((role) => (
               <div key={role} className="flex justify-between text-[14px]">
-                <span className="text-ink-2 capitalize">{role}</span>
+                <span className="text-ink-2">{roleLabel(role)}</span>
                 <span className="font-semibold text-ink">
                   {m.memberships[role] ?? 0}
                 </span>
               </div>
             ))}
             <div className="border-t border-line pt-3 text-[13px] text-ink-3">
-              Super-admins activos: <b className="text-ink">{m.superAdmins}</b>
+              {t(locale, "admin.activeSuperAdmins")} <b className="text-ink">{m.superAdmins}</b>
             </div>
           </div>
         </div>
@@ -136,13 +140,13 @@ export default async function AdminDashboard() {
           href="/admin/users"
           className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-ink"
         >
-          Gestionar usuarios
+          {t(locale, "admin.manageUsers")}
         </Link>
         <Link
           href="/admin/workspaces"
           className="rounded-full bg-surface px-5 py-2.5 text-sm font-semibold text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]"
         >
-          Gestionar workspaces
+          {t(locale, "admin.manageWorkspaces")}
         </Link>
       </div>
     </div>

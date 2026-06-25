@@ -1,10 +1,8 @@
 ﻿import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import { Toaster } from "sonner";
-import { cookies } from "next/headers";
 import "./globals.css";
 import { Providers } from "./providers";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale } from "@/i18n/messages";
 
 const fredoka = Fredoka({
   variable: "--font-fredoka",
@@ -92,13 +90,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const localeCookie = cookieStore.get(LOCALE_COOKIE)?.value;
-  const lang = isLocale(localeCookie) ? localeCookie : DEFAULT_LOCALE;
-
   return (
     <html
-      lang={lang}
+      lang="en"
       className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

@@ -15,6 +15,7 @@ const jsonLd = {
   name: "AlphaLead AI",
   applicationCategory: "ProductivityApplication",
   operatingSystem: "Web",
+  inLanguage: "en",
   description:
     "AI teammate that detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.",
   offers: [
@@ -139,11 +140,11 @@ export default function LandingPage() {
             />
             <FeatureCard
               title="Check engine alerts"
-              desc="Tareas estancadas detectadas automáticamente. El líder recibe una alerta privada y una sugerencia de acción."
+              desc="Stalled tasks are detected automatically. The leader gets a private alert and a suggested action."
             />
             <FeatureCard
               title="Daily check-in"
-              desc="Cada mañana Mira pregunta cómo se siente el equipo y ajusta las prioridades del día."
+              desc="Every morning Mira asks how the team feels and adjusts the day&apos;s priorities."
             />
           </div>
         </div>

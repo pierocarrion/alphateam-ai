@@ -3,12 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { fetchJsonSafe } from "@/features/admin/lib/client";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import type { AdminWorkspace } from "@/features/admin/types";
 
 const PLANS = ["free", "team", "business"] as const;
 
 export function WorkspacesTable({ initial }: { initial: AdminWorkspace[] }) {
   const [rows, setRows] = useState(initial);
+  const [locale] = useLocale();
 
   async function changePlan(id: string, plan: string) {
     const res = await fetchJsonSafe<{ subscription: { plan: string } }>(
@@ -30,7 +33,7 @@ export function WorkspacesTable({ initial }: { initial: AdminWorkspace[] }) {
   }
 
   async function remove(id: string) {
-    if (!confirm("¿Eliminar este workspace y todos sus datos?")) return;
+    if (!confirm(t(locale, "admin.ws.deleteConfirm"))) return;
     const ok = await fetchJsonSafe(`/api/admin/workspaces/${id}`, { method: "DELETE" });
     if (!ok) return;
     setRows((prev) => prev.filter((w) => w.id !== id));
@@ -42,18 +45,18 @@ export function WorkspacesTable({ initial }: { initial: AdminWorkspace[] }) {
         <table className="w-full text-left text-sm">
           <thead className="bg-bg-2 text-[11px] uppercase tracking-[0.12em] text-ink-3">
             <tr>
-              <th className="px-4 py-3">Workspace</th>
-              <th className="px-4 py-3">Miembros</th>
-              <th className="px-4 py-3">Plan</th>
-              <th className="px-4 py-3">Alta</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              <th className="px-4 py-3">{t(locale, "admin.ws.col.workspace")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.ws.col.members")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.ws.col.plan")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.ws.col.joined")}</th>
+              <th className="px-4 py-3 text-right">{t(locale, "admin.ws.col.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
-                  Sin workspaces.
+                  {t(locale, "admin.ws.empty")}
                 </td>
               </tr>
             )}
@@ -96,13 +99,13 @@ export function WorkspacesTable({ initial }: { initial: AdminWorkspace[] }) {
                       href={`/admin/workspaces/${w.id}`}
                       className="rounded-full bg-transparent px-3 py-1 text-[12px] font-semibold text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line-2)] hover:text-ink"
                     >
-                      Ver
+                      {t(locale, "admin.ws.view")}
                     </Link>
                     <button
                       onClick={() => remove(w.id)}
                       className="rounded-full bg-red-500/10 px-3 py-1 text-[12px] font-semibold text-red-400 hover:bg-red-500/20"
                     >
-                      Eliminar
+                      {t(locale, "common.delete")}
                     </button>
                   </div>
                 </td>

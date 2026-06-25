@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Icon, type IconName } from "@/shared/ui";
 import { useLocale } from "@/i18n/useLocale";
+import { LanguageToggle } from "@/i18n/LanguageToggle";
 import { t } from "@/i18n/messages";
 
 const items: { icon: IconName; labelKey: string; href: string }[] = [
@@ -55,6 +56,9 @@ export function MobileNav() {
         <span>{t(locale, "nav.logout")}</span>
         <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-accent opacity-0" />
       </button>
+      <div className="flex flex-col items-center justify-center">
+        <LanguageToggle />
+      </div>
     </nav>
   );
 }

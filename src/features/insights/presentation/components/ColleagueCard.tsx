@@ -2,16 +2,18 @@
 
 import type { EmployeeWithMetrics, EmotionalState } from "../types";
 import { cn } from "@/shared/lib/cn";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
 const SENTIMENT_EMOJI: Record<EmotionalState, string> = {
   positive: "\u{1F60A}",
   neutral: "\u{1F610}",
   risk: "\u{2639}\u{FE0F}",
 };
-const SENTIMENT_LABEL: Record<EmotionalState, string> = {
-  positive: "Positivo",
-  neutral: "Neutral",
-  risk: "Riesgo",
+const SENTIMENT_KEY: Record<EmotionalState, string> = {
+  positive: "insights.card.sentiment.positive",
+  neutral: "insights.card.sentiment.neutral",
+  risk: "insights.card.sentiment.risk",
 };
 
 export function ColleagueCard({
@@ -23,6 +25,7 @@ export function ColleagueCard({
   expanded?: boolean;
   onToggle?: () => void;
 }) {
+  const [locale] = useLocale();
   return (
     <button
       type="button"
@@ -49,7 +52,9 @@ export function ColleagueCard({
           )}
           <span
             className="absolute -bottom-0.5 -right-0.5 text-sm"
-            title={`Sentimiento: ${SENTIMENT_LABEL[employee.sentiment]}`}
+            title={t(locale, "insights.card.sentimentTitle", {
+              label: t(locale, SENTIMENT_KEY[employee.sentiment]),
+            })}
           >
             {SENTIMENT_EMOJI[employee.sentiment]}
           </span>
@@ -59,21 +64,21 @@ export function ColleagueCard({
             {employee.name}
           </p>
           <p className="truncate text-xs text-ink-3">
-            {employee.position ?? "Equipo"}
+            {employee.position ?? t(locale, "insights.card.team")}
             {employee.seniority ? ` · ${employee.seniority}` : ""}
           </p>
         </div>
         <div className="flex flex-shrink-0 gap-3 text-right">
-          <Metric label="Activas" value={employee.activeTasks} />
-          <Metric label="Hechas" value={employee.completedTasks} tone="good" />
+          <Metric label={t(locale, "insights.card.metric.active")} value={employee.activeTasks} />
+          <Metric label={t(locale, "insights.card.metric.done")} value={employee.completedTasks} tone="good" />
         </div>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-        <MiniMetric label="Horas" value={`${Math.round(employee.workedHours)}h`} />
-        <MiniMetric label="Avance" value={`${Math.round(employee.progressPct)}%`} />
+        <MiniMetric label={t(locale, "insights.card.metric.hours")} value={`${Math.round(employee.workedHours)}h`} />
+        <MiniMetric label={t(locale, "insights.card.metric.progress")} value={`${Math.round(employee.progressPct)}%`} />
         <MiniMetric
-          label="Learning"
+          label={t(locale, "insights.card.metric.learning")}
           value={`${Math.round(employee.learningProgress)}%`}
           tone={
             employee.learningProgress >= 66

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "@/shared/ui";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import {
   useAssignProjectTask,
   useCreateProjectTask,
@@ -37,6 +39,7 @@ export function TasksBoard({
   const moveMut = useMoveProjectTask(workspaceId);
   const assignMut = useAssignProjectTask(workspaceId);
   const deleteMut = useDeleteProjectTask(workspaceId);
+  const [locale] = useLocale();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<ProjectTaskStatus>("todo");
@@ -76,7 +79,7 @@ export function TasksBoard({
                   : "text-ink-3 hover:bg-surface-2"
               }`}
             >
-              {f === "all" ? "Todas" : f === "me" ? "Mías" : "Sin asignar"}
+              {f === "all" ? t(locale, "tasks.filter.all") : f === "me" ? t(locale, "tasks.filter.me") : t(locale, "tasks.filter.unassigned")}
             </button>
           ))}
         </div>
@@ -86,18 +89,19 @@ export function TasksBoard({
           className="flex items-center gap-1.5 rounded-button bg-accent px-3.5 py-2 text-[13px] font-bold text-accent-ink hover:opacity-90"
         >
           <Icon name="plus" size={15} color="currentColor" stroke={2.5} />
-          Nueva tarea
+          {t(locale, "tasks.newTask")}
         </button>
       </div>
 
       {/* Board */}
       <div className="flex-1 overflow-auto px-6 py-5 lg:px-8">
         {isLoading ? (
-          <Spinner label="Cargando tareas…" />
+          <Spinner label={t(locale, "tasks.loading")} />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {STATUS_COLUMNS.map((col) => {
               const colTasks = byColumn[col.key];
+              const colLabel = t(locale, col.labelKey);
               return (
                 <div
                   key={col.key}
@@ -107,19 +111,19 @@ export function TasksBoard({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-[13px] font-bold text-ink">
-                          {col.label}
+                          {colLabel}
                         </span>
                         <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10.5px] font-bold text-ink-3">
                           {colTasks.length}
                         </span>
                       </div>
-                      <p className="text-[11px] text-ink-3">{col.hint}</p>
+                      <p className="text-[11px] text-ink-3">{t(locale, col.hintKey)}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => openCreate(col.key)}
                       className="rounded-lg p-1 text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
-                      aria-label={`Añadir a ${col.label}`}
+                      aria-label={t(locale, "tasks.addTo", { label: colLabel })}
                     >
                       <Icon name="plus" size={16} color="currentColor" />
                     </button>
@@ -128,7 +132,7 @@ export function TasksBoard({
                   <div className="flex flex-col gap-2.5">
                     {colTasks.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-line-2 px-3 py-6 text-center">
-                        <p className="text-[12px] text-ink-3">Sin tareas aquí.</p>
+                        <p className="text-[12px] text-ink-3">{t(locale, "tasks.empty")}</p>
                       </div>
                     ) : (
                       colTasks.map((t) => (

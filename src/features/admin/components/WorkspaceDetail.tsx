@@ -5,6 +5,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Avatar } from "@/shared/ui";
 import { fetchJsonSafe } from "@/features/admin/lib/client";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import type { AdminWorkspaceDetail } from "@/features/admin/types";
 
 const ROLES = ["member", "leader", "admin"] as const;
@@ -17,6 +19,7 @@ export function WorkspaceDetail({
 }) {
   const [plan, setPlan] = useState(workspace.subscription?.plan ?? "free");
   const [members, setMembers] = useState(workspace.memberships);
+  const [locale] = useLocale();
 
   async function changePlan(newPlan: string) {
     const res = await fetchJsonSafe<{ subscription: { plan: string } }>(
@@ -29,7 +32,7 @@ export function WorkspaceDetail({
     );
     if (!res) return;
     setPlan(newPlan);
-    toast.success(`Plan actualizado a "${newPlan}".`);
+    toast.success(t(locale, "admin.ws.planUpdated", { plan: newPlan }));
   }
 
   async function changeRole(memberId: string, role: string) {
@@ -45,18 +48,18 @@ export function WorkspaceDetail({
     setMembers((prev) =>
       prev.map((m) => (m.id === memberId ? { ...m, role } : m))
     );
-    toast.success(`Rol actualizado a "${role}".`);
+    toast.success(t(locale, "admin.ws.roleUpdated", { role }));
   }
 
   async function kick(memberId: string) {
-    if (!confirm("¿Expulsar a este miembro del workspace?")) return;
+    if (!confirm(t(locale, "admin.ws.kickConfirm"))) return;
     const ok = await fetchJsonSafe(
       `/api/admin/workspaces/${workspace.id}/members/${memberId}`,
       { method: "DELETE" }
     );
     if (!ok) return;
     setMembers((prev) => prev.filter((m) => m.id !== memberId));
-    toast.success("Miembro expulsado.");
+    toast.success(t(locale, "admin.ws.kicked"));
   }
 
   return (
@@ -65,7 +68,7 @@ export function WorkspaceDetail({
         href="/admin/workspaces"
         className="text-sm font-semibold text-ink-3 hover:text-ink"
       >
-        ← Volver a workspaces
+        {t(locale, "admin.ws.back")}
       </Link>
 
       <div className="mt-4 flex items-center gap-3">
@@ -86,7 +89,7 @@ export function WorkspaceDetail({
       )}
 
       <div className="mt-6 rounded-[20px] border border-line bg-surface p-5">
-        <h2 className="font-display text-[16px] text-ink">Plan de suscripción</h2>
+        <h2 className="font-display text-[16px] text-ink">{t(locale, "admin.ws.subscriptionPlan")}</h2>
         <div className="mt-3 flex items-center gap-3">
           <select
             value={plan}
@@ -100,7 +103,7 @@ export function WorkspaceDetail({
             ))}
           </select>
           <span className="text-[13px] text-ink-3">
-            Estado: {workspace.subscription?.status ?? "—"}
+            {t(locale, "admin.ws.status")} {workspace.subscription?.status ?? "—"}
           </span>
         </div>
       </div>
@@ -108,16 +111,16 @@ export function WorkspaceDetail({
       <div className="mt-6 rounded-[20px] border border-line bg-surface">
         <div className="border-b border-line px-5 py-4">
           <h2 className="font-display text-[16px] text-ink">
-            Miembros ({members.length})
+            {t(locale, "admin.ws.members", { count: members.length })}
           </h2>
         </div>
         <table className="w-full text-left text-sm">
           <thead className="bg-bg-2 text-[11px] uppercase tracking-[0.12em] text-ink-3">
             <tr>
-              <th className="px-4 py-3">Usuario</th>
-              <th className="px-4 py-3">Rol</th>
-              <th className="px-4 py-3">Ingresó</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              <th className="px-4 py-3">{t(locale, "admin.users.col.user")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.ws.col.role")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.ws.col.joined2")}</th>
+              <th className="px-4 py-3 text-right">{t(locale, "admin.users.col.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +158,7 @@ export function WorkspaceDetail({
                     onClick={() => kick(m.id)}
                     className="rounded-full bg-red-500/10 px-3 py-1 text-[12px] font-semibold text-red-400 hover:bg-red-500/20"
                   >
-                    Expulsar
+                    {t(locale, "admin.ws.kick")}
                   </button>
                 </td>
               </tr>

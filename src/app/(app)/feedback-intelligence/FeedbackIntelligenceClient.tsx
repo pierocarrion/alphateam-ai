@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { cn } from "@/shared/lib/cn";
 import { fetchJson } from "@/shared/lib/api";
 import { Button, Icon, type IconName } from "@/shared/ui";
+import { useLocale } from "@/i18n/useLocale";
+import { t, type Locale } from "@/i18n/messages";
 
 interface CampaignRow {
   id: string;
@@ -74,6 +76,7 @@ export function FeedbackIntelligenceClient({
   const [generating, setGenerating] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [windowDays, setWindowDays] = useState(30);
+  const [locale] = useLocale();
 
   const refresh = async (days: number) => {
     try {
@@ -105,9 +108,9 @@ export function FeedbackIntelligenceClient({
         { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }
       );
       if (data.insight) setInsight(data.insight);
-      else setInsightReason(data.reason ?? "Sin datos suficientes.");
+      else setInsightReason(data.reason ?? t(locale, "feedback.insightEmpty"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos generar el análisis.");
+      toast.error(err instanceof Error ? err.message : t(locale, "feedback.generateError"));
     } finally {
       setGenerating(false);
     }
@@ -122,9 +125,9 @@ export function FeedbackIntelligenceClient({
             <Icon name="pulse" size={20} color="var(--color-sage)" />
           </div>
           <div>
-            <h1 className="font-display text-[20px] leading-none text-ink">Feedback Intelligence</h1>
+            <h1 className="font-display text-[20px] leading-none text-ink">{t(locale, "feedback.title")}</h1>
             <p className="text-[12px] text-ink-3">
-              Anónimo · Analizado por IA · {metrics.count} respuesta{metrics.count === 1 ? "" : "s"}
+              {t(locale, metrics.count === 1 ? "feedback.subtitleSingle" : "feedback.subtitle", { count: metrics.count })}
             </p>
           </div>
         </div>
@@ -144,7 +147,7 @@ export function FeedbackIntelligenceClient({
             ))}
           </div>
           <Button size="sm" icon="plus" onClick={() => setShowNew(true)}>
-            Nueva campaña
+            {t(locale, "feedback.newCampaign")}
           </Button>
         </div>
       </header>
@@ -153,11 +156,7 @@ export function FeedbackIntelligenceClient({
         {/* Privacy banner */}
         <div className="mb-5 flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
           <Icon name="lock" size={18} color="var(--color-sage)" />
-          <p className="flex-1 text-[12.5px] leading-relaxed text-ink-2">
-            Todas las respuestas son <b className="text-ink">completamente anónimas</b>. La IA
-            elimina cualquier dato identificable antes de mostrar resúmenes. Los agregados se
-            publican solo con un mínimo de {minForInsight} respuestas.
-          </p>
+          <p className="flex-1 text-[12.5px] leading-relaxed text-ink-2" dangerouslySetInnerHTML={{ __html: t(locale, "feedback.privacy", { count: minForInsight }) }} />
         </div>
 
         {/* Metric cards */}
@@ -168,6 +167,7 @@ export function FeedbackIntelligenceClient({
               label={m.label}
               value={metrics[m.key]}
               goodWhenHigh={m.goodWhenHigh}
+              locale={locale}
             />
           ))}
         </div>
@@ -177,31 +177,31 @@ export function FeedbackIntelligenceClient({
           <div className="rounded-card border border-line bg-surface p-5">
             <div className="mb-4 flex items-baseline justify-between">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                Tendencia · últimos {windowDays} días
+                {t(locale, "feedback.trend", { days: windowDays })}
               </p>
               <div className="flex items-center gap-3 text-[11px]">
                 <span className="flex items-center gap-1.5 text-ink-2">
-                  <span className="h-2 w-2 rounded-full bg-accent" /> Sentimiento
+                  <span className="h-2 w-2 rounded-full bg-accent" /> {t(locale, "feedback.sentiment")}
                 </span>
                 <span className="flex items-center gap-1.5 text-ink-2">
-                  <span className="h-2 w-2 rounded-full bg-sage" /> Compromiso
+                  <span className="h-2 w-2 rounded-full bg-sage" /> {t(locale, "feedback.engagement")}
                 </span>
               </div>
             </div>
-            <TrendChart trend={trend} />
+            <TrendChart trend={trend} locale={locale} />
           </div>
 
           {/* Emotions */}
           <div className="rounded-card border border-line bg-surface p-5">
             <p className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-              Emociones predominantes
+              {t(locale, "feedback.emotions")}
             </p>
             {emotions.length === 0 ? (
-              <p className="text-[13px] text-ink-3">Aún no hay datos suficientes.</p>
+              <p className="text-[13px] text-ink-3">{t(locale, "feedback.noEmotions")}</p>
             ) : (
               <div className="flex flex-col gap-2.5">
                 {emotions.slice(0, 6).map((e) => (
-                  <EmotionBar key={e.emotion} emotion={e.emotion} count={e.count} max={emotions[0].count} />
+                  <EmotionBar key={e.emotion} emotion={e.emotion} count={e.count} max={emotions[0].count} locale={locale} />
                 ))}
               </div>
             )}
@@ -213,33 +213,32 @@ export function FeedbackIntelligenceClient({
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Icon name="spark" size={18} color="var(--color-glow)" />
-              <h2 className="font-display text-[17px] text-ink">Análisis ejecutivo de IA</h2>
+              <h2 className="font-display text-[17px] text-ink">{t(locale, "feedback.aiAnalysis")}</h2>
             </div>
             <Button size="sm" variant="ghost" icon="spark" onClick={generateInsight} disabled={generating}>
-              {generating ? "Analizando…" : insight ? "Refrescar" : "Generar"}
+              {generating ? t(locale, "feedback.analyzing") : insight ? t(locale, "feedback.refresh") : t(locale, "feedback.generate")}
             </Button>
           </div>
 
           {!insight && !insightReason && !generating && (
             <p className="text-[13px] text-ink-3">
-              Genera un resumen ejecutivo neutro con temas, alertas tempranas y recomendaciones
-              priorizadas. Disponible a partir de {minForInsight} respuestas anónimas.
+              {t(locale, "feedback.aiHint", { count: minForInsight })}
             </p>
           )}
           {generating && (
-            <p className="text-[13px] text-ink-3">Analizando patrones y redactando resumen anónimo…</p>
+            <p className="text-[13px] text-ink-3">{t(locale, "feedback.aiWorking")}</p>
           )}
           {insightReason && !insight && (
             <p className="text-[13px] text-ink-2">{insightReason}</p>
           )}
-          {insight && <InsightView insight={insight} />}
+          {insight && <InsightView insight={insight} locale={locale} />}
         </div>
 
         {/* Campaigns */}
         <div className="mt-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-[17px] text-ink">Campañas</h2>
-            <span className="text-[12px] text-ink-3">{campaigns.length} total</span>
+            <h2 className="font-display text-[17px] text-ink">{t(locale, "feedback.campaigns")}</h2>
+            <span className="text-[12px] text-ink-3">{t(locale, "feedback.campaignsTotal", { count: campaigns.length })}</span>
           </div>
           {campaigns.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line-2 bg-surface p-8 text-center">
@@ -247,21 +246,19 @@ export function FeedbackIntelligenceClient({
                 <Icon name="pulse" size={20} color="var(--color-ink-3)" />
               </div>
               <div className="max-w-sm">
-                <p className="text-[14.5px] font-bold text-ink">Aún no hay campañas</p>
+                <p className="text-[14.5px] font-bold text-ink">{t(locale, "feedback.noCampaignsTitle")}</p>
                 <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
-                  Crea un pulso anónimo para empezar a recibir feedback. Las
-                  métricas y el análisis de IA aparecen aquí cuando lleguen las
-                  primeras respuestas.
+                  {t(locale, "feedback.noCampaignsHint")}
                 </p>
               </div>
               <Button size="sm" icon="plus" onClick={() => setShowNew(true)}>
-                Crear tu primera campaña
+                {t(locale, "feedback.createFirst")}
               </Button>
             </div>
           ) : (
             <div className="grid gap-3">
               {campaigns.map((c) => (
-                <CampaignRowCard key={c.id} campaign={c} onClosed={() => window.location.reload()} />
+                <CampaignRowCard key={c.id} campaign={c} onClosed={() => window.location.reload()} locale={locale} />
               ))}
             </div>
           )}
@@ -271,10 +268,11 @@ export function FeedbackIntelligenceClient({
       {showNew && (
         <NewCampaignModal
           presets={presets}
+          locale={locale}
           onClose={() => setShowNew(false)}
           onCreated={() => {
             setShowNew(false);
-            toast.success("Campaña creada.");
+            toast.success(t(locale, "feedback.campaignCreated"));
             window.location.reload();
           }}
         />
@@ -289,14 +287,16 @@ function MetricCard({
   label,
   value,
   goodWhenHigh,
+  locale,
 }: {
   label: string;
   value: number;
   goodWhenHigh: boolean;
+  locale: Locale;
 }) {
   const v = goodWhenHigh ? value : 100 - value;
   const color = v >= 70 ? "var(--color-sage)" : v >= 45 ? "var(--color-accent)" : "var(--color-glow)";
-  const status = v >= 70 ? "Saludable" : v >= 45 ? "Atención" : "Crítico";
+  const status = v >= 70 ? t(locale, "feedback.metric.healthy") : v >= 45 ? t(locale, "feedback.metric.attention") : t(locale, "feedback.metric.critical");
   return (
     <div className="rounded-card border border-line bg-surface p-4">
       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-3">{label}</p>
@@ -315,11 +315,11 @@ function MetricCard({
   );
 }
 
-function TrendChart({ trend }: { trend: TrendPoint[] }) {
+function TrendChart({ trend, locale }: { trend: TrendPoint[]; locale: Locale }) {
   if (trend.length === 0) {
     return (
       <div className="flex h-[180px] items-center justify-center text-[13px] text-ink-3">
-        Aún no hay suficientes datos para graficar.
+        {t(locale, "feedback.noTrend")}
       </div>
     );
   }
@@ -349,23 +349,24 @@ function TrendChart({ trend }: { trend: TrendPoint[] }) {
   );
 }
 
-const EMOTION_META: Record<string, { label: string; color: string }> = {
-  motivated: { label: "Motivado", color: "var(--color-sage)" },
-  committed: { label: "Comprometido", color: "var(--color-accent)" },
-  stressed: { label: "Estresado", color: "var(--color-glow)" },
-  uncertain: { label: "Incierto", color: "#9FB8E0" },
-  disconnected: { label: "Desconectado", color: "#c98a8a" },
-  burned_out: { label: "Burnout", color: "#e07a7a" },
-  neutral: { label: "Neutral", color: "var(--color-ink-3)" },
+const EMOTION_KEYS: Record<string, { key: string; color: string }> = {
+  motivated: { key: "feedback.emotion.motivated", color: "var(--color-sage)" },
+  committed: { key: "feedback.emotion.committed", color: "var(--color-accent)" },
+  stressed: { key: "feedback.emotion.stressed", color: "var(--color-glow)" },
+  uncertain: { key: "feedback.emotion.uncertain", color: "#9FB8E0" },
+  disconnected: { key: "feedback.emotion.disconnected", color: "#c98a8a" },
+  burned_out: { key: "feedback.emotion.burned_out", color: "#e07a7a" },
+  neutral: { key: "feedback.emotion.neutral", color: "var(--color-ink-3)" },
 };
 
-function EmotionBar({ emotion, count, max }: { emotion: string; count: number; max: number }) {
-  const meta = EMOTION_META[emotion] ?? { label: emotion, color: "var(--color-ink-3)" };
+function EmotionBar({ emotion, count, max, locale }: { emotion: string; count: number; max: number; locale: Locale }) {
+  const meta = EMOTION_KEYS[emotion] ?? { key: "", color: "var(--color-ink-3)" };
+  const label = meta.key ? t(locale, meta.key) : emotion;
   const pct = max > 0 ? (count / max) * 100 : 0;
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-[12px]">
-        <span className="text-ink-2">{meta.label}</span>
+        <span className="text-ink-2">{label}</span>
         <span className="font-semibold text-ink-3">{count}</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-line-2">
@@ -375,7 +376,7 @@ function EmotionBar({ emotion, count, max }: { emotion: string; count: number; m
   );
 }
 
-function InsightView({ insight }: { insight: Insight }) {
+function InsightView({ insight, locale }: { insight: Insight; locale: Locale }) {
   const sevColor: Record<string, string> = {
     high: "var(--color-glow)",
     medium: "var(--color-accent)",
@@ -393,7 +394,7 @@ function InsightView({ insight }: { insight: Insight }) {
       {insight.alerts.length > 0 && (
         <div>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-3">
-            Alertas tempranas
+            {t(locale, "feedback.earlyAlerts")}
           </p>
           <div className="flex flex-col gap-2">
             {insight.alerts.map((a, i) => (
@@ -412,15 +413,15 @@ function InsightView({ insight }: { insight: Insight }) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <InsightList title="Temas recurrentes" items={insight.themes} dot="var(--color-accent)" />
-        <InsightList title="Preocupaciones" items={insight.concerns} dot="var(--color-glow)" />
-        <InsightList title="Fortalezas" items={insight.strengths} dot="var(--color-sage)" />
+        <InsightList title={t(locale, "feedback.recurringThemes")} items={insight.themes} dot="var(--color-accent)" />
+        <InsightList title={t(locale, "feedback.concerns")} items={insight.concerns} dot="var(--color-glow)" />
+        <InsightList title={t(locale, "feedback.strengths")} items={insight.strengths} dot="var(--color-sage)" />
       </div>
 
       {insight.recommendations.length > 0 && (
         <div>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-3">
-            Recomendaciones accionables
+            {t(locale, "feedback.recommendations")}
           </p>
           <div className="flex flex-col gap-2">
             {insight.recommendations
@@ -460,7 +461,7 @@ function InsightList({ title, items, dot }: { title: string; items: string[]; do
   );
 }
 
-function CampaignRowCard({ campaign, onClosed }: { campaign: CampaignRow; onClosed: () => void }) {
+function CampaignRowCard({ campaign, onClosed, locale }: { campaign: CampaignRow; onClosed: () => void; locale: Locale }) {
   const [closing, setClosing] = useState(false);
   const close = async () => {
     setClosing(true);
@@ -472,7 +473,7 @@ function CampaignRowCard({ campaign, onClosed }: { campaign: CampaignRow; onClos
       });
       onClosed();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos cerrar la campaña.");
+      toast.error(err instanceof Error ? err.message : t(locale, "feedback.closeError"));
     } finally {
       setClosing(false);
     }
@@ -493,7 +494,7 @@ function CampaignRowCard({ campaign, onClosed }: { campaign: CampaignRow; onClos
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14.5px] font-semibold text-ink">{campaign.title}</div>
         <div className="text-[11.5px] text-ink-3">
-          {campaign.kind} · {campaign.cadence} · {campaign.responses} respuesta{campaign.responses === 1 ? "" : "s"}
+          {campaign.kind} · {campaign.cadence} · {t(locale, campaign.responses === 1 ? "feedback.responsesSingle" : "feedback.responses", { count: campaign.responses })}
         </div>
       </div>
       <span
@@ -506,7 +507,7 @@ function CampaignRowCard({ campaign, onClosed }: { campaign: CampaignRow; onClos
       </span>
       {campaign.status === "active" && (
         <Button size="sm" variant="quiet" onClick={close} disabled={closing}>
-          Cerrar
+          {t(locale, "feedback.close")}
         </Button>
       )}
     </div>
@@ -515,10 +516,12 @@ function CampaignRowCard({ campaign, onClosed }: { campaign: CampaignRow; onClos
 
 function NewCampaignModal({
   presets,
+  locale,
   onClose,
   onCreated,
 }: {
   presets: { kind: string; title: string; cadence: string }[];
+  locale: Locale;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -537,7 +540,7 @@ function NewCampaignModal({
       });
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos crear la campaña.");
+      toast.error(err instanceof Error ? err.message : t(locale, "feedback.createCampaignError"));
     } finally {
       setCreating(false);
     }
@@ -547,14 +550,14 @@ function NewCampaignModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-lg rounded-3xl border border-line-2 bg-bg-2 p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="font-display text-[20px] text-ink">Nueva campaña</h3>
+          <h3 className="font-display text-[20px] text-ink">{t(locale, "feedback.newCampaign")}</h3>
           <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink-3 hover:text-ink">
             <Icon name="close" size={18} />
           </button>
         </div>
 
         <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-ink-3">
-          Plantilla
+          {t(locale, "feedback.template")}
         </label>
         <div className="mb-4 grid gap-2">
           {presets.map((p) => (
@@ -576,7 +579,7 @@ function NewCampaignModal({
         </div>
 
         <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-ink-3">
-          Título (opcional)
+          {t(locale, "feedback.titleOptional")}
         </label>
         <input
           value={title}
@@ -586,9 +589,9 @@ function NewCampaignModal({
         />
 
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button variant="ghost" onClick={onClose}>{t(locale, "common.cancel")}</Button>
           <Button icon="arrow" onClick={create} disabled={creating}>
-            {creating ? "Creando…" : "Crear campaña"}
+            {creating ? t(locale, "feedback.creating") : t(locale, "feedback.createCampaign")}
           </Button>
         </div>
       </div>

@@ -5,8 +5,10 @@ import { Modal } from "@/features/project-settings/presentation/components/primi
 import { Avatar } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import type { PersonId } from "@/shared/ui";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import {
-  PRIORITY_LABELS,
+  PRIORITY_KEYS,
   type ProjectMemberOption,
   type ProjectTaskPriority,
   type ProjectTaskStatus,
@@ -50,6 +52,7 @@ export function TaskCreateDialog({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<ProjectTaskPriority | "none">("none");
   const [dueDate, setDueDate] = useState("");
+  const [locale] = useLocale();
   // Members default to self-assignment; leaders default to unassigned.
   const [assigneeId, setAssigneeId] = useState<string | null>(
     isLeader ? null : currentUserId
@@ -91,30 +94,30 @@ export function TaskCreateDialog({
     : null;
 
   return (
-    <Modal open={open} onClose={close} title="Nueva tarea">
+    <Modal open={open} onClose={close} title={t(locale, "tasks.create.title")}>
       <div className="space-y-3">
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-            Título
+            {t(locale, "tasks.create.titleLabel")}
           </span>
           <input
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="¿Qué hay que hacer?"
+            placeholder={t(locale, "tasks.create.titlePlaceholder")}
             className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-[14px] text-ink outline-none focus:border-accent"
           />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-            Descripción
+            {t(locale, "tasks.create.description")}
           </span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Detalles opcionales…"
+            placeholder={t(locale, "tasks.create.descriptionPlaceholder")}
             className="w-full resize-none rounded-xl border border-line bg-bg px-3 py-2 text-[14px] text-ink outline-none focus:border-accent"
           />
         </label>
@@ -122,7 +125,7 @@ export function TaskCreateDialog({
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-              Prioridad
+              {t(locale, "tasks.create.priority")}
             </span>
             <select
               value={priority}
@@ -131,7 +134,7 @@ export function TaskCreateDialog({
             >
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
-                  {p === "none" ? "Sin prioridad" : PRIORITY_LABELS[p]}
+                  {p === "none" ? t(locale, "tasks.priority.none") : t(locale, PRIORITY_KEYS[p])}
                 </option>
               ))}
             </select>
@@ -139,7 +142,7 @@ export function TaskCreateDialog({
 
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-              Vencimiento
+              {t(locale, "tasks.create.due")}
             </span>
             <input
               type="date"
@@ -152,18 +155,18 @@ export function TaskCreateDialog({
 
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-            Asignar a
+            {t(locale, "tasks.create.assignTo")}
           </span>
           <select
             value={assigneeId ?? ""}
             onChange={(e) => setAssigneeId(e.target.value || null)}
             className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-[14px] text-ink outline-none focus:border-accent"
           >
-            {isLeader && <option value="">Sin asignar</option>}
+            {isLeader && <option value="">{t(locale, "tasks.unassigned")}</option>}
             {assigneeOptions.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
-                {m.isYou ? " (tú)" : ""}
+                {m.isYou ? t(locale, "tasks.create.youSuffix") : ""}
               </option>
             ))}
           </select>
@@ -185,7 +188,7 @@ export function TaskCreateDialog({
           onClick={close}
           className="rounded-button px-4 py-2 text-[13.5px] font-semibold text-ink-2 hover:bg-surface-2"
         >
-          Cancelar
+          {t(locale, "common.cancel")}
         </button>
         <button
           type="button"
@@ -193,7 +196,7 @@ export function TaskCreateDialog({
           disabled={!title.trim()}
           className="rounded-button bg-accent px-4 py-2 text-[13.5px] font-bold text-accent-ink hover:opacity-90 disabled:opacity-50"
         >
-          Crear tarea
+          {t(locale, "tasks.create.submit")}
         </button>
       </div>
     </Modal>

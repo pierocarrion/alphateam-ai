@@ -4,12 +4,14 @@ import type { TeamOverview, GrowthGranularity } from "../types";
 import { Panel } from "./Panel";
 import { LineTrend } from "./charts";
 import { cn } from "@/shared/lib/cn";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
-const GRANULARITIES: { value: GrowthGranularity; label: string }[] = [
-  { value: "week", label: "Semana" },
-  { value: "month", label: "Mes" },
-  { value: "quarter", label: "Trimestre" },
-  { value: "year", label: "Año" },
+const GRANULARITIES: { value: GrowthGranularity; key: string }[] = [
+  { value: "week", key: "insights.growth.granularity.week" },
+  { value: "month", key: "insights.growth.granularity.month" },
+  { value: "quarter", key: "insights.growth.granularity.quarter" },
+  { value: "year", key: "insights.growth.granularity.year" },
 ];
 
 export function GrowthPanel({
@@ -21,12 +23,13 @@ export function GrowthPanel({
   granularity: GrowthGranularity;
   onGranularity: (g: GrowthGranularity) => void;
 }) {
+  const [locale] = useLocale();
   const g = overview.growth;
   const deltaPositive = g.deltaPct >= 0;
   return (
     <Panel
-      kicker="Team Growth"
-      title="Crecimiento del equipo"
+      kicker={t(locale, "insights.growth.kicker")}
+      title={t(locale, "insights.growth.title")}
       action={
         <div className="flex gap-1 rounded-button bg-white/[0.03] p-1">
           {GRANULARITIES.map((opt) => (
@@ -41,7 +44,7 @@ export function GrowthPanel({
                   : "text-ink-3 hover:text-ink-2"
               )}
             >
-              {opt.label}
+              {t(locale, opt.key)}
             </button>
           ))}
         </div>
@@ -60,12 +63,14 @@ export function GrowthPanel({
           {deltaPositive ? "+" : ""}
           {g.deltaPct}%
         </span>
-        <span className="text-xs text-ink-3">vs. periodo anterior</span>
+        <span className="text-xs text-ink-3">
+          {t(locale, "insights.growth.vsPrevious")}
+        </span>
       </div>
       <LineTrend
         points={g.points.map((p) => ({ date: p.date, score: p.growthIndex }))}
         height={120}
-        ariaLabel="Índice de crecimiento del equipo"
+        ariaLabel={t(locale, "insights.growth.aria")}
       />
     </Panel>
   );

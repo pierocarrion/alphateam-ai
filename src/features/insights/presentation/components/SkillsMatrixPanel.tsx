@@ -4,13 +4,15 @@ import { useMemo, useState } from "react";
 import type { TeamOverview, SkillLevel } from "../types";
 import { Panel, EmptyState, StatChip } from "./Panel";
 import { cn } from "@/shared/lib/cn";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
 const LEVEL_ORDER: SkillLevel[] = ["beginner", "intermediate", "advanced", "expert"];
-const LEVEL_LABEL: Record<SkillLevel, string> = {
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
-  expert: "Expert",
+const LEVEL_KEY: Record<SkillLevel, string> = {
+  beginner: "insights.skills.level.beginner",
+  intermediate: "insights.skills.level.intermediate",
+  advanced: "insights.skills.level.advanced",
+  expert: "insights.skills.level.expert",
 };
 const LEVEL_BG: Record<SkillLevel, string> = {
   beginner: "rgba(230,180,90,0.25)",
@@ -19,7 +21,14 @@ const LEVEL_BG: Record<SkillLevel, string> = {
   expert: "rgba(95,184,122,0.95)",
 };
 
+const TAB_KEY: Record<"matrix" | "gaps" | "kpis", string> = {
+  matrix: "insights.skills.tab.matrix",
+  gaps: "insights.skills.tab.gaps",
+  kpis: "insights.skills.tab.kpis",
+};
+
 export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
+  const [locale] = useLocale();
   const { skillsMatrix, skillGaps, learningKpis } = overview;
   const [tab, setTab] = useState<"matrix" | "gaps" | "kpis">("matrix");
 
@@ -42,23 +51,23 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
 
   return (
     <Panel
-      kicker="Learning Analytics"
-      title="Skills Matrix & Skill Gaps"
+      kicker={t(locale, "insights.skills.kicker")}
+      title={t(locale, "insights.skills.title")}
       action={
         <div className="flex gap-1 rounded-button bg-white/[0.03] p-1">
-          {(["matrix", "gaps", "kpis"] as const).map((t) => (
+          {(["matrix", "gaps", "kpis"] as const).map((tk) => (
             <button
-              key={t}
+              key={tk}
               type="button"
-              onClick={() => setTab(t)}
+              onClick={() => setTab(tk)}
               className={cn(
                 "rounded-button px-2.5 py-1 text-[11px] font-semibold capitalize transition-colors",
-                tab === t
+                tab === tk
                   ? "bg-accent text-accent-ink"
                   : "text-ink-3 hover:text-ink-2"
               )}
             >
-              {t === "kpis" ? "KPIs" : t}
+              {t(locale, TAB_KEY[tk])}
             </button>
           ))}
         </div>
@@ -66,14 +75,14 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
     >
       {tab === "matrix" &&
         (members.length === 0 || skills.length === 0 ? (
-          <EmptyState message="Registra skills para tus colaboradores para ver la matriz." />
+          <EmptyState message={t(locale, "insights.skills.matrix.empty")} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-separate border-spacing-1 text-xs">
               <thead>
                 <tr>
                   <th className="sticky left-0 bg-surface text-left text-[10px] uppercase tracking-[0.12em] text-ink-3">
-                    Colaborador
+                    {t(locale, "insights.skills.col.colleague")}
                   </th>
                   {skills.map((s) => (
                     <th
@@ -102,7 +111,11 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
                               background: level ? LEVEL_BG[level] : "var(--color-line-2)",
                               opacity: level ? 1 : 0.4,
                             }}
-                            title={level ? LEVEL_LABEL[level] : "Sin registro"}
+                            title={
+                              level
+                                ? t(locale, LEVEL_KEY[level])
+                                : t(locale, "insights.skills.noRecord")
+                            }
                           >
                             {level ? level.charAt(0).toUpperCase() : "·"}
                           </div>
@@ -123,7 +136,7 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
                     className="inline-block h-2.5 w-2.5 rounded-sm"
                     style={{ background: LEVEL_BG[l] }}
                   />
-                  {LEVEL_LABEL[l]}
+                  {t(locale, LEVEL_KEY[l])}
                 </span>
               ))}
             </div>
@@ -132,7 +145,7 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
 
       {tab === "gaps" &&
         (skillGaps.length === 0 ? (
-          <EmptyState message="No hay skills registradas para analizar brechas." />
+          <EmptyState message={t(locale, "insights.skills.gaps.empty")} />
         ) : (
           <div className="flex flex-col gap-2">
             {skillGaps
@@ -149,7 +162,7 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
                   <div className="flex items-baseline justify-between">
                     <span className="font-semibold text-ink-2">{gap.skill}</span>
                     <StatChip
-                      label="Cobertura"
+                      label={t(locale, "insights.skills.coverage")}
                       value={`${gap.holders}`}
                       tone={
                         gap.riskLevel === "high"
@@ -170,15 +183,15 @@ export function SkillsMatrixPanel({ overview }: { overview: TeamOverview }) {
 
       {tab === "kpis" && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatChip label="Iniciados" value={learningKpis.coursesStarted} />
+          <StatChip label={t(locale, "insights.skills.kpi.started")} value={learningKpis.coursesStarted} />
           <StatChip
-            label="Completados"
+            label={t(locale, "insights.skills.kpi.completed")}
             value={learningKpis.coursesCompleted}
             tone="good"
           />
-          <StatChip label="Horas" value={Math.round(learningKpis.learningHours)} />
+          <StatChip label={t(locale, "insights.skills.kpi.hours")} value={Math.round(learningKpis.learningHours)} />
           <StatChip
-            label="Certificaciones"
+            label={t(locale, "insights.skills.kpi.certifications")}
             value={learningKpis.certifications}
             tone="good"
           />

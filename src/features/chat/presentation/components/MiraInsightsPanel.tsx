@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/cn";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 
 interface InsightTask {
   id: string;
@@ -28,15 +30,15 @@ interface MiraInsightsPanelProps {
   channelId: string;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  summary: "Resumen",
-  risks: "Riesgos",
-  tasks: "Tareas",
-  decisions: "Decisiones",
-  retrospective: "Retrospectiva",
-  strategy: "Estrategia",
-  fetch: "Búsqueda RAG",
-  general: "Mira",
+const TYPE_KEYS: Record<string, string> = {
+  summary: "mira.type.summary",
+  risks: "mira.type.risks",
+  tasks: "mira.type.tasks",
+  decisions: "mira.type.decisions",
+  retrospective: "mira.type.retrospective",
+  strategy: "mira.type.strategy",
+  fetch: "mira.type.fetch",
+  general: "mira.type.general",
 };
 
 export function MiraInsightsPanel({ channelId }: MiraInsightsPanelProps) {
@@ -44,6 +46,7 @@ export function MiraInsightsPanel({ channelId }: MiraInsightsPanelProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"tasks" | "insights">("tasks");
+  const [locale] = useLocale();
 
   useEffect(() => {
     let active = true;
@@ -70,53 +73,53 @@ export function MiraInsightsPanel({ channelId }: MiraInsightsPanelProps) {
     <aside className="hidden w-[300px] flex-none flex-col border-l border-line bg-bg-2 xl:flex">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Icon name="spark" size={16} color="var(--color-accent)" />
-        <span className="text-[13px] font-bold text-ink">Mira · Panel IA</span>
+        <span className="text-[13px] font-bold text-ink">{t(locale, "mira.panel")}</span>
       </div>
 
       <div className="flex border-b border-line">
         <TabButton active={tab === "tasks"} onClick={() => setTab("tasks")}>
-          Tareas ({tasks.length})
+          {t(locale, "mira.tasks", { count: tasks.length })}
         </TabButton>
         <TabButton active={tab === "insights"} onClick={() => setTab("insights")}>
-          Insights ({insights.length})
+          {t(locale, "mira.insights", { count: insights.length })}
         </TabButton>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {loading ? (
-          <p className="px-2 text-xs text-ink-3">Analizando conversación…</p>
+          <p className="px-2 text-xs text-ink-3">{t(locale, "mira.analyzing")}</p>
         ) : tab === "tasks" ? (
           tasks.length === 0 ? (
-            <Empty text="Mira aún no detectó tareas aquí. Escribe @mira crea tareas para forzar el análisis." />
+            <Empty text={t(locale, "mira.noTasks")} />
           ) : (
             <div className="flex flex-col gap-2">
-              {tasks.map((t) => (
-                <div key={t.id} className="rounded-card border border-line bg-surface p-3">
+              {tasks.map((tk) => (
+                <div key={tk.id} className="rounded-card border border-line bg-surface p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[13px] font-bold text-ink">{t.title}</p>
-                    {t.priority != null && <PriorityDot priority={t.priority} />}
+                    <p className="text-[13px] font-bold text-ink">{tk.title}</p>
+                    {tk.priority != null && <PriorityDot priority={tk.priority} />}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-[10.5px] text-ink-3">
-                    <span className="rounded-full bg-surface-2 px-1.5 py-0.5">{t.category}</span>
-                    {t.owner && <span>· {t.owner}</span>}
-                    {t.deadline && <span>· 📅 {new Date(t.deadline).toLocaleDateString()}</span>}
+                    <span className="rounded-full bg-surface-2 px-1.5 py-0.5">{tk.category}</span>
+                    {tk.owner && <span>· {tk.owner}</span>}
+                    {tk.deadline && <span>· 📅 {new Date(tk.deadline).toLocaleDateString()}</span>}
                   </div>
-                  {t.fromQuote && (
-                    <p className="mt-1.5 text-[11px] italic text-ink-3">“{t.fromQuote.slice(0, 90)}”</p>
+                  {tk.fromQuote && (
+                    <p className="mt-1.5 text-[11px] italic text-ink-3">“{tk.fromQuote.slice(0, 90)}”</p>
                   )}
                 </div>
               ))}
             </div>
           )
         ) : insights.length === 0 ? (
-          <Empty text="Sin insights aún. Prueba @mira resume o @mira identifica riesgos." />
+          <Empty text={t(locale, "mira.noInsights")} />
         ) : (
           <div className="flex flex-col gap-2">
             {insights.map((i) => (
               <div key={i.id} className="rounded-card border border-line bg-surface p-3">
                 <div className="mb-1 flex items-center justify-between">
                   <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
-                    {TYPE_LABELS[i.type] ?? i.type}
+                    {TYPE_KEYS[i.type] ? t(locale, TYPE_KEYS[i.type]) : i.type}
                   </span>
                   <span className="text-[10px] text-ink-3">
                     {new Date(i.createdAt).toLocaleDateString()}

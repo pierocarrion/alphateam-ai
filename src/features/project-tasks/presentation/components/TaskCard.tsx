@@ -5,9 +5,11 @@ import { cn } from "@/shared/lib/cn";
 import { Avatar, Icon } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import type { PersonId } from "@/shared/ui";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import {
   PRIORITY_COLORS,
-  PRIORITY_LABELS,
+  PRIORITY_KEYS,
   type ProjectMemberOption,
   type ProjectTask,
   type ProjectTaskStatus,
@@ -39,6 +41,7 @@ export function TaskCard({
   const [assignOpen, setAssignOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [locale] = useLocale();
 
   const assignee = task.assignee;
   const isAssignee = task.assigneeId === currentUserId;
@@ -73,55 +76,55 @@ export function TaskCard({
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
               className="rounded-md p-1 text-ink-3 opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-hover:opacity-100"
-              aria-label="Más opciones"
-            >
-              <Icon name="chevron" size={16} color="currentColor" />
-            </button>
-            {menuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-7 z-20 w-40 overflow-hidden rounded-xl border border-line bg-surface p-1 shadow-lg">
-                  {otherStatuses.map((s) => (
+            aria-label={t(locale, "tasks.more")}
+          >
+            <Icon name="chevron" size={16} color="currentColor" />
+          </button>
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-7 z-20 w-40 overflow-hidden rounded-xl border border-line bg-surface p-1 shadow-lg">
+                {otherStatuses.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onMove(task.id, s);
+                    }}
+                    className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-ink-2 hover:bg-surface-2"
+                  >
+                    {t(locale, "tasks.moveTo", { label: columnLabel(locale, s) })}
+                  </button>
+                ))}
+                {canEdit && (
+                  <>
+                    <div className="my-1 border-t border-line" />
                     <button
-                      key={s}
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
-                        onMove(task.id, s);
+                        setEditOpen(true);
                       }}
                       className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-ink-2 hover:bg-surface-2"
                     >
-                      Mover a {columnLabel(s)}
+                      {t(locale, "common.edit")}
                     </button>
-                  ))}
-                  {canEdit && (
-                    <>
-                      <div className="my-1 border-t border-line" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          setEditOpen(true);
-                        }}
-                        className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-ink-2 hover:bg-surface-2"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          if (confirm("¿Eliminar esta tarea?")) onDelete(task.id);
-                        }}
-                        className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-glow hover:bg-surface-2"
-                      >
-                        Eliminar
-                      </button>
-                    </>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        if (confirm(t(locale, "tasks.deleteConfirm"))) onDelete(task.id);
+                      }}
+                      className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-glow hover:bg-surface-2"
+                    >
+                      {t(locale, "common.delete")}
+                    </button>
+                  </>
+                )}
                 </div>
               </>
             )}
@@ -135,7 +138,7 @@ export function TaskCard({
                 className="rounded-full bg-surface-2 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide"
                 style={{ color: PRIORITY_COLORS[task.priority] }}
               >
-                {PRIORITY_LABELS[task.priority]}
+                {t(locale, PRIORITY_KEYS[task.priority])}
               </span>
             )}
             {due && (
@@ -146,7 +149,7 @@ export function TaskCard({
                 )}
               >
                 <Icon name="clock" size={11} color="currentColor" />
-                {due.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+                {due.toLocaleDateString(locale, { day: "numeric", month: "short" })}
               </span>
             )}
             {task.tags.slice(0, 2).map((t) => (
@@ -171,7 +174,7 @@ export function TaskCard({
                 {assignee.name?.split(" ")[0] ?? "Someone"}
                 {isAssignee && (
                   <span className="ml-1 text-[10px] font-bold uppercase text-ink-3">
-                    tú
+                    {t(locale, "tasks.you")}
                   </span>
                 )}
               </span>
@@ -180,7 +183,7 @@ export function TaskCard({
             <span
               className="rounded-full border border-dashed border-line-2 px-2 py-0.5 text-[11px] font-semibold text-ink-3"
             >
-              Sin asignar
+              {t(locale, "tasks.unassigned")}
             </span>
           )}
 
@@ -190,7 +193,7 @@ export function TaskCard({
               onClick={() => setAssignOpen(true)}
               className="rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-bold text-accent transition-colors hover:bg-accent hover:text-accent-ink"
             >
-              {isLeader ? "Asignar" : "Tomarla"}
+              {isLeader ? t(locale, "tasks.assign") : t(locale, "tasks.take")}
             </button>
           )}
           {assignee && isLeader && (
@@ -199,7 +202,7 @@ export function TaskCard({
               onClick={() => setAssignOpen(true)}
               className="text-[11px] font-semibold text-ink-3 hover:text-ink"
             >
-              Reasignar
+              {t(locale, "tasks.reassign")}
             </button>
           )}
         </div>
@@ -228,8 +231,8 @@ export function TaskCard({
   );
 }
 
-function columnLabel(s: ProjectTaskStatus): string {
-  if (s === "todo") return "Por hacer";
-  if (s === "doing") return "En progreso";
-  return "Hecho";
+function columnLabel(locale: import("@/i18n/messages").Locale, s: ProjectTaskStatus): string {
+  if (s === "todo") return t(locale, "tasks.col.todo");
+  if (s === "doing") return t(locale, "tasks.col.doing");
+  return t(locale, "tasks.col.done");
 }

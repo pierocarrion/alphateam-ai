@@ -14,8 +14,11 @@ import { ColleagueList } from "./ColleagueList";
 import { FiltersBar } from "./FiltersBar";
 import { ExportMenu } from "./ExportMenu";
 import { PanelSkeleton, EmptyState } from "./Panel";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
 export function TeamInsightsDashboard() {
+  const [locale] = useLocale();
   const [granularity, setGranularity] = useState<GrowthGranularity>("month");
   const [days, setDays] = useState(90);
   const [filters, setFilters] = useState<TeamInsightsFilters>({});
@@ -41,27 +44,30 @@ export function TeamInsightsDashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
-            People Analytics
+            {t(locale, "insights.dashboard.kicker")}
           </p>
           <h1 className="font-display text-xl font-bold text-ink">
-            Team Insights
+            {t(locale, "insights.dashboard.title")}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           {overview && (
             <span className="text-[10px] text-ink-3">
-              {overview.teamName} · {overview.headcount} integrantes
+              {t(locale, "insights.dashboard.headcount", {
+                teamName: overview.teamName,
+                count: overview.headcount,
+              })}
             </span>
           )}
           <button
             type="button"
             onClick={() => {
               refresh();
-              toast.success("Datos actualizados");
+              toast.success(t(locale, "insights.dashboard.refreshed"));
             }}
             className="rounded-button border border-line px-3 py-1.5 text-xs font-semibold text-ink-2 hover:bg-white/[0.03]"
           >
-            Actualizar
+            {t(locale, "insights.dashboard.refresh")}
           </button>
           <ExportMenu days={days} />
         </div>
@@ -85,7 +91,7 @@ export function TeamInsightsDashboard() {
         overview.headcount === 0 ? (
           <EmptyState
             icon={<span className="text-2xl">👥</span>}
-            message="Tu workspace todavía no tiene miembros. Invita a tu equipo para que Team Insights empiece a calcular carga, seguridad psicológica, riesgo y crecimiento. Cuando existan tareas, encuestas o actividad de aprendizaje, los paneles se llenarán automáticamente."
+            message={t(locale, "insights.dashboard.empty")}
           />
         ) : (
         <>

@@ -1,6 +1,8 @@
 "use client";
 
 import { cn } from "@/shared/lib/cn";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
 interface ScoreVisual {
   score: number;
@@ -174,13 +176,14 @@ export function LineTrend({
   invert = false,
   ariaLabel,
 }: LineTrendProps) {
+  const [locale] = useLocale();
   if (points.length === 0) {
     return (
       <div
         className="flex items-center justify-center rounded-card border border-dashed border-line-2 text-xs text-ink-3"
         style={{ height }}
       >
-        Sin datos todavía
+        {t(locale, "insights.charts.noData")}
       </div>
     );
   }

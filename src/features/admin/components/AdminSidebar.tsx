@@ -4,17 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/shared/lib/cn";
 import { Mira } from "@/shared/ui";
+import { useLocale } from "@/i18n/useLocale";
+import { LanguageToggle } from "@/i18n/LanguageToggle";
+import { t } from "@/i18n/messages";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
 const NAV: NavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: "▣" },
-  { href: "/admin/users", label: "Usuarios", icon: "◉" },
-  { href: "/admin/workspaces", label: "Workspaces", icon: "⬡" },
+  { href: "/admin", labelKey: "admin.nav.dashboard", icon: "▣" },
+  { href: "/admin/users", labelKey: "admin.nav.users", icon: "◉" },
+  { href: "/admin/workspaces", labelKey: "admin.nav.workspaces", icon: "⬡" },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -24,14 +27,17 @@ function isActive(pathname: string, href: string): boolean {
 
 export function AdminSidebar({ userName }: { userName: string }) {
   const pathname = usePathname();
+  const [locale] = useLocale();
   return (
     <aside className="hidden w-[248px] flex-none flex-col border-r border-line bg-bg lg:flex">
       <div className="flex items-center gap-2.5 px-5 py-5">
         <Mira size={32} mood="happy" />
         <div className="leading-tight">
-          <div className="font-display text-[15px] text-ink">Admin Console</div>
+          <div className="font-display text-[15px] text-ink">
+            {t(locale, "admin.console")}
+          </div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-            Super Admin
+            {t(locale, "admin.superAdmin")}
           </div>
         </div>
       </div>
@@ -49,7 +55,7 @@ export function AdminSidebar({ userName }: { userName: string }) {
             )}
           >
             <span className="w-4 text-center text-ink-3">{item.icon}</span>
-            {item.label}
+            {t(locale, item.labelKey)}
           </Link>
         ))}
       </nav>
@@ -58,12 +64,15 @@ export function AdminSidebar({ userName }: { userName: string }) {
         <div className="truncate text-[13px] font-semibold text-ink-2">
           {userName}
         </div>
-        <Link
-          href="/api/auth/signout?callbackUrl=/login"
-          className="mt-1 inline-block text-[12px] text-ink-3 hover:text-ink"
-        >
-          Cerrar sesión
-        </Link>
+        <div className="mt-2 flex items-center justify-between">
+          <Link
+            href="/api/auth/signout?callbackUrl=/login"
+            className="text-[12px] text-ink-3 hover:text-ink"
+          >
+            {t(locale, "admin.logout")}
+          </Link>
+          <LanguageToggle />
+        </div>
       </div>
     </aside>
   );

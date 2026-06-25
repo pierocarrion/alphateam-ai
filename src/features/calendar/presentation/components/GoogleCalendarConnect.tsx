@@ -5,6 +5,8 @@ import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 import { Icon } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 
 interface GoogleCalendarConnectProps {
   initialConnected: boolean;
@@ -22,6 +24,7 @@ export function GoogleCalendarConnect({
 }: GoogleCalendarConnectProps) {
   const [connected, setConnected] = useState(initialConnected);
   const [busy, setBusy] = useState(false);
+  const [locale] = useLocale();
 
   async function connect() {
     setBusy(true);
@@ -35,7 +38,7 @@ export function GoogleCalendarConnect({
     } catch (err) {
       setBusy(false);
       toast.error(
-        err instanceof Error ? err.message : "No pudimos iniciar la conexión con Google."
+        err instanceof Error ? err.message : t(locale, "cal.connectError")
       );
     }
   }
@@ -45,10 +48,10 @@ export function GoogleCalendarConnect({
     try {
       await fetchJson("/api/calendar/disconnect", { method: "DELETE" });
       setConnected(false);
-      toast.success("Desconectamos tu Google Calendar.");
+      toast.success(t(locale, "cal.disconnected"));
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "No pudimos desconectar el calendario."
+        err instanceof Error ? err.message : t(locale, "cal.disconnectError")
       );
     } finally {
       setBusy(false);
@@ -76,7 +79,7 @@ export function GoogleCalendarConnect({
           color: connected ? "var(--color-sage)" : "var(--color-ink-3)",
         }}
       >
-        {busy ? "…" : connected ? "Conectado" : "Conectar"}
+        {busy ? "…" : connected ? t(locale, "cal.connected") : t(locale, "cal.connect")}
       </span>
     </button>
   );

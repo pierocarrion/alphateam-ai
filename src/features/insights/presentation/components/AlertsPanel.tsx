@@ -3,28 +3,31 @@
 import type { TeamAlert, TeamInsight } from "../types";
 import { Panel, EmptyState } from "./Panel";
 import { cn } from "@/shared/lib/cn";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
-const SEVERITY_STYLE: Record<
-  TeamAlert["severity"],
-  { dot: string; label: string }
-> = {
-  critical: { dot: "#E0625A", label: "Crítico" },
-  warning: { dot: "#E6B45A", label: "Atención" },
-  info: { dot: "#73B8E6", label: "Info" },
-};
-
-const TONE_STYLE: Record<TeamInsight["tone"], { emoji: string; label: string }> =
+const SEVERITY_STYLE: Record<TeamAlert["severity"], { dot: string; key: string }> =
   {
-    celebration: { emoji: "\u{1F389}", label: "Celebrar" },
-    opportunity: { emoji: "\u{1F4A1}", label: "Oportunidad" },
-    caution: { emoji: "\u{26A0}\u{FE0F}", label: "Cuidado" },
+    critical: { dot: "#E0625A", key: "insights.severity.critical" },
+    warning: { dot: "#E6B45A", key: "insights.severity.warning" },
+    info: { dot: "#73B8E6", key: "insights.severity.info" },
   };
 
+const TONE_STYLE: Record<TeamInsight["tone"], { emoji: string; key: string }> = {
+  celebration: { emoji: "\u{1F389}", key: "insights.tone.celebration" },
+  opportunity: { emoji: "\u{1F4A1}", key: "insights.tone.opportunity" },
+  caution: { emoji: "\u{26A0}\u{FE0F}", key: "insights.tone.caution" },
+};
+
 export function AlertsPanel({ alerts }: { alerts: TeamAlert[] }) {
+  const [locale] = useLocale();
   return (
-    <Panel kicker="Alertas inteligentes" title="Señales que atender">
+    <Panel
+      kicker={t(locale, "insights.alerts.kicker")}
+      title={t(locale, "insights.alerts.title")}
+    >
       {alerts.length === 0 ? (
-        <EmptyState message="Todo en calma. No hay alertas activas en este periodo." />
+        <EmptyState message={t(locale, "insights.alerts.empty")} />
       ) : (
         <ul className="flex flex-col gap-2">
           {alerts.map((a) => {
@@ -44,7 +47,7 @@ export function AlertsPanel({ alerts }: { alerts: TeamAlert[] }) {
                     {a.message}
                   </p>
                   <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-ink-3">
-                    {style.label}
+                    {t(locale, style.key)}
                     {a.employeeName ? ` · ${a.employeeName}` : ""}
                   </p>
                 </div>
@@ -58,10 +61,14 @@ export function AlertsPanel({ alerts }: { alerts: TeamAlert[] }) {
 }
 
 export function InsightsPanel({ insights }: { insights: TeamInsight[] }) {
+  const [locale] = useLocale();
   return (
-    <Panel kicker="Recomendaciones IA" title="Insights automáticos">
+    <Panel
+      kicker={t(locale, "insights.insights.kicker")}
+      title={t(locale, "insights.insights.title")}
+    >
       {insights.length === 0 ? (
-        <EmptyState message="A medida que el equipo genere actividad, aquí aparecerán recomendaciones." />
+        <EmptyState message={t(locale, "insights.insights.empty")} />
       ) : (
         <ul className="flex flex-col gap-2">
           {insights.map((insight) => {
@@ -87,7 +94,7 @@ export function InsightsPanel({ insights }: { insights: TeamInsight[] }) {
                     {insight.detail}
                   </p>
                   <span className="mt-1 inline-block text-[10px] uppercase tracking-[0.12em] text-ink-3">
-                    {tone.label} · {insight.category}
+                    {t(locale, tone.key)} · {insight.category}
                   </span>
                 </div>
               </li>

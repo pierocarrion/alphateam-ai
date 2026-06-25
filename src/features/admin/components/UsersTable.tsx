@@ -4,12 +4,15 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar } from "@/shared/ui";
 import { fetchJsonSafe } from "@/features/admin/lib/client";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import type { AdminUser } from "@/features/admin/types";
 
 export function UsersTable({ initialUsers }: { initialUsers: AdminUser[] }) {
   const [users, setUsers] = useState(initialUsers);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "blocked" | "active" | "superadmin">("all");
+  const [locale] = useLocale();
 
   async function refresh() {
     const qs = new URLSearchParams();
@@ -28,15 +31,15 @@ export function UsersTable({ initialUsers }: { initialUsers: AdminUser[] }) {
       body: JSON.stringify({ action }),
     });
     if (!res) return;
-    toast.success(`Acción "${action}" aplicada.`);
+    toast.success(t(locale, "admin.users.actionApplied", { action }));
     await refresh();
   }
 
   async function remove(id: string) {
-    if (!confirm("¿Eliminar este usuario permanentemente? Esta acción no se puede deshacer.")) return;
+    if (!confirm(t(locale, "admin.users.deleteConfirm"))) return;
     const ok = await fetchJsonSafe(`/api/admin/users/${id}`, { method: "DELETE" });
     if (!ok) return;
-    toast.success("Usuario eliminado.");
+    toast.success(t(locale, "admin.users.deleted"));
     await refresh();
   }
 
@@ -47,7 +50,7 @@ export function UsersTable({ initialUsers }: { initialUsers: AdminUser[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && refresh()}
-          placeholder="Buscar por email…"
+          placeholder={t(locale, "admin.users.searchPlaceholder")}
           className="min-w-[220px] flex-1 rounded-full border border-line-2 bg-surface px-4 py-2 text-sm text-ink outline-none focus:border-accent"
         />
         <select
@@ -55,16 +58,16 @@ export function UsersTable({ initialUsers }: { initialUsers: AdminUser[] }) {
           onChange={(e) => setFilter(e.target.value as typeof filter)}
           className="rounded-full border border-line-2 bg-surface px-4 py-2 text-sm text-ink outline-none focus:border-accent"
         >
-          <option value="all">Todos</option>
-          <option value="active">Activos</option>
-          <option value="blocked">Bloqueados</option>
-          <option value="superadmin">Super-admin</option>
+          <option value="all">{t(locale, "admin.users.filter.all")}</option>
+          <option value="active">{t(locale, "admin.users.filter.active")}</option>
+          <option value="blocked">{t(locale, "admin.users.filter.blocked")}</option>
+          <option value="superadmin">{t(locale, "admin.users.filter.superadmin")}</option>
         </select>
         <button
           onClick={refresh}
           className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-ink"
         >
-          Buscar
+          {t(locale, "common.search")}
         </button>
       </div>
 
@@ -72,18 +75,18 @@ export function UsersTable({ initialUsers }: { initialUsers: AdminUser[] }) {
         <table className="w-full text-left text-sm">
           <thead className="bg-bg-2 text-[11px] uppercase tracking-[0.12em] text-ink-3">
             <tr>
-              <th className="px-4 py-3">Usuario</th>
-              <th className="px-4 py-3">Alta</th>
-              <th className="px-4 py-3">Workspaces</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              <th className="px-4 py-3">{t(locale, "admin.users.col.user")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.users.col.joined")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.users.col.workspaces")}</th>
+              <th className="px-4 py-3">{t(locale, "admin.users.col.status")}</th>
+              <th className="px-4 py-3 text-right">{t(locale, "admin.users.col.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
-                  Sin resultados.
+                  {t(locale, "common.empty")}
                 </td>
               </tr>
             )}
@@ -105,31 +108,31 @@ export function UsersTable({ initialUsers }: { initialUsers: AdminUser[] }) {
                 <td className="px-4 py-3">
                   {u.globalRole === "superadmin" ? (
                     <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold uppercase text-accent">
-                      Super-admin
+                      {t(locale, "admin.users.status.superadmin")}
                     </span>
                   ) : u.blocked ? (
                     <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-bold uppercase text-red-400">
-                      Bloqueado
+                      {t(locale, "admin.users.status.blocked")}
                     </span>
                   ) : (
                     <span className="rounded-full bg-sage/15 px-2 py-0.5 text-[11px] font-bold uppercase text-sage">
-                      Activo
+                      {t(locale, "admin.users.status.active")}
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap justify-end gap-1.5">
                     {u.blocked ? (
-                      <Btn onClick={() => act(u.id, "unblock")} label="Desbloquear" />
+                      <Btn onClick={() => act(u.id, "unblock")} label={t(locale, "admin.users.action.unblock")} />
                     ) : (
-                      <Btn onClick={() => act(u.id, "block")} label="Bloquear" ghost />
+                      <Btn onClick={() => act(u.id, "block")} label={t(locale, "admin.users.action.block")} ghost />
                     )}
                     {u.globalRole === "superadmin" ? (
-                      <Btn onClick={() => act(u.id, "demote")} label="Quitar admin" ghost />
+                      <Btn onClick={() => act(u.id, "demote")} label={t(locale, "admin.users.action.demote")} ghost />
                     ) : (
-                      <Btn onClick={() => act(u.id, "promote")} label="Hacer admin" ghost />
+                      <Btn onClick={() => act(u.id, "promote")} label={t(locale, "admin.users.action.promote")} ghost />
                     )}
-                    <Btn onClick={() => remove(u.id)} label="Eliminar" danger />
+                    <Btn onClick={() => remove(u.id)} label={t(locale, "common.delete")} danger />
                   </div>
                 </td>
               </tr>

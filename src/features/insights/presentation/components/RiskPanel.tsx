@@ -3,45 +3,49 @@
 import type { TeamOverview } from "../types";
 import { Panel, StatChip } from "./Panel";
 import { RadialMeter } from "./charts";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
-const LEVEL_COPY: Record<string, { title: string; helper: string }> = {
-  low: {
-    title: "Bajo",
-    helper: "El equipo mantiene un ritmo saludable.",
-  },
-  moderate: {
-    title: "Moderado",
-    helper: "Vale la pena anticipar cuellos de botella.",
-  },
-  high: {
-    title: "Alto",
-    helper: "Conviene redistribuir carga y revisar bloqueos.",
-  },
+const LEVEL_TITLE_KEY: Record<string, string> = {
+  low: "insights.risk.level.low",
+  moderate: "insights.risk.level.moderate",
+  high: "insights.risk.level.high",
+};
+
+const LEVEL_HELPER_KEY: Record<string, string> = {
+  low: "insights.risk.helper.low",
+  moderate: "insights.risk.helper.moderate",
+  high: "insights.risk.helper.high",
 };
 
 export function RiskPanel({ overview }: { overview: TeamOverview }) {
+  const [locale] = useLocale();
   const r = overview.productivityRisk;
-  const copy = LEVEL_COPY[r.level];
+  const titleKey = LEVEL_TITLE_KEY[r.level];
+  const helperKey = LEVEL_HELPER_KEY[r.level];
   const factors = [
-    { label: "Sobrecarga", value: r.breakdown.overload },
-    { label: "Retrasos", value: r.breakdown.overdue },
-    { label: "Caída actividad", value: r.breakdown.activityDecline },
-    { label: "Baja participación", value: r.breakdown.lowParticipation },
-    { label: "Incumplimiento", value: r.breakdown.taskMiss },
-    { label: "Ausentismo", value: r.breakdown.absenteeism },
+    { label: t(locale, "insights.risk.factor.overload"), value: r.breakdown.overload },
+    { label: t(locale, "insights.risk.factor.overdue"), value: r.breakdown.overdue },
+    { label: t(locale, "insights.risk.factor.activityDecline"), value: r.breakdown.activityDecline },
+    { label: t(locale, "insights.risk.factor.lowParticipation"), value: r.breakdown.lowParticipation },
+    { label: t(locale, "insights.risk.factor.taskMiss"), value: r.breakdown.taskMiss },
+    { label: t(locale, "insights.risk.factor.absenteeism"), value: r.breakdown.absenteeism },
   ];
   return (
-    <Panel kicker="Productivity Risk" title="Riesgo de productividad">
+    <Panel
+      kicker={t(locale, "insights.risk.kicker")}
+      title={t(locale, "insights.risk.title")}
+    >
       <div className="flex flex-col items-center gap-4 sm:flex-row">
         <RadialMeter
           score={r.score}
           status={r.level}
           invert
-          label={copy.title}
+          label={t(locale, titleKey)}
         />
         <div className="flex-1">
           <p className="mb-3 text-xs text-ink-3 text-wrap-pretty">
-            {copy.helper}
+            {t(locale, helperKey)}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {factors.map((f) => (

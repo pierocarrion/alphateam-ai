@@ -5,6 +5,8 @@ import { useColleagueDetail } from "../hooks/useTeamInsights";
 import { LineTrend, StackedBars } from "./charts";
 import { PanelSkeleton } from "./Panel";
 import { cn } from "@/shared/lib/cn";
+import { t } from "@/i18n/messages";
+import { useLocale } from "@/i18n/useLocale";
 
 const ACTIVITY_ICON: Record<string, string> = {
   course: "\u{1F4DA}",
@@ -21,6 +23,7 @@ export function ColleagueDetailDrawer({
   employeeId: string | null;
   onClose: () => void;
 }) {
+  const [locale] = useLocale();
   const { detail, loading } = useColleagueDetail(employeeId);
 
   useEffect(() => {
@@ -55,17 +58,17 @@ export function ColleagueDetailDrawer({
         <header className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.14em] text-ink-3">
-              Perfil de colaborador
+              {t(locale, "insights.detail.profile")}
             </p>
             <h2 className="font-display text-lg font-semibold text-ink">
-              {detail?.employee.name ?? "Cargando…"}
+              {detail?.employee.name ?? t(locale, "insights.detail.loading")}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="rounded-button p-2 text-ink-3 hover:bg-white/[0.04] hover:text-ink"
-            aria-label="Cerrar"
+            aria-label={t(locale, "insights.detail.close")}
           >
             ✕
           </button>
@@ -78,12 +81,12 @@ export function ColleagueDetailDrawer({
             <div className="flex flex-col gap-4">
               <section>
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Actividad reciente
+                  {t(locale, "insights.detail.recentActivity")}
                 </p>
                 <ol className="flex flex-col gap-2">
                   {detail.recentActivity.length === 0 ? (
                     <li className="text-xs text-ink-3">
-                      Sin actividad registrada en el periodo.
+                      {t(locale, "insights.detail.noActivity")}
                     </li>
                   ) : (
                     detail.recentActivity.map((a, i) => (
@@ -106,7 +109,7 @@ export function ColleagueDetailDrawer({
 
               <section>
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Evolución de aprendizaje
+                  {t(locale, "insights.detail.learningEvolution")}
                 </p>
                 <StackedBars
                   points={detail.learningEvolution.map((p) => ({
@@ -114,13 +117,16 @@ export function ColleagueDetailDrawer({
                     a: p.completed,
                     b: p.started - p.completed,
                   }))}
-                  labels={["Completados", "Iniciados"]}
+                  labels={[
+                    t(locale, "insights.detail.label.completed"),
+                    t(locale, "insights.detail.label.started"),
+                  ]}
                 />
               </section>
 
               <section>
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Evolución de productividad
+                  {t(locale, "insights.detail.productivityEvolution")}
                 </p>
                 <div className="rounded-card border border-line p-3">
                   <LineTrend
@@ -128,19 +134,19 @@ export function ColleagueDetailDrawer({
                       date: p.week,
                       score: p.completed * 20,
                     }))}
-                    ariaLabel="Tareas completadas por semana"
+                    ariaLabel={t(locale, "insights.detail.completedPerWeekAria")}
                   />
                   <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
-                    <Metric label="Lead Time" value={`${detail.productivityEvolution.at(-1)?.leadTimeDays ?? 0}d`} />
-                    <Metric label="Cycle Time" value={`${detail.productivityEvolution.at(-1)?.cycleTimeDays ?? 0}d`} />
-                    <Metric label="Entrega" value={`${detail.productivityEvolution.at(-1)?.avgDeliveryDays ?? 0}d`} />
+                    <Metric label={t(locale, "insights.detail.metric.leadTime")} value={`${detail.productivityEvolution.at(-1)?.leadTimeDays ?? 0}d`} />
+                    <Metric label={t(locale, "insights.detail.metric.cycleTime")} value={`${detail.productivityEvolution.at(-1)?.cycleTimeDays ?? 0}d`} />
+                    <Metric label={t(locale, "insights.detail.metric.delivery")} value={`${detail.productivityEvolution.at(-1)?.avgDeliveryDays ?? 0}d`} />
                   </div>
                 </div>
               </section>
 
               <section>
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-3">
-                  Bienestar y sentimiento
+                  {t(locale, "insights.detail.wellbeing")}
                 </p>
                 <div className="rounded-card border border-line p-3">
                   <LineTrend
@@ -149,11 +155,11 @@ export function ColleagueDetailDrawer({
                       score: p.satisfaction,
                     }))}
                     color="#5FB87A"
-                    ariaLabel="Satisfacción a lo largo del tiempo"
+                    ariaLabel={t(locale, "insights.detail.satisfactionAria")}
                   />
                   <div className="mt-2 grid grid-cols-2 gap-2 text-center text-[11px]">
-                    <Metric label="Participación" value={`${Math.round(detail.wellbeingHistory.at(-1)?.participation ?? 0)}%`} />
-                    <Metric label="Sentimiento" value={detail.wellbeingHistory.at(-1)?.sentiment ?? "neutral"} />
+                    <Metric label={t(locale, "insights.detail.metric.participation")} value={`${Math.round(detail.wellbeingHistory.at(-1)?.participation ?? 0)}%`} />
+                    <Metric label={t(locale, "insights.detail.metric.sentiment")} value={detail.wellbeingHistory.at(-1)?.sentiment ?? "neutral"} />
                   </div>
                 </div>
               </section>

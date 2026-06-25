@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Modal } from "@/features/project-settings/presentation/components/primitives";
+import { useLocale } from "@/i18n/useLocale";
+import { t } from "@/i18n/messages";
 import {
-  PRIORITY_LABELS,
+  PRIORITY_KEYS,
   type ProjectTask,
   type ProjectTaskPriority,
 } from "../types";
@@ -31,6 +33,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
   const [dueDate, setDueDate] = useState(
     task.dueDate ? task.dueDate.slice(0, 10) : ""
   );
+  const [locale] = useLocale();
 
   // Local mutation via dynamic import to avoid circular concerns.
   const handleSave = async () => {
@@ -50,7 +53,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
     );
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error ?? "No se pudo guardar.");
+      throw new Error(data.error ?? t(locale, "tasks.edit.saveError"));
     }
     onClose();
   };
@@ -65,11 +68,11 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar tarea">
+    <Modal open={open} onClose={onClose} title={t(locale, "tasks.edit.title")}>
       <div className="space-y-3">
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-            Título
+            {t(locale, "tasks.create.titleLabel")}
           </span>
           <input
             value={title}
@@ -80,7 +83,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
 
         <label className="block">
           <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-            Descripción
+            {t(locale, "tasks.create.description")}
           </span>
           <textarea
             value={description}
@@ -93,7 +96,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-              Prioridad
+              {t(locale, "tasks.create.priority")}
             </span>
             <select
               value={priority}
@@ -102,7 +105,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
             >
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
-                  {p === "none" ? "Sin prioridad" : PRIORITY_LABELS[p]}
+                  {p === "none" ? t(locale, "tasks.priority.none") : t(locale, PRIORITY_KEYS[p])}
                 </option>
               ))}
             </select>
@@ -110,7 +113,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
 
           <label className="block">
             <span className="mb-1 block text-[12px] font-bold uppercase tracking-wide text-ink-3">
-              Vencimiento
+              {t(locale, "tasks.create.due")}
             </span>
             <input
               type="date"
@@ -128,7 +131,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
           onClick={onClose}
           className="rounded-button px-4 py-2 text-[13.5px] font-semibold text-ink-2 hover:bg-surface-2"
         >
-          Cancelar
+          {t(locale, "common.cancel")}
         </button>
         <button
           type="button"
@@ -136,7 +139,7 @@ export function TaskEditDialog({ open, onClose, task }: TaskEditDialogProps) {
           disabled={saving || !title.trim()}
           className="rounded-button bg-accent px-4 py-2 text-[13.5px] font-bold text-accent-ink hover:opacity-90 disabled:opacity-50"
         >
-          {saving ? "Guardando…" : "Guardar"}
+          {saving ? t(locale, "common.saving") : t(locale, "common.save")}
         </button>
       </div>
     </Modal>

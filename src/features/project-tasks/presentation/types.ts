@@ -32,17 +32,17 @@ export interface ProjectMemberOption {
   isYou: boolean;
 }
 
-export const STATUS_COLUMNS: { key: ProjectTaskStatus; label: string; hint: string }[] = [
-  { key: "todo", label: "Por hacer", hint: "Sin empezar" },
-  { key: "doing", label: "En progreso", hint: "Trabajando ahora" },
-  { key: "done", label: "Hecho", hint: "Completado" },
+export const STATUS_COLUMNS: { key: ProjectTaskStatus; labelKey: string; hintKey: string }[] = [
+  { key: "todo", labelKey: "tasks.col.todo", hintKey: "tasks.col.todoHint" },
+  { key: "doing", labelKey: "tasks.col.doing", hintKey: "tasks.col.doingHint" },
+  { key: "done", labelKey: "tasks.col.done", hintKey: "tasks.col.doneHint" },
 ];
 
-export const PRIORITY_LABELS: Record<ProjectTaskPriority, string> = {
-  low: "Baja",
-  medium: "Media",
-  high: "Alta",
-  urgent: "Urgente",
+export const PRIORITY_KEYS: Record<ProjectTaskPriority, string> = {
+  low: "tasks.priority.low",
+  medium: "tasks.priority.medium",
+  high: "tasks.priority.high",
+  urgent: "tasks.priority.urgent",
 };
 
 export const PRIORITY_COLORS: Record<ProjectTaskPriority, string> = {

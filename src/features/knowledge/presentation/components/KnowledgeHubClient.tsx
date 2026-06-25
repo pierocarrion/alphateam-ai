@@ -99,7 +99,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
     return () => {
       active = false;
     };
-  }, [baseUrl, search, activeCategory, semanticMode]);
+  }, [baseUrl, search, activeCategory, semanticMode, locale]);
 
   const reload = useCallback(async () => {
     try {
@@ -111,7 +111,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t(locale, "knowledge.reloadError"));
     }
-  }, [baseUrl]);
+  }, [baseUrl, locale]);
 
   const runSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,7 +295,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
               {t(locale, "knowledge.resultsByRelevance")}
             </div>
             {searchHits.length === 0 ? (
-              <EmptyState text={t(locale, "knowledge.noSemanticResults")} locale={locale} />
+              <EmptyState text={t(locale, "knowledge.noSemanticResults")} />
             ) : (
               <div className="flex flex-col gap-3">
                 {searchHits.map((hit) => (
@@ -329,7 +329,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
             {loading ? (
               <p className="text-sm text-ink-3">{t(locale, "common.loading")}</p>
             ) : resources.length === 0 ? (
-              <EmptyState text={t(locale, "knowledge.noResources")} locale={locale} />
+              <EmptyState text={t(locale, "knowledge.noResources")} />
             ) : (
               <div className="flex flex-col gap-3">
                 {resources.map((r) => (
@@ -440,7 +440,7 @@ function PremiumBadge() {
   );
 }
 
-function EmptyState({ text, locale: _locale }: { text: string; locale?: Locale }) {
+function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-2xl border border-line bg-surface p-8 text-center">
       <p className="text-[15px] text-ink-2">{text}</p>
@@ -605,14 +605,14 @@ function EditResourceModal({
           summary: summary.trim() || null,
           contentText: content.trim(),
           categoryId: categoryId ?? null,
-          tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          tags: tags.split(",").map((tg) => tg.trim()).filter(Boolean),
           reingest,
         }),
       });
-      toast.success(reingest ? "Recurso actualizado y reindexado con IA." : "Recurso actualizado.");
+      toast.success(reingest ? t(locale, "knowledge.updatedReindex") : t(locale, "knowledge.updated"));
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos guardar los cambios.");
+      toast.error(err instanceof Error ? err.message : t(locale, "knowledge.saveError"));
     } finally {
       setSaving(false);
     }
@@ -625,7 +625,7 @@ function EditResourceModal({
         className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded-3xl border border-line-2 bg-bg-2 p-6 shadow-2xl"
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-[20px] text-ink">Editar recurso</h3>
+          <h3 className="font-display text-[20px] text-ink">{t(locale, "knowledge.editTitle")}</h3>
           <button
             type="button"
             onClick={onCancel}
@@ -636,14 +636,14 @@ function EditResourceModal({
         </div>
 
         {loading ? (
-          <p className="py-8 text-center text-sm text-ink-3">Cargando…</p>
+          <p className="py-8 text-center text-sm text-ink-3">{t(locale, "common.loading")}</p>
         ) : (
           <>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
-              placeholder="Título del recurso"
+              placeholder={t(locale, "knowledge.resourceTitlePlaceholder")}
               className="w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
             />
             <textarea
@@ -651,14 +651,14 @@ function EditResourceModal({
               onChange={(e) => setSummary(e.target.value)}
               rows={2}
               maxLength={1000}
-              placeholder="Resumen breve (opcional)"
+              placeholder={t(locale, "knowledge.summaryPlaceholder")}
               className="w-full resize-y rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
             />
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={8}
-              placeholder="Contenido del recurso"
+              placeholder={t(locale, "knowledge.contentResourcePlaceholder")}
               className="w-full resize-y rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -667,7 +667,7 @@ function EditResourceModal({
                 onChange={(e) => setCategoryId(e.target.value || null)}
                 className="rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
               >
-                <option value="">Sin categoría</option>
+                <option value="">{t(locale, "knowledge.noCategory")}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -677,7 +677,7 @@ function EditResourceModal({
               <input
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
-                placeholder="Etiquetas separadas por coma"
+                placeholder={t(locale, "knowledge.tagsPlaceholder")}
                 className="rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
               />
             </div>
@@ -688,14 +688,14 @@ function EditResourceModal({
                 onChange={(e) => setReingest(e.target.checked)}
                 className="accent-[var(--color-accent)]"
               />
-              Volver a trocear e indexar con IA tras guardar (recomendado si cambió el contenido)
+              {t(locale, "knowledge.reindexLabel")}
             </label>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
-                Cancelar
+                {t(locale, "common.cancel")}
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? "Guardando…" : "Guardar cambios"}
+                {saving ? t(locale, "common.saving") : t(locale, "knowledge.saveChanges")}
               </Button>
             </div>
           </>
