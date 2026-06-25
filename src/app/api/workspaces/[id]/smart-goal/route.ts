@@ -4,6 +4,7 @@ import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/api
 import { getProjectSettingsDeps } from "@/features/project-settings/infrastructure/container";
 import { SaveSmartGoal } from "@/features/project-settings/application/use-cases/SaveSmartGoal";
 import { smartGoalSchema } from "@/features/project-settings/application/schemas";
+import { container } from "@/server/lib/container";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -36,6 +37,26 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       workspaceId: auth.workspaceId!,
       actorId: auth.user.id,
     });
+
+    // Sync the SMART goal into the Goal row that powers the Progress tracker,
+    // so the leader's edited objective is visible in /progress.
+    try {
+      await container.goalProgressRepository.upsertActiveGoal(
+        auth.workspaceId!,
+        auth.user.id,
+        {
+          title: smartGoal.title,
+          specific: smartGoal.specific,
+          measurable: smartGoal.measurable,
+          achievable: smartGoal.achievable,
+          relevant: smartGoal.relevant,
+          deadline: smartGoal.deadline ? new Date(smartGoal.deadline) : null,
+        }
+      );
+    } catch (syncErr) {
+      console.error("[smart-goal] failed to sync into Goal/progress", syncErr);
+    }
+
     return NextResponse.json({ smartGoal });
   } catch (error) {
     return jsonError(error);

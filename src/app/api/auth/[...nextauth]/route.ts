@@ -133,12 +133,29 @@ async function persistGoogleAccount(
   });
 
   // Keep the user email in sync with Google in case it differs.
-  await prisma.user.update({
-    where: { id: userId },
-    data: { email },
-  }).catch(() => {
-    /* email unique constraint mismatch is non-fatal for linking */
-  });
+  // Skip silently only when the email already belongs to another user
+  // (unique constraint) — the link by id still holds.
+  if (email) {
+    try {
+      const owner = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+      if (!owner || owner.id === userId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { email },
+        });
+      } else {
+        console.warn(
+          "[auth] skipping email sync: google email belongs to another user",
+          { userId, email }
+        );
+      }
+    } catch (error) {
+      console.error("[auth] email sync failed (non-fatal):", error);
+    }
+  }
 }
 
 export const authOptions: NextAuthOptions = {

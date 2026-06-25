@@ -104,6 +104,54 @@ export class PrismaGoalProgressRepository implements IGoalProgressRepository {
     const goal = await prisma.goal.update({ where: { id }, data: patch });
     return toSummary(goal);
   }
+
+  async upsertActiveGoal(
+    workspaceId: string,
+    ownerId: string,
+    data: {
+      title: string;
+      specific?: string | null;
+      measurable?: string | null;
+      achievable?: string | null;
+      relevant?: string | null;
+      deadline?: Date | null;
+    }
+  ): Promise<GoalSummary> {
+    const existing = await prisma.goal.findFirst({
+      where: { workspaceId, status: "active" },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (existing) {
+      const updated = await prisma.goal.update({
+        where: { id: existing.id },
+        data: {
+          title: data.title,
+          specific: data.specific ?? null,
+          measurable: data.measurable ?? null,
+          achievable: data.achievable ?? null,
+          relevant: data.relevant ?? null,
+          deadline: data.deadline ?? null,
+        },
+      });
+      return toSummary(updated);
+    }
+
+    const created = await prisma.goal.create({
+      data: {
+        workspaceId,
+        ownerId,
+        title: data.title,
+        specific: data.specific ?? null,
+        measurable: data.measurable ?? null,
+        achievable: data.achievable ?? null,
+        relevant: data.relevant ?? null,
+        deadline: data.deadline ?? null,
+        status: "active",
+      },
+    });
+    return toSummary(created);
+  }
 }
 
 type PrismaGoalRow = Awaited<ReturnType<typeof prisma.goal.findUnique>> & {};

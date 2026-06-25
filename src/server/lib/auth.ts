@@ -30,10 +30,23 @@ export async function requireUser(): Promise<RequireUserResult | RequireUserErro
     };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true, email: true },
-  });
+  // Prefer the authoritative user id from the JWT (set in the session callback)
+  // over the email, because a linked Google account may carry an email that
+  // differs from — or even collides with — another user's email.
+  const userId = (session.user as { id?: string }).id;
+  let user = null as null | { id: string; email: string | null };
+  if (userId) {
+    user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+  }
+  if (!user) {
+    user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, email: true },
+    });
+  }
 
   if (!user) {
     return {

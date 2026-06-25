@@ -92,7 +92,7 @@ export async function generateContent(
     : "";
   const fullPrompt = systemHint ? `${systemHint}\n\n${prompt}` : prompt;
 
-  try {
+  const callModel = async (): Promise<string> => {
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
       generationConfig: {
@@ -100,20 +100,45 @@ export async function generateContent(
         temperature: options.temperature ?? 0.25,
       },
     });
+    const candidate = result.response?.candidates?.[0];
+    return candidate?.content?.parts?.[0]?.text?.trim() ?? "";
+  };
 
-    const response = result.response;
-    const candidate = response.candidates?.[0];
-    const text = candidate?.content?.parts?.[0]?.text?.trim() ?? "";
+  const MAX_ATTEMPTS = 2; // initial + 1 retry
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    try {
+      const text = await callModel();
+      if (!text) {
+        console.warn("[gemini] empty response from model", { model: modelName, attempt });
+        return { ok: false, error: "Empty response from Gemini", model: modelName };
+      }
+      return { ok: true, data: text, model: modelName };
+    } catch (err) {
+      const isTransient = isTransientError(err);
+      // Structured logging so it shows up usefully in Cloud Logging
+      console.error("[gemini] generateContent error", {
+        attempt,
+        transient: isTransient,
+        model: modelName,
+        message: err instanceof Error ? err.message : String(err),
+        code: (err as { code?: unknown }).code ?? undefined,
+        status: (err as { status?: unknown }).status ?? undefined,
+        stack: err instanceof Error ? err.stack : undefined,
+        cause:
+          err instanceof Error && err.cause
+            ? JSON.stringify(err.cause, Object.getOwnPropertyNames(err.cause))
+            : undefined,
+      });
 
-    if (!text) {
-      return { ok: false, error: "Empty response from Gemini", model: modelName };
+      if (isTransient && attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 600 * attempt)); // backoff
+        continue;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: message, model: modelName };
     }
-
-    return { ok: true, data: text, model: modelName };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[gemini] generateContent error:", message);
-    return { ok: false, error: message, model: modelName };
   }
 }
 
@@ -547,6 +572,29 @@ Respond with JSON only:
     maxTokens: 260,
     temperature: 0.3,
   });
+}
+
+function isTransientError(err: unknown): boolean {
+  if (!err) return false;
+  const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  const code = (err as { code?: number | string }).code;
+  const status = (err as { status?: number | string }).status;
+  const signals = [
+    "503",
+    "500",
+    "unavailable",
+    "timeout",
+    "deadline",
+    "rate_limit",
+    "resource_exhausted",
+    "429",
+    "reset",
+    "connection",
+    "temporarily",
+  ];
+  if (code === 503 || code === 429 || code === 500) return true;
+  if (status === 503 || status === 429 || status === 500) return true;
+  return signals.some((s) => message.includes(s));
 }
 
 export function geminiDraftToDetectedTaskDraft(

@@ -61,7 +61,11 @@ Respond with JSON only:
     temperature: 0.3,
   });
   if (!result.ok || !result.data) {
-    return { ok: false, error: result.error ? FRIENDLY_AI_UNAVAILABLE : FRIENDLY_AI_UNAVAILABLE };
+    console.error("[ai] analyzeSmartGoalWithAi failed", {
+      error: result.error,
+      model: result.model,
+    });
+    return { ok: false, error: FRIENDLY_AI_UNAVAILABLE };
   }
   return { ok: true, data: result.data };
 }
@@ -132,6 +136,10 @@ Respond with JSON only:
     temperature: 0.35,
   });
   if (!result.ok || !result.data) {
+    console.error("[ai] generateProjectInsights failed", {
+      error: result.error,
+      model: result.model,
+    });
     return { ok: false, error: FRIENDLY_AI_UNAVAILABLE };
   }
   return { ok: true, data: result.data };

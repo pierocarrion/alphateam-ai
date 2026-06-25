@@ -44,4 +44,22 @@ export interface IGoalProgressRepository {
   loadSnapshot(goalId: string): Promise<SmartGoalSnapshot | null>;
   create(input: CreateSmartGoalInput): Promise<GoalSummary>;
   update(id: string, patch: UpdateSmartGoalInput): Promise<GoalSummary>;
+
+  /**
+   * Keeps the workspace's active Goal row in sync with the leader's SMART goal
+   * (edited in Project Settings). Creates one if none exists, otherwise patches
+   * the most recent active goal so it shows up in the Progress tracker.
+   */
+  upsertActiveGoal(
+    workspaceId: string,
+    ownerId: string,
+    data: {
+      title: string;
+      specific?: string | null;
+      measurable?: string | null;
+      achievable?: string | null;
+      relevant?: string | null;
+      deadline?: Date | null;
+    }
+  ): Promise<GoalSummary>;
 }

@@ -70,10 +70,23 @@ function resolveOrigin(request: Request): string {
       /* fall through */
     }
   }
-  const proto = request.headers.get("x-forwarded-proto");
-  const host = request.headers.get("x-forwarded-host");
+  // Proxy headers: take the first segment (closest to the client) when
+  // load balancers chain values like "https,http".
+  const protoRaw = request.headers.get("x-forwarded-proto");
+  const proto = protoRaw ? protoRaw.split(",")[0].trim() : null;
+  const hostRaw = request.headers.get("x-forwarded-host");
+  const host = hostRaw ? hostRaw.split(",")[0].trim() : null;
   if (host) {
     return `${proto === "https" ? "https" : "http"}://${host}`;
+  }
+  // RFC 7239 Forwarded header fallback.
+  const forwarded = request.headers.get("forwarded");
+  if (forwarded) {
+    const fHost = /host=([^;,\s]+)/i.exec(forwarded)?.[1]?.replace(/"/g, "");
+    const fProto = /proto=([^;,\s]+)/i.exec(forwarded)?.[1]?.replace(/"/g, "");
+    if (fHost) {
+      return `${fProto === "https" ? "https" : "http"}://${fHost}`;
+    }
   }
   return new URL(request.url).origin;
 }

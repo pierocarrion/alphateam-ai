@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/cn";
 import { Avatar, Icon } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 import { personIdFromName } from "@/shared/lib/person";
+import { LanguageToggle } from "@/i18n/LanguageToggle";
 import {
   WorkspaceSwitcher,
   type SwitcherWorkspace,
@@ -270,6 +271,7 @@ export function DesktopSidebar({
                 }
               />
               Feedback Intelligence
+            </SideRow>
             <SideRow
               href="/team-insights"
               active={pathname.startsWith("/team-insights")}
@@ -284,7 +286,6 @@ export function DesktopSidebar({
                 }
               />
               Team Insights
-            </SideRow>
             </SideRow>
             <SideRow
               href="/project/settings"
@@ -317,6 +318,7 @@ export function DesktopSidebar({
           </div>
           <div className="text-[11px] text-ink-3">{roleLabel}</div>
         </div>
+        <LanguageToggle className="shrink-0" />
         <Icon name="bell" size={17} color="var(--color-ink-3)" />
       </Link>
     </aside>
