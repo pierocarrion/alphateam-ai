@@ -60,13 +60,20 @@ const providers: NextAuthOptions["providers"] = [
         }
 
         if (!existing) return null;
+        const dbUser = await prismaUserWithPassword(email);
+        if (dbUser?.blocked) return null;
         const valid = await bcrypt.compare(
           credentials.password,
           // PrismaUserRepository does not expose passwordHash; read directly
-          (await prismaUserWithPassword(email))?.passwordHash ?? ""
+          dbUser?.passwordHash ?? ""
         );
         if (!valid) return null;
-        return { id: existing.id, email: existing.email, name: existing.name };
+        return {
+          id: existing.id,
+          email: existing.email,
+          name: existing.name,
+          globalRole: dbUser?.globalRole ?? null,
+        };
       } catch (error) {
         if (isPrismaConnectionError(error)) {
           console.error("[auth] service unavailable:", error);
@@ -222,12 +229,18 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user }) {
-      if (user) token.sub = user.id;
+      if (user) {
+        token.sub = user.id;
+        token.globalRole =
+          (user as { globalRole?: string | null }).globalRole ?? null;
+      }
       return token;
     },
     async session({ session, token }) {
       if (token?.sub && session.user) {
         (session.user as { id: string }).id = token.sub;
+        (session.user as { globalRole?: string | null }).globalRole =
+          token.globalRole ?? null;
       }
       return session;
     },
@@ -237,7 +250,7 @@ export const authOptions: NextAuthOptions = {
 async function prismaUserWithPassword(email: string) {
   return prisma.user.findUnique({
     where: { email },
-    select: { passwordHash: true },
+    select: { passwordHash: true, globalRole: true, blocked: true },
   });
 }
 

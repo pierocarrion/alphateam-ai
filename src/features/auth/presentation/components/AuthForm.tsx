@@ -71,7 +71,19 @@ export function AuthForm() {
         return;
       }
 
-      router.push("/onboarding");
+      // Decide el destino según el rol del usuario. Si es super-admin, va
+      // directo al panel de administración.
+      try {
+        const session = await fetch("/api/auth/session").then((r) => r.json());
+        const globalRole = session?.user?.globalRole;
+        if (globalRole === "superadmin") {
+          router.push("/admin");
+        } else {
+          router.push("/onboarding");
+        }
+      } catch {
+        router.push("/onboarding");
+      }
       router.refresh();
     } catch {
       setError("We couldn't reach the server. Please check your connection.");
