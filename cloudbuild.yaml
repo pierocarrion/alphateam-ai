@@ -30,11 +30,17 @@
         exit $$MIGRATE_STATUS
     secretEnv: ["DATABASE_URL"]
 
-  # Build and push the container image to Google Artifact Registry
+  # Build and push the container image to Google Artifact Registry.
+  # Uses BuildKit registry caching so the `npm ci` + `prisma generate` layers
+  # are reused across builds when package-lock.json hasn't changed. Only the
+  # source layer is rebuilt on a typical deploy. This is what makes deploys fast.
   - name: "gcr.io/cloud-builders/docker"
+    env:
+      - DOCKER_BUILDKIT=1
     args:
       - build
-      - "--no-cache"
+      - "--cache-from=type=registry,ref=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:buildcache"
+      - "--cache-to=type=registry,ref=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:buildcache,mode=max"
       - "-t"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${_VERSION}"
       - "-t"
@@ -111,3 +117,7 @@ substitutions:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  # Faster builder (8 vCPU + 8 GB) — Next.js build is CPU-bound. The default
+  # Cloud Build machine (1 vCPU) makes `next build` several times slower.
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: 200
