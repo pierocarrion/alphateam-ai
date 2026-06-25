@@ -158,6 +158,18 @@ export function DesktopSidebar({
           />
           Miembros
         </SideRow>
+        <SideRow href="/tasks" active={pathname === "/tasks"}>
+          <Icon
+            name="target"
+            size={16}
+            color={
+              pathname === "/tasks"
+                ? "var(--color-accent)"
+                : "var(--color-ink-3)"
+            }
+          />
+          Tareas
+        </SideRow>
         {members.length === 0 && (
           <p className="px-2.5 pb-1 text-xs text-ink-3">
             Nadie más por aquí.

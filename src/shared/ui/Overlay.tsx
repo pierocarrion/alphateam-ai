@@ -10,7 +10,7 @@ export function Overlay({ children, className }: OverlayProps) {
     <div
       className={className}
       style={{
-        position: "fixed",
+        position: "absolute",
         inset: 0,
         zIndex: 40,
         display: "flex",

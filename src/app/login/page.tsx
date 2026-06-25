@@ -8,7 +8,7 @@ import { useLocale } from "@/i18n/useLocale";
 import { t } from "@/i18n/messages";
 
 export default function LoginPage() {
-  const [locale] = useLocale();
+  const [locale, setLocale] = useLocale();
   return (
     <div className="flex min-h-screen flex-1 flex-col items-center justify-center px-8 py-12 text-center">
       <div className="absolute left-6 top-6 flex items-center gap-3">
@@ -20,7 +20,7 @@ export default function LoginPage() {
         </Link>
       </div>
       <div className="absolute right-6 top-6">
-        <LanguageToggle />
+        <LanguageToggle locale={locale} onChange={setLocale} />
       </div>
       <div className="relative mb-8">
         <Mira size={110} mood="happy" ring />
