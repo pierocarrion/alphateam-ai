@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
-import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
+import { resolveAppSessionByEmail } from "@/server/lib/activeWorkspace";
 import { MobileNav } from "@/features/auth/presentation/components/MobileNav";
 import {
   DesktopSidebar,
@@ -21,18 +21,23 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: {
-      profile: true,
-    },
-  });
+  const appSession = await resolveAppSessionByEmail(session.user.email);
 
-  if (!user?.profile?.onboarded) {
+  if (!appSession) {
+    redirect("/login");
+  }
+
+  // Un super-admin siempre pertenece al panel de administración, no al flujo
+  // normal de la app.
+  if (appSession.globalRole === "superadmin") {
+    redirect("/admin");
+  }
+
+  if (!appSession.onboarded) {
     redirect("/onboarding");
   }
 
-  const { active, memberships } = await getActiveWorkspace(user.id);
+  const { active, memberships } = appSession;
 
   // No project yet -> route the user to setup (create or join based on role).
   if (!active) {
@@ -41,6 +46,7 @@ export default async function AppLayout({
 
   const workspaceId = active.workspaceId;
   const userRole = active.role;
+  const userId = appSession.userId;
 
   const [workspaceChannels, workspaceMembers, dmChannels, pending] =
     await Promise.all([
@@ -52,7 +58,7 @@ export default async function AppLayout({
       prisma.membership.findMany({
         where: {
           workspaceId,
-          userId: { not: user.id },
+          userId: { not: userId },
         },
         include: { user: { select: { id: true, name: true } } },
       }),
@@ -60,7 +66,7 @@ export default async function AppLayout({
         where: {
           workspaceId,
           type: "dm",
-          participants: { some: { userId: user.id } },
+          participants: { some: { userId } },
         },
         include: {
           participants: { select: { userId: true } },
@@ -80,7 +86,7 @@ export default async function AppLayout({
   }));
   const dmByPeer: Record<string, string> = {};
   for (const c of dmChannels) {
-    const peerId = c.participants.find((p) => p.userId !== user.id)?.userId;
+    const peerId = c.participants.find((p) => p.userId !== userId)?.userId;
     if (peerId) dmByPeer[peerId] = c.id;
   }
 
@@ -105,8 +111,8 @@ export default async function AppLayout({
         members={members}
         dmByPeer={dmByPeer}
         workspaces={workspaces}
-        currentUserId={user.id}
-        userName={user.name ?? "you"}
+        currentUserId={userId}
+        userName={appSession.userName}
         userRole={userRole}
         showBackstage={showBackstage}
         pendingRequests={pending}
@@ -114,7 +120,7 @@ export default async function AppLayout({
 
       {/* Main area + mobile nav */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 overflow-hidden">{children}</main>
+        <main className="relative flex-1 overflow-hidden">{children}</main>
         <div className="lg:hidden">
           <MobileNav />
         </div>

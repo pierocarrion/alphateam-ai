@@ -4,9 +4,10 @@ import Link from "next/link";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/shared/lib/cn";
 import { Icon, type IconName } from "./Icon";
+import { Spinner } from "./Spinner";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-button font-display font-medium tracking-tight transition-all active:scale-[0.965] disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-button font-display font-medium tracking-tight transition-all active:scale-[0.965] disabled:pointer-events-none disabled:opacity-50 aria-busy:opacity-80",
   {
     variants: {
       variant: {
@@ -39,6 +40,8 @@ export interface ButtonProps
   icon?: IconName;
   iconSize?: number;
   href?: string;
+  /** Muestra un spinner y bloquea la interacción mientras la acción viaja. */
+  loading?: boolean;
 }
 
 export function Button({
@@ -49,27 +52,35 @@ export function Button({
   icon,
   iconSize = 20,
   href,
+  loading = false,
   children,
+  disabled,
   ...props
 }: ButtonProps) {
   const classes = cn(buttonVariants({ variant, size, full, className }));
   const content = (
     <>
+      {loading && <Spinner size={iconSize - 2} />}
       {children}
-      {icon && <Icon name={icon} size={iconSize} color="currentColor" />}
+      {!loading && icon && <Icon name={icon} size={iconSize} color="currentColor" />}
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} aria-busy={loading || undefined}>
         {content}
       </Link>
     );
   }
 
   return (
-    <button className={classes} {...props}>
+    <button
+      className={classes}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
       {content}
     </button>
   );

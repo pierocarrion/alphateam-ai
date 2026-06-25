@@ -79,6 +79,68 @@ export async function getActiveWorkspace(userId: string): Promise<ActiveWorkspac
 }
 
 /**
+ * Resolves everything the (app) layout needs in a single Prisma round-trip:
+ * user identity + role flags + onboarding state + active workspace + all
+ * memberships. Used to avoid the previous two sequential findUnique calls.
+ */
+export interface AppSession {
+  userId: string;
+  userName: string;
+  globalRole: string | null;
+  onboarded: boolean;
+  active: ActiveWorkspace | null;
+  memberships: ActiveWorkspaceResult["memberships"];
+}
+
+export async function resolveAppSessionByEmail(
+  email: string
+): Promise<AppSession | null> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      profile: { select: { lastActiveWorkspaceId: true, onboarded: true } },
+      memberships: {
+        orderBy: { joinedAt: "asc" },
+        include: {
+          workspace: {
+            select: { id: true, name: true, emoji: true, hashtag: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) return null;
+
+  const lastId = user.profile?.lastActiveWorkspaceId ?? null;
+  const matched = lastId
+    ? user.memberships.find((m) => m.workspaceId === lastId)
+    : undefined;
+  const chosen = matched ?? user.memberships[0] ?? null;
+
+  return {
+    userId: user.id,
+    userName: user.name ?? "you",
+    globalRole: user.globalRole ?? null,
+    onboarded: user.profile?.onboarded ?? false,
+    active: chosen
+      ? {
+          workspaceId: chosen.workspaceId,
+          workspaceName: chosen.workspace.name,
+          workspaceEmoji: chosen.workspace.emoji,
+          workspaceHashtag: chosen.workspace.hashtag,
+          role: chosen.role ?? "member",
+        }
+      : null,
+    memberships: user.memberships.map((m) => ({
+      workspaceId: m.workspaceId,
+      role: m.role,
+      workspace: m.workspace,
+    })),
+  };
+}
+
+/**
  * Persists the user's active workspace choice. Silently ignores a missing
  * or non-member workspace so the client can switch optimistically.
  */

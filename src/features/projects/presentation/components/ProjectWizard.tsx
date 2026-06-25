@@ -597,7 +597,7 @@ export function ProjectWizard() {
                 Continuar
               </Button>
             ) : (
-              <Button full size="lg" disabled={saving} onClick={submit}>
+              <Button full size="lg" loading={saving} disabled={saving} onClick={submit}>
                 {saving ? "Creando…" : "Crear proyecto"}
               </Button>
             )}

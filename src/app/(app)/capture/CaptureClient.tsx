@@ -79,6 +79,7 @@ export function CaptureClient() {
             full
             size="lg"
             icon="arrow"
+            loading={busy}
             disabled={!text.trim() || busy}
             onClick={handleShrink}
           >

@@ -25,8 +25,11 @@ export function RitualClient({ task, warm }: RitualClientProps) {
   const [feelingId, setFeelingId] = useState<string | null>(null);
   const [ritualId, setRitualId] = useState<string | null>(null);
   const [recoveredMinutes, setRecoveredMinutes] = useState<number | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const handleStartFocus = async (selectedFeelingId: string) => {
+    if (starting) return;
+    setStarting(true);
     try {
       const data = await fetchJson<{ ritual: { id: string } }>("/api/rituals", {
         method: "POST",
@@ -41,6 +44,8 @@ export function RitualClient({ task, warm }: RitualClientProps) {
       setStep("focus");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "We couldn't start the ritual. Please try again.");
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -75,6 +80,7 @@ export function RitualClient({ task, warm }: RitualClientProps) {
           setFeelingId={setFeelingId}
           onClose={() => router.push("/home")}
           onStartFocus={handleStartFocus}
+          starting={starting}
         />
       )}
       {step === "focus" && (
@@ -103,6 +109,7 @@ function UnlockStep({
   setFeelingId,
   onClose,
   onStartFocus,
+  starting,
 }: {
   task: RitualClientProps["task"];
   warm: boolean;
@@ -110,6 +117,7 @@ function UnlockStep({
   setFeelingId: (id: string) => void;
   onClose: () => void;
   onStartFocus: (id: string) => void;
+  starting: boolean;
 }) {
   const [step, setStep] = useState(0);
   const selected = FEELINGS.find((f) => f.id === feelingId);
@@ -253,9 +261,10 @@ function UnlockStep({
               <Button
                 full
                 icon="play"
+                loading={starting}
                 onClick={() => feelingId && onStartFocus(feelingId)}
               >
-                Open it with me
+                {starting ? "Starting…" : "Open it with me"}
               </Button>
               <p className="mt-3 text-center text-xs text-ink-3">
                 {warm

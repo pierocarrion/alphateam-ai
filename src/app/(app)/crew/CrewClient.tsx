@@ -94,6 +94,7 @@ export function CrewClient({ warm, mood, loadGuardian, milestone, pair }: CrewCl
               <div className="mt-3.5 flex gap-2">
                 <Button
                   className="flex-1 text-[14.5px] py-3"
+                  loading={sending && !shared}
                   disabled={sending || shared}
                   onClick={async () => {
                     if (!loadGuardian) return;
@@ -169,6 +170,7 @@ export function CrewClient({ warm, mood, loadGuardian, milestone, pair }: CrewCl
             <Button
               className="mt-3.5 w-full text-[14.5px] py-3"
               variant={paired ? "primary" : "ghost"}
+              loading={sending && !paired}
               disabled={sending || paired || !pair.userId}
               onClick={async () => {
                 if (paired || !pair.userId) return;

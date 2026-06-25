@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button, Icon, Mira, Overlay, TopBar, Avatar } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
@@ -22,13 +23,17 @@ interface TaskConfirmClientProps {
 
 export function TaskConfirmClient({ task, warm }: TaskConfirmClientProps) {
   const router = useRouter();
+  const [discarding, setDiscarding] = useState(false);
 
   const handleDiscard = async () => {
+    if (discarding) return;
+    setDiscarding(true);
     try {
       await fetchJson(`/api/tasks/${task.id}`, { method: "DELETE" });
       router.push("/chat");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "We couldn't remove that task. Please try again.");
+      setDiscarding(false);
     }
   };
 
@@ -147,9 +152,10 @@ export function TaskConfirmClient({ task, warm }: TaskConfirmClientProps) {
               variant="quiet"
               full
               className="text-[15.5px]"
+              loading={discarding}
               onClick={handleDiscard}
             >
-              Not mine
+              {discarding ? "Removing…" : "Not mine"}
             </Button>
           </div>
         </div>
