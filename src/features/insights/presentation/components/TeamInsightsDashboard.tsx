@@ -82,6 +82,12 @@ export function TeamInsightsDashboard() {
           <PanelSkeleton lines={3} />
         </div>
       ) : overview ? (
+        overview.headcount === 0 ? (
+          <EmptyState
+            icon={<span className="text-2xl">👥</span>}
+            message="Tu workspace todavía no tiene miembros. Invita a tu equipo para que Team Insights empiece a calcular carga, seguridad psicológica, riesgo y crecimiento. Cuando existan tareas, encuestas o actividad de aprendizaje, los paneles se llenarán automáticamente."
+          />
+        ) : (
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <WorkloadPanel overview={overview} />
@@ -103,6 +109,7 @@ export function TeamInsightsDashboard() {
 
           <ColleagueList members={overview.members} />
         </>
+        )
       ) : null}
     </div>
   );

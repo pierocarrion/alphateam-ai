@@ -242,10 +242,21 @@ export function FeedbackIntelligenceClient({
             <span className="text-[12px] text-ink-3">{campaigns.length} total</span>
           </div>
           {campaigns.length === 0 ? (
-            <div className="rounded-card border border-dashed border-line-2 bg-surface p-8 text-center">
-              <p className="text-[14px] text-ink-2">
-                Aún no hay campañas. Crea un pulso semanal para empezar a recibir feedback anónimo.
-              </p>
+            <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line-2 bg-surface p-8 text-center">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-bg-2">
+                <Icon name="pulse" size={20} color="var(--color-ink-3)" />
+              </div>
+              <div className="max-w-sm">
+                <p className="text-[14.5px] font-bold text-ink">Aún no hay campañas</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
+                  Crea un pulso anónimo para empezar a recibir feedback. Las
+                  métricas y el análisis de IA aparecen aquí cuando lleguen las
+                  primeras respuestas.
+                </p>
+              </div>
+              <Button size="sm" icon="plus" onClick={() => setShowNew(true)}>
+                Crear tu primera campaña
+              </Button>
             </div>
           ) : (
             <div className="grid gap-3">
