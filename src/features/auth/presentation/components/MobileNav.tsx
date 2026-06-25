@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { Icon, type IconName } from "@/shared/ui";
 
 const items: { icon: IconName; label: string; href: string }[] = [
@@ -41,6 +42,16 @@ export function MobileNav() {
           </Link>
         );
       })}
+      <button
+        type="button"
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-bold text-ink-3 transition-colors hover:text-ink"
+        aria-label="Cerrar sesión"
+      >
+        <Icon name="logout" size={23} color="currentColor" stroke={2} />
+        <span>Salir</span>
+        <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-accent opacity-0" />
+      </button>
     </nav>
   );
 }

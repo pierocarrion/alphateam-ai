@@ -144,6 +144,22 @@ export function WorkspaceSwitcher({
                 </button>
               );
             })}
+            <div className="my-1 h-px bg-line" />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                router.push("/projects/new");
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left text-ink-2 transition-colors hover:bg-white/[0.04]"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <Icon name="plus" size={14} color="var(--color-accent)" />
+              </span>
+              <span className="text-[13.5px] font-semibold">
+                Crear nuevo proyecto
+              </span>
+            </button>
           </div>
         </>
       )}

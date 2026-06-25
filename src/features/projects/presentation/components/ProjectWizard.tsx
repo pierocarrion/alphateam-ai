@@ -52,7 +52,12 @@ export interface KnowledgeDoc {
   sourceUrl: string;
 }
 
-export function ProjectWizard() {
+export interface ProjectWizardProps {
+  /** If provided, runs after the project is created successfully. */
+  onAfterCreate?: (workspaceId: string) => void | Promise<void>;
+}
+
+export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
@@ -131,7 +136,7 @@ export function ProjectWizard() {
           sourceUrl: d.sourceUrl.trim() || undefined,
         }));
 
-      await fetchJson("/api/projects", {
+      const created = await fetchJson<{ project: { id: string } }>("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -151,8 +156,13 @@ export function ProjectWizard() {
         }),
       });
       toast.success("¡Proyecto creado!");
-      router.push("/home");
-      router.refresh();
+
+      if (onAfterCreate) {
+        await onAfterCreate(created.project.id);
+      } else {
+        router.push("/home");
+        router.refresh();
+      }
     } catch (err) {
       const message =
         err instanceof ApiError || err instanceof Error

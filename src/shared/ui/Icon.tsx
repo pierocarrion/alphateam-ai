@@ -35,7 +35,8 @@ export type IconName =
   | "trend"
   | "grid"
   | "pulse"
-  | "search";
+  | "search"
+  | "logout";
 
 interface IconProps {
   name: IconName;
@@ -149,6 +150,12 @@ export function Icon({
       <>
         <circle cx="11" cy="11" r="7" {...p} />
         <path d="M21 21l-4.5-4.5" {...p} />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" {...p} />
+        <path d="M10 17l-5-5 5-5M5 12h11" {...p} />
       </>
     ),
   };
