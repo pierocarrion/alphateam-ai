@@ -30,17 +30,24 @@
         exit $$MIGRATE_STATUS
     secretEnv: ["DATABASE_URL"]
 
-  # Build and push the container image to Google Artifact Registry.
-  # Uses BuildKit registry caching so the `npm ci` + `prisma generate` layers
-  # are reused across builds when package-lock.json hasn't changed. Only the
-  # source layer is rebuilt on a typical deploy. This is what makes deploys fast.
+  # Pull the previously pushed image so docker can reuse its layers as cache
+  # (the legacy docker builder in Cloud Build does not support BuildKit
+  # --cache-from/--cache-to registry syntax). Allowed to fail on first deploy
+  # when no image exists yet.
   - name: "gcr.io/cloud-builders/docker"
-    env:
-      - DOCKER_BUILDKIT=1
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        docker pull "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest" || true
+
+  # Build the container image, reusing layers from the pulled image. The
+  # `npm ci` + `prisma generate` layers are reused whenever package-lock.json
+  # is unchanged, so only source-level changes re-trigger `next build`.
+  - name: "gcr.io/cloud-builders/docker"
     args:
       - build
-      - "--cache-from=type=registry,ref=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:buildcache"
-      - "--cache-to=type=registry,ref=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:buildcache,mode=max"
+      - "--cache-from=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest"
       - "-t"
       - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${_VERSION}"
       - "-t"
