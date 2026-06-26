@@ -765,6 +765,74 @@ interface MethodologyHintState {
   error: string | null;
 }
 
+function MethodologyLoadingBlock({
+  locale,
+}: {
+  locale: import("@/i18n/messages").Locale;
+}) {
+  const steps = [
+    "wizard.method.loading.step1",
+    "wizard.method.loading.step2",
+    "wizard.method.loading.step3",
+  ] as const;
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setStepIndex((i) => (i + 1) % steps.length);
+    }, 1800);
+    return () => window.clearInterval(id);
+  }, [steps.length]);
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-2xl border border-line-2 bg-surface-2">
+      <div className="relative p-4">
+        <div className="flex items-start gap-3">
+          <div className="relative shrink-0">
+            <Alpha size={36} mood="thinking" ring />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-ink-1">
+                {t(locale, "wizard.method.loading")}
+              </span>
+              <span className="flex items-center gap-1">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="block h-1 w-1 rounded-full bg-accent"
+                    style={{
+                      animation: "typing-dot 1.2s ease-in-out infinite",
+                      animationDelay: `${i * 0.18}s`,
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-ink-3">
+              {t(locale, "wizard.method.loading.subtitle")}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3.5 flex items-center gap-2 pl-1">
+          <span
+            className="inline-block h-3 w-3 rounded-full border-[1.5px] border-accent border-t-transparent"
+            style={{ animation: "ui-spin 0.7s linear infinite" }}
+          />
+          <span
+            key={stepIndex}
+            className="text-[12px] text-ink-2"
+            style={{ animation: "fade var(--t) var(--ease-out) both" }}
+          >
+            {t(locale, steps[stepIndex])}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MethodologySuggestionCard({
   hint,
   locale,
@@ -800,12 +868,7 @@ function MethodologySuggestionCard({
         </label>
       </div>
 
-      {hint.loading && (
-        <div className="mt-2 flex items-center gap-2 rounded-2xl border border-line-2 bg-surface-2 px-4 py-3">
-          <span className="text-sm">✨</span>
-          <span className="text-[13px] text-ink-3">{t(locale, "wizard.method.loading")}</span>
-        </div>
-      )}
+      {hint.loading && <MethodologyLoadingBlock locale={locale} />}
 
       {!hint.loading && hint.data && (
         <div className="mt-2 rounded-2xl border border-line-2 bg-surface-2 p-4">
