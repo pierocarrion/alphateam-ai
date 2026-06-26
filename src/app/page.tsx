@@ -167,7 +167,7 @@ export default function LandingPage() {
             />
             <PricingCard
               name="Team"
-              price="$15"
+              price="$20"
               period="per user / month"
               features={[
                 "Unlimited users",

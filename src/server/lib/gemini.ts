@@ -229,28 +229,42 @@ export interface MiraChatContext {
   mood?: string;
   message: string;
   knowledge?: Array<{ title: string; content: string }>;
+  projectContext?: {
+    name?: string;
+    description?: string;
+    industry?: string;
+    category?: string;
+  } | null;
 }
 
 export async function generateMiraResponse(context: MiraChatContext): Promise<GeminiResponse<string>> {
   const knowledgeBlock =
     context.knowledge && context.knowledge.length > 0
-      ? `\n\nProject knowledge base — ground your answer on this when relevant:\n${context.knowledge
+      ? `\n\nProject knowledge base — this is everything you actually know about this project. Ground your answer ONLY on it when the question is about the project:\n${context.knowledge
           .map((k) => `### ${k.title}\n${k.content}`)
           .join("\n\n")}\n`
-      : "";
+      : "\n\nProject knowledge base: (empty — nothing documented yet)\n";
 
-  const prompt = `You are Mira, a warm, encouraging productivity companion embedded in a team's project chat. You were @mentioned, so reply directly.${knowledgeBlock}
+  const projectBlock = context.projectContext
+    ? `\nProject context:\n- Name: ${context.projectContext.name ?? "(unknown)"}\n- Description: ${context.projectContext.description ?? "(none)"}\n- Industry: ${context.projectContext.industry ?? "(unspecified)"}\n- Category: ${context.projectContext.category ?? "(unspecified)"}\n`
+    : "";
+
+  const prompt = `You are Mira, a warm, concise, honest productivity companion embedded in a team's project chat. You were @mentioned, so reply directly to the user.${projectBlock}${knowledgeBlock}
 
 User: ${context.userName ?? "there"}
 Mood: ${context.mood ?? "unspecified"}
 Recent tasks: ${context.recentTasks?.join(", ") ?? "none"}
 
-LANGUAGE RULE (highest priority): Detect the language of the user's message and ALWAYS reply in that exact same language. If the user writes in Spanish, reply in Spanish. If in English, reply in English. Match the user's language precisely — never default to English.
-Be friendly and concise (max 3 sentences). If the project knowledge base answers the question, base your answer on it. If it doesn't, answer briefly from general knowledge and note that it isn't captured in the project knowledge yet. When it fits, end with one small, kind next step.
+RULES (follow in order):
+1. LANGUAGE: Detect the language of the user's message and ALWAYS reply in that exact same language (Spanish → Spanish, English → English). Never default to English.
+2. ANSWER THE QUESTION DIRECTLY. Read what the user asked and respond to THAT. Do not reply with a generic greeting, congratulations, or filler ("¡Hola!", "Qué buena", "Great question") when the user asked a specific question. A tiny warm opener is fine, but the substance must address the question.
+3. BE HONEST ABOUT THE PROJECT. If the question is about a project decision, choice, or fact (e.g. tech stack, deadlines, who does what) and the answer is NOT in the project knowledge base or project context above, DO NOT invent or guess. Say clearly that it is not documented yet in the knowledge base, and suggest the team capture it (or ask the project leader). It is far better to say "Todavía no tengo eso documentado" than to make something up.
+4. Use the knowledge base as the source of truth when it covers the topic; otherwise rely on general knowledge ONLY for generic/non-project questions.
+5. Be friendly and concise (max 3 sentences). When it fits, end with one small, kind next step.
 
 User message: """${context.message}"""`;
 
-  return generateContent(prompt, { maxTokens: 220, temperature: 0.4 });
+  return generateContent(prompt, { maxTokens: 260, temperature: 0.4 });
 }
 
 export interface ExtractedAnswer {

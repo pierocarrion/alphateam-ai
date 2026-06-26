@@ -394,7 +394,8 @@ export const MESSAGES: Record<Locale, Record<string, string>> = {
     "wizard.method.confHigh": "Alta coincidencia",
     "wizard.method.confMid": "Buena coincidencia",
     "wizard.method.confLow": "Coincidencia posible",
-    "wizard.method.note": "Es solo una sugerencia. Podrás elegir y ajustar tu metodología en Configuración del proyecto.",
+    "wizard.method.note": "Es solo una sugerencia basada en lo que escribiste.",
+    "wizard.method.recommended": "RECOMENDADA",
 
     "knowledge.kicker": "Coordinación",
     "knowledge.title": "Knowledge Hub",
@@ -1069,7 +1070,8 @@ export const MESSAGES: Record<Locale, Record<string, string>> = {
     "wizard.method.confHigh": "High match",
     "wizard.method.confMid": "Good match",
     "wizard.method.confLow": "Possible match",
-    "wizard.method.note": "It's only a suggestion. You can choose and adjust your methodology in Project settings.",
+    "wizard.method.note": "It's only a suggestion based on what you wrote.",
+    "wizard.method.recommended": "RECOMMENDED",
 
     "knowledge.kicker": "Coordination",
     "knowledge.title": "Knowledge Hub",

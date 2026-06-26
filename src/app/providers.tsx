@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ApiError } from "@/shared/lib/api";
 import { createLogger } from "@/shared/lib/logger";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
 
 const log = createLogger("query");
 
@@ -40,7 +41,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <LocaleProvider>{children}</LocaleProvider>
+      </QueryClientProvider>
     </SessionProvider>
   );
 }

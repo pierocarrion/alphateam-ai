@@ -40,10 +40,31 @@ export async function generateMiraChannelReply(args: {
     log.error("listKnowledge (reply) failed", err);
   }
 
+  let projectContext: {
+    name?: string;
+    description?: string;
+    industry?: string;
+    category?: string;
+  } | null = null;
+  try {
+    const project = await container.projectRepository.findById(args.workspaceId);
+    if (project) {
+      projectContext = {
+        name: project.name,
+        description: project.description ?? undefined,
+        industry: project.industry ?? undefined,
+        category: project.category ?? undefined,
+      };
+    }
+  } catch (err) {
+    log.error("findById (reply) failed", err);
+  }
+
   const result = await generateMiraResponse({
     userName: args.senderName ?? undefined,
     message: args.messageText,
     knowledge,
+    projectContext,
   });
 
   if (!result.ok || !result.data) return null;

@@ -4,17 +4,15 @@ import { useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { useProjectSettings } from "@/features/project-settings/presentation/hooks";
 import { SmartGoalEditor } from "@/features/project-settings/presentation/components/SmartGoalEditor";
-import { MethodologyPicker } from "@/features/project-settings/presentation/components/MethodologyPicker";
 import { TeamManager } from "@/features/project-settings/presentation/components/TeamManager";
 import { KpiChips } from "@/features/project-settings/presentation/components/KpiChips";
 import { AiInsightsPanel } from "@/features/project-settings/presentation/components/AiInsightsPanel";
 import { Spinner } from "@/features/project-settings/presentation/components/primitives";
 
-type Tab = "smart" | "methodology" | "team" | "kpis" | "ai";
+type Tab = "smart" | "team" | "kpis" | "ai";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "smart", label: "Objetivo SMART", icon: "🎯" },
-  { id: "methodology", label: "Metodología", icon: "🔁" },
   { id: "team", label: "Equipo", icon: "👥" },
   { id: "kpis", label: "KPIs", icon: "📊" },
   { id: "ai", label: "IA", icon: "✨" },
@@ -80,12 +78,6 @@ export function ProjectSettingsModule({
                 key={settings.data.smartGoal?.updatedAt ?? "new"}
                 workspaceId={workspaceId}
                 smartGoal={settings.data.smartGoal}
-              />
-            )}
-            {tab === "methodology" && (
-              <MethodologyPicker
-                workspaceId={workspaceId}
-                methodologies={settings.data.methodologies}
               />
             )}
             {tab === "team" && (

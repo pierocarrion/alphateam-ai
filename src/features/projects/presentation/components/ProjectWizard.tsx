@@ -132,7 +132,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
   useEffect(() => {
     if (step !== 1) return;
     const desc = description.trim();
-    if (desc.length < 12 || !industry || !category) {
+    if (desc.length < 12) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setMethodologyHint({ loading: false, data: null, error: null });
       return;
@@ -150,8 +150,8 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               description: desc,
-              industry: indLabel ? t(locale, indLabel) : industry,
-              category: catLabel ? t(locale, catLabel) : category,
+              industry: indLabel ? t(locale, indLabel) : industry ?? undefined,
+              category: catLabel ? t(locale, catLabel) : category ?? undefined,
             }),
           }
         );
@@ -727,22 +727,29 @@ function MethodologySuggestionCard({
   hint: MethodologyHintState;
   locale: import("@/i18n/messages").Locale;
 }) {
+  const OPTIONS = METHODOLOGIES.filter(
+    (m) => m.key === "scrum" || m.key === "design_thinking"
+  );
+
   if (hint.loading) {
     return (
-      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-line-2 bg-surface-2 px-4 py-3">
-        <span className="text-base">✨</span>
-        <span className="text-sm text-ink-3">
+      <div className="mt-5 rounded-2xl border border-line-2 bg-surface-2 p-5">
+        <div className="flex items-center gap-2">
+          <span className="text-base">✨</span>
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
+            {t(locale, "wizard.method.suggests")}
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-ink-3">
           {t(locale, "wizard.method.loading")}
-        </span>
+        </p>
       </div>
     );
   }
 
   if (hint.error || !hint.data) return null;
 
-  const meta = METHODOLOGIES.find((m) => m.key === hint.data!.key);
-  if (!meta) return null;
-
+  const suggestedKey = hint.data.key;
   const confidenceLabel =
     hint.data.confidence >= 75
       ? t(locale, "wizard.method.confHigh")
@@ -751,25 +758,61 @@ function MethodologySuggestionCard({
         : t(locale, "wizard.method.confLow");
 
   return (
-    <div className="mt-5 rounded-2xl border border-accent/40 bg-accent-soft/50 px-4 py-3.5">
+    <div className="mt-5">
       <div className="flex items-center gap-2">
         <span className="text-base">✨</span>
         <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
           {t(locale, "wizard.method.suggests")}
         </span>
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-lg">{meta.emoji}</span>
-        <span className="font-display text-[15px] text-ink">{meta.name}</span>
         <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-ink">
           {confidenceLabel}
         </span>
       </div>
+
       {hint.data.rationale && (
         <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
           {hint.data.rationale}
         </p>
       )}
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {OPTIONS.map((m) => {
+          const isPrimary = m.key === suggestedKey;
+          return (
+            <div
+              key={m.key}
+              className={`flex flex-col gap-2 rounded-2xl border p-4 transition-all ${
+                isPrimary
+                  ? "border-accent bg-accent-soft"
+                  : "border-line bg-surface-2"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xl">{m.emoji}</span>
+                {isPrimary ? (
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-ink">
+                    {t(locale, "wizard.method.recommended")}
+                  </span>
+                ) : null}
+              </div>
+              <span className="font-display text-base text-ink">{m.name}</span>
+              <span className="text-[12.5px] text-ink-2">{m.description}</span>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {m.benefits.slice(0, 2).map((b) => (
+                  <span
+                    key={b}
+                    className="rounded-full border border-line px-2 py-0.5 text-[10.5px] text-ink-3"
+                  >
+                    {b}
+                  </span>
+                ))}
+              </div>
+              <p className="pt-1 text-[11.5px] text-glow">✨ {m.aiHint}</p>
+            </div>
+          );
+        })}
+      </div>
+
       <p className="mt-2 text-[11.5px] text-ink-3">
         {t(locale, "wizard.method.note")}
       </p>
