@@ -120,7 +120,7 @@ export default async function AppLayout({
 
       {/* Main area + mobile nav */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="relative flex-1 overflow-hidden">{children}</main>
+        <main key={workspaceId} className="relative flex-1 overflow-hidden">{children}</main>
         <div className="lg:hidden">
           <MobileNav />
         </div>

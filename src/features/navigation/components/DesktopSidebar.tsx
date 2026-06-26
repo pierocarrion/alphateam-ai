@@ -112,7 +112,7 @@ export function DesktopSidebar({
       const data = await fetchJson<{ channel: { id: string } }>("/api/dms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partnerId: member.id }),
+        body: JSON.stringify({ partnerId: member.id, workspaceId }),
       });
       if (data.channel?.id) {
         router.push(`/chat/${data.channel.id}`);

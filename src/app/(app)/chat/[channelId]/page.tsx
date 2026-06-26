@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
 import { computeLoadBalance, computeWorkspaceMood } from "@/server/lib/metrics";
+import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { personIdFromName } from "@/shared/lib/person";
 import { ChatClient } from "../ChatClient";
 
@@ -38,6 +39,14 @@ export default async function ChatChannelPage({
     : channel.workspace.memberships.some((m) => m.userId === user.id);
 
   if (!isMember) redirect("/home");
+
+  // Make sure the channel belongs to the user's *active* workspace; if the
+  // user just switched projects the URL may still reference a channel from
+  // the previous project, so send them to the new project's chat index.
+  const active = await getActiveWorkspace(user.id);
+  if (active.active && channel.workspaceId !== active.active.workspaceId) {
+    redirect("/chat");
+  }
 
   const peer = isDm
     ? channel.participants.find((p) => p.userId !== user.id)?.user ?? null

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/shared/lib/cn";
 import { Icon } from "@/shared/ui";
@@ -32,6 +33,7 @@ export function WorkspaceSwitcher({
   activeHashtag,
 }: WorkspaceSwitcherProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [locale] = useLocale();
   const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const [open, setOpen] = useState(false);
@@ -49,7 +51,21 @@ export function WorkspaceSwitcher({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId: id }),
       });
+      // Drop any cached data tied to the previous workspace so the new
+      // project never shows stale chats/tasks/metrics. Workspace-scoped
+      // queries include workspaceId in their key, but several legacy keys
+      // (channel, tasks, notifications, channel-insights, ...) do not, so
+      // we clear them explicitly.
+      queryClient.removeQueries({ queryKey: ["channel"] });
+      queryClient.removeQueries({ queryKey: ["channel-insights"] });
+      queryClient.removeQueries({ queryKey: ["tasks"] });
+      queryClient.removeQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries();
       setOpen(false);
+      // Force navigation away from any workspace-scoped route (e.g.
+      // /chat/[channelId]) so we never render content from the previous
+      // project while the layout refreshes.
+      router.replace("/home");
       router.refresh();
     } catch (err) {
       toast.error(
