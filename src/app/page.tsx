@@ -1,35 +1,40 @@
-﻿import Link from "next/link";
+﻿import type { Metadata } from "next";
+import Link from "next/link";
 import { Mira } from "@/shared/ui";
 import { WaitlistForm } from "@/features/marketing/components/WaitlistForm";
+import {
+  landingStructuredData,
+  pricing,
+} from "@/features/marketing/seo/structured-data";
+import { absoluteUrl, siteDescription, siteName } from "@/shared/lib/site";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "AlphaLead AI — Stop team procrastination before it spreads",
-  description:
-    "AlphaLead AI is an AI teammate that detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.",
+  description: siteDescription,
+  keywords: [
+    "stop team procrastination",
+    "AI productivity teammate",
+    "team chat task detection",
+    "2-minute task ritual",
+    "burnout prevention for teams",
+    "leader dashboard",
+  ],
   alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: absoluteUrl("/"),
+    siteName,
+    title: "AlphaLead AI — Stop team procrastination before it spreads",
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AlphaLead AI — Stop team procrastination before it spreads",
+    description: siteDescription,
+  },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "AlphaLead AI",
-  applicationCategory: "ProductivityApplication",
-  operatingSystem: "Web",
-  inLanguage: "en",
-  description:
-    "AI teammate that detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.",
-  offers: [
-    { "@type": "Offer", price: "0", priceCurrency: "USD", name: "Free" },
-    {
-      "@type": "Offer",
-      price: "15",
-      priceCurrency: "USD",
-      name: "Team",
-      description: "per user / month",
-    },
-  ],
-  publisher: { "@type": "Organization", name: "AlphaLead AI" },
-};
+const jsonLd = landingStructuredData();
 
 export default function LandingPage() {
   return (
@@ -167,8 +172,8 @@ export default function LandingPage() {
             />
             <PricingCard
               name="Team"
-              price="$20"
-              period="per user / month"
+              price={`$${pricing.team.price}`}
+              period={pricing.team.unitText}
               features={[
                 "Unlimited users",
                 "Crew & pair-start",

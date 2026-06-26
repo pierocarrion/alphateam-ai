@@ -1,7 +1,5 @@
 ﻿import type { MetadataRoute } from "next";
-
-const siteUrl =
-  process.env.NEXTAUTH_URL ?? "https://alphalead.space";
+import { siteUrl } from "@/shared/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
