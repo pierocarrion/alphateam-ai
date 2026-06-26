@@ -25,7 +25,6 @@ function getModel() {
     generativeModel = vertexAI.preview.getGenerativeModel({
       model: modelName,
       generationConfig: {
-        maxOutputTokens: 512,
         temperature: 0.25,
         topP: 0.95,
         topK: 40,
@@ -260,11 +259,12 @@ RULES (follow in order):
 2. ANSWER THE QUESTION DIRECTLY. Read what the user asked and respond to THAT. Do not reply with a generic greeting, congratulations, or filler ("¡Hola!", "Qué buena", "Great question") when the user asked a specific question. A tiny warm opener is fine, but the substance must address the question.
 3. BE HONEST ABOUT THE PROJECT. If the question is about a project decision, choice, or fact (e.g. tech stack, deadlines, who does what) and the answer is NOT in the project knowledge base or project context above, DO NOT invent or guess. Say clearly that it is not documented yet in the knowledge base, and suggest the team capture it (or ask the project leader). It is far better to say "Todavía no tengo eso documentado" than to make something up.
 4. Use the knowledge base as the source of truth when it covers the topic; otherwise rely on general knowledge ONLY for generic/non-project questions.
-5. Be friendly and concise (max 3 sentences). When it fits, end with one small, kind next step.
+5. SUMMARIZE. Compress everything you'd normally say into the tightest possible form. Lead with the direct answer in ONE short sentence (the TL;DR), then add at most 1–2 supporting sentences if they truly add value. No intros, no padding, no repetition. Prefer a 1-line answer whenever possible.
+6. Be friendly but brief. When it fits, end with one small, kind next step — not a long explanation.
 
 User message: """${context.message}"""`;
 
-  return generateContent(prompt, { maxTokens: 260, temperature: 0.4 });
+  return generateContent(prompt, { maxTokens: 4096, temperature: 0.4 });
 }
 
 export interface ExtractedAnswer {
