@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 /**
  * Server-Sent Events endpoint. A connected client receives realtime events
- * scoped to the workspace it belongs to (message_sent, mira_reply, mira_insight,
+ * scoped to the workspace it belongs to (message_sent, alpha_reply, alpha_insight,
  * task_detected, ...). Heartbeats keep the connection alive through proxies.
  *
  * The client subscribes with `EventSource('/api/realtime/<workspaceId>')`.

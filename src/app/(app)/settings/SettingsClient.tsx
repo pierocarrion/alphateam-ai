@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -76,7 +76,7 @@ export function SettingsClient({
 
         <SettingsGroup
           label="Nudges"
-          note="Gentle by design. Mira will never alarm, shame, or show what you missed."
+          note="Gentle by design. Alpha will never alarm, shame, or show what you missed."
         >
           <SettingRowToggle
             title="Gentle check-ins"

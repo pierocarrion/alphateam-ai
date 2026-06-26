@@ -1,4 +1,4 @@
-﻿import { ImageResponse } from "next/og";
+import { ImageResponse } from "next/og";
 
 export const alt = "AlphaLead AI — Stop team procrastination before it spreads";
 export const size = { width: 1200, height: 630 };
@@ -65,7 +65,7 @@ export default function OpengraphImage() {
             lineHeight: 1.4,
           }}
         >
-          Mira detects tasks in team chat and shrinks them into 2-minute
+          Alpha detects tasks in team chat and shrinks them into 2-minute
           starts — without shame.
         </div>
       </div>

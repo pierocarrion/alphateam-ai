@@ -154,7 +154,7 @@ export function KnowledgeBasePanel({ workspaceId }: KnowledgeBasePanelProps) {
             </h1>
           </div>
           <p className="mt-2 max-w-2xl text-[14.5px] leading-relaxed text-ink-2">
-            Aquí vive el contexto que Mira usa para ayudarte a reducir y
+            Aquí vive el contexto que Alpha usa para ayudarte a reducir y
             organizar el trabajo del equipo. Añade briefs, documentos,
             objetivos o cualquier note que dé sentido a las tareas.
           </p>
@@ -190,7 +190,7 @@ export function KnowledgeBasePanel({ workspaceId }: KnowledgeBasePanelProps) {
               onChange={(e) => setForm({ ...form, content: e.target.value })}
               maxLength={8000}
               rows={5}
-              placeholder="Pega aquí el texto, el resumen o las notas que Mira debe conocer."
+              placeholder="Pega aquí el texto, el resumen o las notas que Alpha debe conocer."
               className="mt-2 w-full resize-y rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
             />
           </div>

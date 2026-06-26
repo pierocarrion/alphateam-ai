@@ -10,7 +10,7 @@ function HomeScreen({ tone, onStart, onChat, onCapture, go }) {
       <div className="scroll" style={{ padding: '8px 20px 16px' }}>
         {/* greeting */}
         <div className="rise" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22, marginTop: 6 }}>
-          <Mira size={44} mood="happy" />
+          <Alpha size={44} mood="happy" />
           <div>
             <div className="tiny" style={{ whiteSpace: 'nowrap' }}>Good evening</div>
             <div className="display" style={{ fontSize: 22, color: 'var(--ink)' }}>Maya</div>
@@ -34,7 +34,7 @@ function HomeScreen({ tone, onStart, onChat, onCapture, go }) {
             Open the deck. Type one messy sentence.
           </h1>
           <p className="body text-wrap-pretty" style={{ marginTop: 12 }}>
-            From Daniel’s note in #q3-launch. Mira already shrank it down for you.
+            From Daniel’s note in #q3-launch. Alpha already shrank it down for you.
           </p>
           <div style={{ marginTop: 20 }}>
             <Btn kind="primary" full lg icon="play" onClick={onStart}>Start — 2 minutes</Btn>
@@ -43,7 +43,7 @@ function HomeScreen({ tone, onStart, onChat, onCapture, go }) {
 
         {/* invisible organization reassurance */}
         <div className="rise" style={{ display: 'flex', alignItems: 'center', gap: 11, marginTop: 18, padding: '0 4px' }}>
-          <Mira size={22} mood="calm" />
+          <Alpha size={22} mood="calm" />
           <p className="tiny text-wrap-pretty" style={{ flex: 1 }}>
             {warm
               ? 'I’m holding 2 other things for you. They can wait — no rush, no pile.'
@@ -53,8 +53,8 @@ function HomeScreen({ tone, onStart, onChat, onCapture, go }) {
 
         {/* gentle secondary entries — not tasks, just doors */}
         <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24 }}>
-          <DoorRow icon="plus" tint="var(--accent)" title="Something on your mind?" sub="Say it plainly — Mira shrinks it for you" onClick={onCapture} />
-          <DoorRow icon="chat" tint="var(--glow)" title="Team chat" sub="Mira’s listening for what’s yours" onClick={onChat} />
+          <DoorRow icon="plus" tint="var(--accent)" title="Something on your mind?" sub="Say it plainly — Alpha shrinks it for you" onClick={onCapture} />
+          <DoorRow icon="chat" tint="var(--glow)" title="Team chat" sub="Alpha’s listening for what’s yours" onClick={onChat} />
           <DoorRow icon="moon" tint="#9FB8E0" title="Wind down" sub="A calm close to the day, when you’re ready" onClick={() => go('night')} />
         </div>
       </div>
@@ -93,7 +93,7 @@ function CrewScreen({ tone, onPairStart, go }) {
   return (
     <div className="screen">
       <div className="pad-top" />
-      <TopBar kicker="Together" title="Crew" trailing={<Mira size={28} mood="calm" />} />
+      <TopBar kicker="Together" title="Crew" trailing={<Alpha size={28} mood="calm" />} />
       <div className="scroll" style={{ padding: '6px 18px 16px' }}>
         <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -132,7 +132,7 @@ function CrewScreen({ tone, onPairStart, go }) {
                 </div>
               </div>
               <div style={{ flex: 1 }}>
-                <p className="kicker" style={{ color: 'var(--glow)' }}>Mira noticed — quietly</p>
+                <p className="kicker" style={{ color: 'var(--glow)' }}>Alpha noticed — quietly</p>
                 <div style={{ fontSize: 16, color: 'var(--ink)', fontWeight: 700, marginTop: 5, lineHeight: 1.35 }}>
                   Theo’s been catching most of the launch work.
                 </div>
@@ -185,7 +185,7 @@ function CrewScreen({ tone, onPairStart, go }) {
                   {paired ? 'You’re not doing it alone.' : 'Begin the same 2 minutes side by side.'}
                 </div>
               </div>
-              {paired && <Mira size={26} mood="cheer" />}
+              {paired && <Alpha size={26} mood="cheer" />}
             </div>
             <button
               className={'btn ' + (paired ? 'btn-primary' : 'btn-ghost')}

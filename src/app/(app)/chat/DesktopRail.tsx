@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Avatar, Button, Icon, Mira, Weather } from "@/shared/ui";
+import { Avatar, Button, Icon, Alpha, Weather } from "@/shared/ui";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { fetchJson } from "@/shared/lib/api";
 
@@ -53,9 +53,9 @@ export function DesktopRail({ detected, mood, loadGuardian }: DesktopRailProps) 
     <aside className="flex w-[312px] flex-none flex-col overflow-y-auto border-l border-line bg-bg-2 p-5">
       {/* Header */}
       <div className="mb-4 flex items-center gap-2.5">
-        <Mira size={30} mood="happy" />
+        <Alpha size={30} mood="happy" />
         <div>
-          <div className="text-[14.5px] font-bold text-ink">Mira&apos;s quiet view</div>
+          <div className="text-[14.5px] font-bold text-ink">Alpha&apos;s quiet view</div>
           <div className="text-xs text-ink-3">Only you can see this</div>
         </div>
       </div>

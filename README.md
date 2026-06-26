@@ -1,6 +1,6 @@
-﻿# AlphaLead AI
+# AlphaLead AI
 
-A gentle, anti-guilt productivity companion for individuals and teams. Mira listens to your chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. Previously AlphaLead AI.
+A gentle, anti-guilt productivity companion for individuals and teams. Alpha listens to your chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. Previously AlphaLead AI.
 
 Built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **Prisma**, and **PostgreSQL**.
 
@@ -123,7 +123,7 @@ src/
   app/           # Next.js App Router pages and API routes
   features/      # Domain-driven modules (auth, chat, tasks, rituals)
   server/lib/    # Prisma, Stripe, AI coordinator, health engine
-  shared/ui/     # Reusable UI components (Mira, Button, etc.)
+  shared/ui/     # Reusable UI components (Alpha, Button, etc.)
 prisma/          # Schema, migrations
 scripts/         # Evidence export and utilities
 ```

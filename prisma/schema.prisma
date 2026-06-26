@@ -849,7 +849,7 @@ model KnowledgeCategory {
 }
 
 /// Recurso de la biblioteca corporativa. Evolución enriquecida de KnowledgeBaseItem
-/// (que se mantiene para compatibilidad con el RAG básico de Mira).
+/// (que se mantiene para compatibilidad con el RAG básico de Alpha).
 model KnowledgeResource {
   id            String    @id @default(cuid())
   workspaceId   String
@@ -922,7 +922,7 @@ model KnowledgeResourceVersion {
   @@index([resourceId, version])
 }
 
-/// Recomendaciones proactivas generadas por Mira a partir de actividad.
+/// Recomendaciones proactivas generadas por Alpha a partir de actividad.
 model KnowledgeSuggestion {
   id           String   @id @default(cuid())
   workspaceId  String
@@ -940,9 +940,9 @@ model KnowledgeSuggestion {
   @@index([targetUserId, dismissed])
 }
 
-// ===== Group Chat enriquecido: insights de Mira (Wolf) por canal =====
+// ===== Group Chat enriquecido: insights de Alpha (Wolf) por canal =====
 
-/// Extracción analítica de Mira sobre una conversación: resumen, tareas,
+/// Extracción analítica de Alpha sobre una conversación: resumen, tareas,
 /// riesgos, decisiones, acuerdos, próximos pasos. type + payload (JSON).
 model ChannelInsight {
   id         String   @id @default(cuid())

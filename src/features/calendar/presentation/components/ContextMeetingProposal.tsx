@@ -27,7 +27,7 @@ interface ContextMeetingProposalProps {
 
 /**
  * Surfaces the LLM-driven scheduling: a member who needs project context
- * describes why, and Mira proposes a shared slot pulled from both people's
+ * describes why, and Alpha proposes a shared slot pulled from both people's
  * Google Calendars (busy/free only) and drafts a warm request message.
  */
 export function ContextMeetingProposal({

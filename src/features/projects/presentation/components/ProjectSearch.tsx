@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mira, Button, Card } from "@/shared/ui";
+import { Alpha, Button, Card } from "@/shared/ui";
 import { toast } from "sonner";
 import { fetchJson, ApiError } from "@/shared/lib/api";
 import { normalizeHashtag } from "@/features/projects/domain/hashtag";
@@ -138,7 +138,7 @@ export function ProjectSearch({ initialHasProjects = false }: { initialHasProjec
     <div className="flex flex-1 flex-col">
       <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div className="mb-5 flex items-center gap-3 pt-1">
-          <Mira size={44} mood="thinking" />
+          <Alpha size={44} mood="thinking" />
           <div>
             <div className="text-xs text-ink-3">Encuentra tu proyecto</div>
             <div className="font-display text-[22px] text-ink">
@@ -291,7 +291,7 @@ export function ProjectSearch({ initialHasProjects = false }: { initialHasProjec
                       Crear un proyecto
                     </p>
                     <p className="mt-0.5 text-sm text-ink-2">
-                      Sé el líder de tu propio proyecto. Mira te sugerirá una
+                      Sé el líder de tu propio proyecto. Alpha te sugerirá una
                       metodología (Scrum o Design Thinking).
                     </p>
                   </div>

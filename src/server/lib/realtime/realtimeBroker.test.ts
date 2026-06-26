@@ -66,8 +66,8 @@ describe("InProcessRealtimeBroker", () => {
     setRealtimeBroker(fake);
     const seen: string[] = [];
     fake.subscribe((e) => seen.push(e.type));
-    publishRealtime("mira_insight", { workspaceId: "w9", data: { x: 1 } });
-    expect(seen).toEqual(["mira_insight"]);
+    publishRealtime("alpha_insight", { workspaceId: "w9", data: { x: 1 } });
+    expect(seen).toEqual(["alpha_insight"]);
     // reset to default for other suites
     setRealtimeBroker(new InProcessRealtimeBroker());
     expect(getRealtimeBroker().listenerCount()).toBe(0);

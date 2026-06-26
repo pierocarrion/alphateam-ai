@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mira, Button, Card } from "@/shared/ui";
+import { Alpha, Button, Card } from "@/shared/ui";
 import { toast } from "sonner";
 import { fetchJson, ApiError } from "@/shared/lib/api";
 import {
@@ -268,7 +268,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_60%_at_50%_-10%,#221c2c,var(--color-bg)_60%)]" />
           <div className="flex flex-col items-start gap-5">
             <div className="flex items-center gap-3">
-              <Mira size={72} mood="happy" ring />
+              <Alpha size={72} mood="happy" ring />
               <div className="flex flex-col">
                 <span className="font-display text-2xl tracking-tight text-ink">
                   {t(locale, "wizard.newProject")}
@@ -364,7 +364,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
           <div className="flex-1 overflow-y-auto scrollbar-hide py-2 lg:overflow-visible lg:rounded-[28px] lg:border lg:border-line lg:bg-surface lg:px-10 lg:py-12 lg:shadow-[0_30px_80px_-40px_rgba(0,0,0,0.6)]">
             {step === 0 && (
               <div className="flex flex-col">
-                <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
+                <Alpha size={56} mood="happy" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
                   {t(locale, "wizard.s0.title")}
                 </h1>
@@ -468,7 +468,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
 
             {step === 1 && (
               <div className="flex flex-col">
-                <Mira size={56} mood="calm" className="mb-5 lg:size-[72px]" />
+                <Alpha size={56} mood="calm" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
                   {t(locale, "wizard.s1.title")}
                 </h1>
@@ -540,7 +540,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
 
             {step === 2 && (
               <div className="flex flex-col">
-                <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
+                <Alpha size={56} mood="happy" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
                   {t(locale, "wizard.s2.title")}
                 </h1>
@@ -585,7 +585,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
 
             {step === 3 && (
               <div className="flex flex-col">
-                <Mira size={56} mood="happy" className="mb-5 lg:size-[72px]" />
+                <Alpha size={56} mood="happy" className="mb-5 lg:size-[72px]" />
                 <h1 className="font-display text-[28px] leading-tight text-ink lg:text-[34px]">
                   {t(locale, "wizard.s3.title")}
                 </h1>

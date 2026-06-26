@@ -27,7 +27,7 @@ test.describe("Chat", () => {
     await sendMessage(demoPage, "I need to write the project proposal today");
 
     await expect(demoPage.getByText("I need to write the project proposal today").filter({ visible: true }).first()).toBeVisible({ timeout: 20000 });
-    await expect(demoPage.getByText(/mira heard|looks like a task|start/i).filter({ visible: true }).first()).toBeVisible({ timeout: 10000 });
+    await expect(demoPage.getByText(/alpha heard|looks like a task|start/i).filter({ visible: true }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("sends a casual message without interception", async ({ demoPage }) => {

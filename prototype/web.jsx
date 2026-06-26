@@ -1,5 +1,5 @@
-﻿// web.jsx — Desktop/web surface: sidebar + chat + Mira rail, coordinator Backstage,
-//            and the personal hub (You & Mira, Insights, Day mode, Night, Settings) + Crew.
+// web.jsx — Desktop/web surface: sidebar + chat + Alpha rail, coordinator Backstage,
+//            and the personal hub (You & Alpha, Insights, Day mode, Night, Settings) + Crew.
 const { useState: useStateWeb, useEffect: useEffectWeb, useRef: useRefWeb } = React;
 
 const BACKSTAGE = [
@@ -48,7 +48,7 @@ function WebSidebar({ view, setView }) {
   return (
     <div style={{ width: 244, flex: 'none', background: 'var(--bg-2)', borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '18px 18px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--line)' }}>
-        <Mira size={30} mood="calm" />
+        <Alpha size={30} mood="calm" />
         <div>
           <div className="display" style={{ fontSize: 16, color: 'var(--ink)' }}>AlphaLead</div>
           <div className="tiny" style={{ fontSize: 11 }}>Acme · workspace</div>
@@ -79,7 +79,7 @@ function WebSidebar({ view, setView }) {
         <div style={{ height: 14 }} />
         <SideLabel>Just for you</SideLabel>
         <SideRow active={view === 'me'} onClick={() => setView('me')}>
-          <Icon name="heart" size={16} color={view === 'me' ? 'var(--accent)' : 'var(--ink-3)'} /> You &amp; Mira
+          <Icon name="heart" size={16} color={view === 'me' ? 'var(--accent)' : 'var(--ink-3)'} /> You &amp; Alpha
         </SideRow>
         <SideRow active={view === 'insights'} onClick={() => setView('insights')}>
           <Icon name="spark" size={16} color={view === 'insights' ? 'var(--accent)' : 'var(--ink-3)'} /> Insights
@@ -94,7 +94,7 @@ function WebSidebar({ view, setView }) {
           <Icon name="bell" size={16} color={view === 'settings' ? 'var(--accent)' : 'var(--ink-3)'} /> Settings
         </SideRow>
       </div>
-      <button onClick={() => setView('me')} aria-label="You & Mira" style={{
+      <button onClick={() => setView('me')} aria-label="You & Alpha" style={{
         width: '100%', textAlign: 'left', cursor: 'pointer',
         padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
         background: youActive ? 'var(--accent-soft)' : 'transparent',
@@ -138,9 +138,9 @@ function WebChat({ tone, convo, onShowTask }) {
       <div style={{ flex: 'none', padding: '16px 26px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1 }}>
           <div className="display" style={{ fontSize: 18, color: 'var(--ink)' }}><span style={{ color: 'var(--ink-3)' }}>#</span> q3-launch</div>
-          <div className="tiny">Daniel, Sofía, Theo, Priya, you · Mira is listening quietly</div>
+          <div className="tiny">Daniel, Sofía, Theo, Priya, you · Alpha is listening quietly</div>
         </div>
-        <Mira size={28} mood="calm" />
+        <Alpha size={28} mood="calm" />
       </div>
 
       <div ref={scrollRef} className="scroll" style={{ flex: 1, padding: '20px 26px' }}>
@@ -202,9 +202,9 @@ function WebInterceptCard({ warm, task, onShow, onDismiss }) {
   return (
     <div style={{ background: 'linear-gradient(180deg, var(--surface-2), var(--surface))', border: '1px solid var(--glow)', borderRadius: 16, padding: 16, boxShadow: '0 14px 36px -14px var(--glow-soft)' }}>
       <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-        <Mira size={30} mood="happy" />
+        <Alpha size={30} mood="happy" />
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--glow)', marginBottom: 3 }}>Mira · just for you</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--glow)', marginBottom: 3 }}>Alpha · just for you</div>
           <div style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--ink)' }}>
             {task.selfMade ? 'Sounds like a task hiding in there. Want me to shrink it into a 2‑minute start?' : 'Looks like Daniel handed you something. Want me to turn it into a tiny first step?'}
           </div>
@@ -218,7 +218,7 @@ function WebInterceptCard({ warm, task, onShow, onDismiss }) {
   );
 }
 
-/* ---------------- Right rail: Mira's quiet view ---------------- */
+/* ---------------- Right rail: Alpha's quiet view ---------------- */
 function WebRail({ tone, convo, onShowTask }) {
   const det = convo.detected;
   const yours = [];
@@ -228,9 +228,9 @@ function WebRail({ tone, convo, onShowTask }) {
   return (
     <div style={{ width: 312, flex: 'none', borderLeft: '1px solid var(--line)', background: 'var(--bg-2)', overflowY: 'auto', padding: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <Mira size={30} mood="happy" />
+        <Alpha size={30} mood="happy" />
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)' }}>Mira’s quiet view</div>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)' }}>Alpha’s quiet view</div>
           <div className="tiny">Only you can see this</div>
         </div>
       </div>
@@ -281,7 +281,7 @@ function WebBackstage({ tone }) {
           <h1 className="display" style={{ fontSize: 24, color: 'var(--ink)', margin: 0 }}>Backstage</h1>
         </div>
         <p className="body text-wrap-pretty" style={{ marginTop: 8, maxWidth: 620 }}>
-          Mira graded and filed every task she overheard — automatically, so no one has to. This routes work and feeds the stress monitor. It is <b style={{ color: 'var(--ink)' }}>never</b> a public scoreboard.
+          Alpha graded and filed every task she overheard — automatically, so no one has to. This routes work and feeds the stress monitor. It is <b style={{ color: 'var(--ink)' }}>never</b> a public scoreboard.
         </p>
       </div>
 
@@ -346,15 +346,15 @@ function WebTopBar({ title, kicker, onBack, trailing }) {
   );
 }
 
-/* ---------------- You & Mira (profile hub) ---------------- */
+/* ---------------- You & Alpha (profile hub) ---------------- */
 function WebMe({ tone, setView, onReplayWelcome }) {
   return (
     <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: 'radial-gradient(110% 50% at 50% -10%, #221c2c, var(--bg) 60%)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '24px 30px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Mira size={34} mood="happy" />
+        <Alpha size={34} mood="happy" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="kicker">Just for you</div>
-          <h1 className="display" style={{ fontSize: 24, color: 'var(--ink)', margin: 0 }}>You &amp; Mira</h1>
+          <h1 className="display" style={{ fontSize: 24, color: 'var(--ink)', margin: 0 }}>You &amp; Alpha</h1>
         </div>
         <button className="btn btn-quiet" onClick={onReplayWelcome}>Replay the welcome</button>
       </div>
@@ -440,7 +440,7 @@ function WebInsights({ tone, onBack }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '0 4px' }}>
-          <Mira size={32} mood="happy" />
+          <Alpha size={32} mood="happy" />
           <p className="tiny text-wrap-pretty" style={{ flex: 1 }}>No streaks to break here. You can always begin again — that’s the point.</p>
         </div>
       </div>
@@ -461,7 +461,7 @@ function WebDayMode({ tone, onBack, onStart }) {
           background: 'linear-gradient(165deg, var(--surface-2), var(--surface))',
           border: '1px solid var(--line-2)', boxShadow: '0 24px 50px -24px rgba(0,0,0,0.6)',
         }}>
-          <Mira size={64} mood="calm" style={{ margin: '0 auto 20px' }} />
+          <Alpha size={64} mood="calm" style={{ margin: '0 auto 20px' }} />
           <p className="kicker" style={{ color: 'var(--accent)' }}>The one thing</p>
           <h1 className="h1 text-wrap-pretty" style={{ marginTop: 12, fontSize: 30 }}>Draft the Q3 launch deck</h1>
           <p className="body" style={{ marginTop: 12 }}>First step: open it and type one messy sentence.</p>
@@ -511,7 +511,7 @@ function WebNight({ tone, onClose }) {
       )}
       {stage === 0 && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
-          <Mira size={96} mood="calm" style={{ marginBottom: 28 }} />
+          <Alpha size={96} mood="calm" style={{ marginBottom: 28 }} />
           <p className="kicker fade" style={{ color: '#9FB8E0' }}>11:14 pm</p>
           <h1 className="h1 rise text-wrap-pretty" style={{ marginTop: 14, fontSize: 34 }}>The scroll can wait.</h1>
           <p className="lead rise text-wrap-pretty" style={{ marginTop: 16, maxWidth: 380, color: 'var(--ink-2)' }}>
@@ -531,7 +531,7 @@ function WebNight({ tone, onClose }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
           <div style={{ position: 'relative', width: 220, height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 40 }}>
             <div className="breathe-halo" />
-            <Mira size={108} mood="calm" />
+            <Alpha size={108} mood="calm" />
           </div>
           <h1 className="h1 breathe-word">Breathe in…</h1>
           <p className="body" style={{ marginTop: 12 }}>Follow the glow. Four slow rounds.</p>
@@ -539,7 +539,7 @@ function WebNight({ tone, onClose }) {
       )}
       {stage === 2 && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
-          <Mira size={72} mood="happy" style={{ marginBottom: 26, opacity: 0.9 }} />
+          <Alpha size={72} mood="happy" style={{ marginBottom: 26, opacity: 0.9 }} />
           <h1 className="h1 rise">Goodnight, Maya.</h1>
           <p className="lead rise text-wrap-pretty" style={{ marginTop: 14, maxWidth: 340, color: 'var(--ink-2)' }}>I’ll be here in the morning. Rest is the most productive thing you’ll do tonight.</p>
           <button className="btn btn-quiet rise" style={{ marginTop: 32 }} onClick={onClose}>Set the phone down</button>
@@ -569,7 +569,7 @@ function WebSettings({ tone, onBack }) {
           <WebSettingRow title="Add an app" detail="" plus last />
         </WebSettingsGroup>
 
-        <WebSettingsGroup label="Nudges" note="Gentle by design. Mira will never alarm, shame, or show what you missed.">
+        <WebSettingsGroup label="Nudges" note="Gentle by design. Alpha will never alarm, shame, or show what you missed.">
           <WebSettingRowToggle title="Gentle check-ins" on={nudges} onToggle={() => setNudges(v => !v)} />
           <WebSettingRowToggle title="Pair-start invites" on={pair} onToggle={() => setPair(v => !v)} />
           <WebSettingRowToggle title="Quiet mode (pause all)" on={quiet} onToggle={() => setQuiet(v => !v)} last />
@@ -626,7 +626,7 @@ function WebCrew({ tone, onPairStart }) {
   return (
     <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: 'radial-gradient(110% 50% at 50% -10%, #221c2c, var(--bg) 60%)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '24px 30px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Mira size={32} mood="calm" />
+        <Alpha size={32} mood="calm" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="kicker">Together</div>
           <h1 className="display" style={{ fontSize: 24, color: 'var(--ink)', margin: 0 }}>Crew</h1>
@@ -677,7 +677,7 @@ function WebCrew({ tone, onPairStart }) {
               </div>
             </div>
             <div style={{ flex: 1 }}>
-              <p className="kicker" style={{ color: 'var(--glow)' }}>Mira noticed — quietly</p>
+              <p className="kicker" style={{ color: 'var(--glow)' }}>Alpha noticed — quietly</p>
               <div style={{ fontSize: 18, color: 'var(--ink)', fontWeight: 700, marginTop: 6, lineHeight: 1.35 }}>Theo’s been catching most of the launch work.</div>
               <p className="tiny text-wrap-pretty" style={{ marginTop: 8 }}>He’s the one who procrastinates least — so the load drifts to him. Want to even it out?</p>
             </div>
@@ -699,7 +699,7 @@ function WebCrew({ tone, onPairStart }) {
                 {paired ? 'You’re not doing it alone.' : 'Begin the same 2 minutes side by side.'}
               </div>
             </div>
-            {paired && <Mira size={28} mood="cheer" />}
+            {paired && <Alpha size={28} mood="cheer" />}
           </div>
           <button
             className={'btn ' + (paired ? 'btn-primary' : 'btn-ghost')}

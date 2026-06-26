@@ -151,7 +151,7 @@ export function BackstageClient() {
           <h1 className="font-display text-2xl text-ink">Backstage</h1>
         </div>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-          Tu backstage privado. Mira detecta y organiza automáticamente las
+          Tu backstage privado. Alpha detecta y organiza automáticamente las
           tareas que escucha en el chat del equipo, calculando su carga y nivel
           de estrés para ayudarte a redistribuir el trabajo. <b className="text-ink">Nunca</b>{" "}
           es un marcador público: solo tú lo ves.
@@ -390,7 +390,7 @@ function EmptyBackstage() {
       <div className="max-w-md">
         <p className="text-[15px] font-bold text-ink">Aún no hay tareas en tu backstage</p>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-2">
-          Backstage se alimenta automáticamente cuando Mira detecta acciones en
+          Backstage se alimenta automáticamente cuando Alpha detecta acciones en
           el chat del equipo. También aparecen aquí las tareas que crees tú o tu
           equipo en otras vistas. No está roto: simplemente todavía no hay
           tareas abiertas que monitorear.
@@ -401,7 +401,7 @@ function EmptyBackstage() {
           Ver equipo en Crew
         </Button>
         <Button size="sm" href="/knowledge">
-          Hablar con Mira
+          Hablar con Alpha
         </Button>
       </div>
     </div>

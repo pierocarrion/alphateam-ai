@@ -25,7 +25,7 @@ export const siteUrl = resolveSiteUrl();
 export const siteName = "AlphaLead AI";
 
 export const siteDescription =
-  "A gentle, anti-guilt productivity companion for teams. Mira detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.";
+  "A gentle, anti-guilt productivity companion for teams. Alpha detects procrastination in team chat, shrinks tasks into 2-minute starts, and gives leaders private insights — without shame.";
 
 export const siteKeywords = [
   "productivity",

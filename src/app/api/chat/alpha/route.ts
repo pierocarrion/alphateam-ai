@@ -3,11 +3,11 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
-import { generateMiraResponse } from "@/server/lib/gemini";
+import { generateAlphaResponse } from "@/server/lib/gemini";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { createLogger } from "@/shared/lib/logger";
 
-const log = createLogger("api:chat-mira");
+const log = createLogger("api:chat-alpha");
 
 const requestSchema = z.object({
   message: z.string().min(1).max(2000),
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       select: { title: true },
     });
 
-    const gemini = await generateMiraResponse({
+    const gemini = await generateAlphaResponse({
       userName: user.name ?? undefined,
       recentTasks: recentTasks.map((t) => t.title),
       mood,

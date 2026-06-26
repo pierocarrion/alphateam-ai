@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    AlphaLead AI — Warm Dark design tokens
    Driven at runtime by Tweaks (palette / type / motion / density).
    ============================================================ */
@@ -21,7 +21,7 @@
   --accent:    #E6AC73;   /* primary CTA (amber) */
   --accent-ink:#231a10;   /* text on accent */
   --accent-soft: rgba(230, 172, 115, 0.16);
-  --glow:      #B6A6E0;   /* Mira / AI presence (lavender) */
+  --glow:      #B6A6E0;   /* Alpha / AI presence (lavender) */
   --glow-soft: rgba(182, 166, 224, 0.16);
   --sage:      #93C2A2;   /* completion / momentum */
   --sage-soft: rgba(147, 194, 162, 0.16);
@@ -171,9 +171,9 @@ html, body {
 }
 
 /* ============================================================
-   Mira — the companion orb
+   Alpha — the companion orb
    ============================================================ */
-.mira {
+.alpha {
   position: relative; flex: none;
   border-radius: 50%;
   background:
@@ -182,39 +182,39 @@ html, body {
     0 0 0 1px rgba(255,255,255,0.12) inset,
     0 8px 30px -6px var(--glow-soft),
     0 0 38px -4px var(--glow-soft);
-  animation: mira-breathe calc(4.6s * var(--m, 1)) ease-in-out infinite;
+  animation: alpha-breathe calc(4.6s * var(--m, 1)) ease-in-out infinite;
 }
-.mira::after { /* sheen */
+.alpha::after { /* sheen */
   content: ''; position: absolute;
   top: 12%; left: 16%; width: 34%; height: 26%;
   border-radius: 50%;
   background: rgba(255,255,255,0.55);
   filter: blur(1px);
 }
-@keyframes mira-breathe {
+@keyframes alpha-breathe {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.045); }
 }
-.mira-eyes {
+.alpha-eyes {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   gap: 18%;
 }
-.mira-eye {
+.alpha-eye {
   width: 11%; height: 24%;
   background: #2a2030; border-radius: 999px;
-  animation: mira-blink calc(5.2s * var(--m, 1)) ease-in-out infinite;
+  animation: alpha-blink calc(5.2s * var(--m, 1)) ease-in-out infinite;
 }
-@keyframes mira-blink {
+@keyframes alpha-blink {
   0%, 92%, 100% { transform: scaleY(1); }
   95% { transform: scaleY(0.12); }
 }
 /* reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .mira, .mira-eye { animation: none !important; }
+  .alpha, .alpha-eye { animation: none !important; }
 }
 
-/* ---------- soft pulsing ring (used around Mira during focus) ---------- */
+/* ---------- soft pulsing ring (used around Alpha during focus) ---------- */
 .pulse-ring {
   position: absolute; border-radius: 50%;
   border: 1.5px solid var(--glow);

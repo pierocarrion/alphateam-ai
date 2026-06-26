@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Mira, Button } from "@/shared/ui";
+import { Alpha, Button } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 import type { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 
@@ -29,7 +29,7 @@ export function CaptureClient() {
 
       const draft = detect.detected;
       if (!draft) {
-        toast.error("Mira couldn’t shape that into a step yet. Try a sentence or two more.");
+        toast.error("Alpha couldn’t shape that into a step yet. Try a sentence or two more.");
         setBusy(false);
         return;
       }
@@ -48,7 +48,7 @@ export function CaptureClient() {
       }
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Mira couldn’t shrink that. Please try again."
+        err instanceof Error ? err.message : "Alpha couldn’t shrink that. Please try again."
       );
       setBusy(false);
     }
@@ -58,11 +58,11 @@ export function CaptureClient() {
     <div className="flex h-full flex-col">
       <div className="h-[58px] flex-none" />
       <div className="flex flex-1 flex-col justify-center px-6 pb-6">
-        <Mira size={64} mood={busy ? "thinking" : "calm"} className="mx-auto mb-5" />
+        <Alpha size={64} mood={busy ? "thinking" : "calm"} className="mx-auto mb-5" />
         <h1 className="h1 text-center text-wrap-pretty">What’s on your mind?</h1>
         <p className="body mt-2.5 text-center text-ink-2">
           {busy
-            ? "Mira’s shrinking it down to one tiny step…"
+            ? "Alpha’s shrinking it down to one tiny step…"
             : "Just say it plainly. Don’t organize it — that’s my job."}
         </p>
         <textarea

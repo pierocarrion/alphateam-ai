@@ -22,7 +22,7 @@ export async function generateGoalInsights(
 ): Promise<GoalInsightResult> {
   const heuristic = report.insights;
 
-  const prompt = `You are Mira, a warm, non-shaming team productivity analyst embedded in a project tracker.
+  const prompt = `You are Alpha, a warm, non-shaming team productivity analyst embedded in a project tracker.
 Given this deterministic progress report, write 3 to 5 short, kind, actionable insights for the project leader.
 
 Rules:
@@ -103,7 +103,7 @@ export async function answerGoalCopilotQuestion(
 ): Promise<CopilotAnswer> {
   const fallback = buildFallbackAnswer(question, report);
 
-  const prompt = `You are Mira, a warm project-progress copilot. Answer the leader's question in friendly, concise Spanish (max 3 sentences), grounded ONLY on this goal report. If the report doesn't contain the answer, say so gently.
+  const prompt = `You are Alpha, a warm project-progress copilot. Answer the leader's question in friendly, concise Spanish (max 3 sentences), grounded ONLY on this goal report. If the report doesn't contain the answer, say so gently.
 
 Goal report:
 ${JSON.stringify(

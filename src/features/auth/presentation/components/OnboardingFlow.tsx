@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mira, Button, Card } from "@/shared/ui";
+import { Alpha, Button, Card } from "@/shared/ui";
 import { toast } from "sonner";
 import { DesktopOnboardingRail } from "./DesktopOnboardingRail";
 import { fetchJson, ApiError } from "@/shared/lib/api";
@@ -123,7 +123,7 @@ export function OnboardingFlow() {
           <div className="flex-1 overflow-y-auto scrollbar-hide py-2 lg:overflow-visible lg:rounded-[28px] lg:border lg:border-line lg:bg-surface lg:px-10 lg:py-12 lg:shadow-[0_30px_80px_-40px_rgba(0,0,0,0.6)]">
             {step === 0 && (
               <Step>
-                <Mira
+                <Alpha
                   size={56}
                   mood="happy"
                   className="mb-5 lg:size-[72px]"
@@ -151,7 +151,7 @@ export function OnboardingFlow() {
 
             {step === 1 && (
               <Step>
-                <Mira
+                <Alpha
                   size={56}
                   mood="calm"
                   className="mb-5 lg:size-[72px]"
@@ -180,7 +180,7 @@ export function OnboardingFlow() {
 
             {step === 2 && (
               <Step>
-                <Mira
+                <Alpha
                   size={56}
                   mood="thinking"
                   className="mb-5 lg:size-[72px]"
@@ -211,7 +211,7 @@ export function OnboardingFlow() {
 
             {step === 3 && prof && (
               <Step center>
-                <Mira
+                <Alpha
                   size={80}
                   mood="happy"
                   ring

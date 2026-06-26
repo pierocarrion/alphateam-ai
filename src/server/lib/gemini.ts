@@ -184,7 +184,7 @@ export async function detectTaskWithGemini(
   message: string,
   fromWho?: string
 ): Promise<GeminiResponse<GeminiTaskDetection>> {
-  const prompt = `You are Mira, a gentle productivity companion. Analyze the following message and decide if it describes a task or commitment.
+  const prompt = `You are Alpha, a gentle productivity companion. Analyze the following message and decide if it describes a task or commitment.
 
 Message: """${message}"""
 Sender context: ${fromWho ? `assigned by/to ${fromWho}` : "self-generated"}
@@ -212,7 +212,7 @@ export async function generateMicroStep(task: {
   category: string;
   load: string;
 }): Promise<GeminiResponse<string>> {
-  const prompt = `You are Mira, a kind anti-procrastination companion. The user is facing this task:
+  const prompt = `You are Alpha, a kind anti-procrastination companion. The user is facing this task:
 
 Title: ${task.title}
 Category: ${task.category}
@@ -223,7 +223,7 @@ Write ONE short, warm, 2-minute first step. Keep it under 20 words. No lists, no
   return generateContent(prompt, { maxTokens: 80, temperature: 0.3 });
 }
 
-export interface MiraChatContext {
+export interface AlphaChatContext {
   userName?: string;
   recentTasks?: string[];
   mood?: string;
@@ -237,7 +237,7 @@ export interface MiraChatContext {
   } | null;
 }
 
-export async function generateMiraResponse(context: MiraChatContext): Promise<GeminiResponse<string>> {
+export async function generateAlphaResponse(context: AlphaChatContext): Promise<GeminiResponse<string>> {
   const knowledgeBlock =
     context.knowledge && context.knowledge.length > 0
       ? `\n\nProject knowledge base — this is everything you actually know about this project. Ground your answer ONLY on it when the question is about the project:\n${context.knowledge
@@ -249,7 +249,7 @@ export async function generateMiraResponse(context: MiraChatContext): Promise<Ge
     ? `\nProject context:\n- Name: ${context.projectContext.name ?? "(unknown)"}\n- Description: ${context.projectContext.description ?? "(none)"}\n- Industry: ${context.projectContext.industry ?? "(unspecified)"}\n- Category: ${context.projectContext.category ?? "(unspecified)"}\n`
     : "";
 
-  const prompt = `You are Mira, a warm, concise, honest productivity companion embedded in a team's project chat. You were @mentioned, so reply directly to the user.${projectBlock}${knowledgeBlock}
+  const prompt = `You are Alpha, a warm, concise, honest productivity companion embedded in a team's project chat. You were @mentioned, so reply directly to the user.${projectBlock}${knowledgeBlock}
 
 User: ${context.userName ?? "there"}
 Mood: ${context.mood ?? "unspecified"}
@@ -372,7 +372,7 @@ export interface ClassifiedMessage {
 export async function classifyMessage(
   text: string
 ): Promise<GeminiResponse<ClassifiedMessage>> {
-  const prompt = `You are Mira, a project assistant for a team leader. Classify this chat message.
+  const prompt = `You are Alpha, a project assistant for a team leader. Classify this chat message.
 
 Message: """${text}"""
 
@@ -541,7 +541,7 @@ export async function generateLeaderBriefing(args: {
   hours: number;
   events: Array<{ kind: string; detail: string }>;
 }): Promise<GeminiResponse<LeaderBriefing>> {
-  const prompt = `You are Mira, briefing a team leader who just came back after ${args.hours} hours. Distill what happened into a calm, clear summary — no noise, no fear, just signal.
+  const prompt = `You are Alpha, briefing a team leader who just came back after ${args.hours} hours. Distill what happened into a calm, clear summary — no noise, no fear, just signal.
 
 Leader: ${args.leaderName}
 
@@ -572,7 +572,7 @@ export async function answerLeaderQuestion(args: {
   question: string;
   context: string;
 }): Promise<GeminiResponse<LeaderChatAnswer>> {
-  const prompt = `You are Mira, answering a team leader's question about their project. Be concise and grounded in the provided context. If the context is missing something, say so briefly.
+  const prompt = `You are Alpha, answering a team leader's question about their project. Be concise and grounded in the provided context. If the context is missing something, say so briefly.
 
 Context:
 ${args.context}

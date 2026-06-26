@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { Mira } from "@/shared/ui";
+import { Alpha } from "@/shared/ui";
 import { AuthForm } from "@/features/auth/presentation/components/AuthForm";
 import Link from "next/link";
 import { LanguageToggle } from "@/i18n/LanguageToggle";
@@ -23,7 +23,7 @@ export default function LoginPage() {
         <LanguageToggle locale={locale} onChange={setLocale} />
       </div>
       <div className="relative mb-8">
-        <Mira size={110} mood="happy" ring />
+        <Alpha size={110} mood="happy" ring />
       </div>
       <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
         {t(locale, "login.eyebrow")}

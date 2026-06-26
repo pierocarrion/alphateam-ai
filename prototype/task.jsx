@@ -8,7 +8,7 @@ function TaskSheet({ tone, task = DECK_TASK, onStart, onClose, onDiscard }) {
       <div className="screen">
         <div className="pad-top" />
         <TopBar
-          kicker="Mira noticed"
+          kicker="Alpha noticed"
           title="Is this yours?"
           trailing={<IconBtn name="close" onClick={onClose} label="Close" />}
         />
@@ -26,7 +26,7 @@ function TaskSheet({ tone, task = DECK_TASK, onStart, onClose, onDiscard }) {
             </div>
 
             <div className="card" style={{ padding: 18 }}>
-              <div className="kicker" style={{ marginBottom: 8 }}>What Mira heard</div>
+              <div className="kicker" style={{ marginBottom: 8 }}>What Alpha heard</div>
               <div className="h2" style={{ fontSize: 22 }}>{task.title}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                 <span className="chip"><Icon name="doc" size={14} color="var(--glow)" /> {task.category}</span>
@@ -44,7 +44,7 @@ function TaskSheet({ tone, task = DECK_TASK, onStart, onClose, onDiscard }) {
               border: '1px solid var(--accent)',
             }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <Mira size={34} mood="happy" />
+                <Alpha size={34} mood="happy" />
                 <div style={{ flex: 1 }}>
                   <div className="kicker" style={{ color: 'var(--accent)', marginBottom: 6 }}>Your first step, already tiny</div>
                   <div style={{ fontSize: 17, color: 'var(--ink)', fontWeight: 600, lineHeight: 1.4 }}>{task.micro}</div>

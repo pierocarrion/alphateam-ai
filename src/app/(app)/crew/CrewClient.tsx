@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Mira, TopBar, Avatar, Weather, Button, Icon, getPerson } from "@/shared/ui";
+import { Alpha, TopBar, Avatar, Weather, Button, Icon, getPerson } from "@/shared/ui";
 import type { PersonId } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 
@@ -42,7 +42,7 @@ export function CrewClient({ warm, mood, loadGuardian, milestone, pair }: CrewCl
 
   return (
     <div className="flex h-full flex-col">
-      <TopBar className="lg:hidden" kicker="Together" title="Crew" trailing={<Mira size={28} mood="calm" />} />
+      <TopBar className="lg:hidden" kicker="Together" title="Crew" trailing={<Alpha size={28} mood="calm" />} />
       <div className="flex-1 overflow-y-auto scrollbar-hide px-[18px] pb-4 lg:max-w-3xl lg:mx-auto">
         <div className="stagger flex flex-col gap-3.5">
           {/* Collective mood */}
@@ -79,7 +79,7 @@ export function CrewClient({ warm, mood, loadGuardian, milestone, pair }: CrewCl
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "var(--color-glow)" }}>
-                    Mira noticed — quietly
+                    Alpha noticed — quietly
                   </p>
                   <div className="mt-1 text-[16px] font-bold leading-snug text-ink">
                     {loadGuardian.title}
@@ -165,7 +165,7 @@ export function CrewClient({ warm, mood, loadGuardian, milestone, pair }: CrewCl
                       : "Begin the same 2 minutes side by side."}
                 </div>
               </div>
-              {paired && <Mira size={26} mood="cheer" />}
+              {paired && <Alpha size={26} mood="cheer" />}
             </div>
             <Button
               className="mt-3.5 w-full text-[14.5px] py-3"

@@ -42,7 +42,7 @@ function RitualFlow({ tone, task = DECK_TASK, onAction, onClose }) {
         {step === 0 && (
           <div className="scroll" style={{ padding: '14px 20px 18px' }}>
             <div style={{ textAlign: 'center', marginBottom: 22 }} className="rise">
-              <Mira size={72} mood="calm" style={{ margin: '6px auto 16px' }} />
+              <Alpha size={72} mood="calm" style={{ margin: '6px auto 16px' }} />
               <h1 className="h1">Before we start…</h1>
               <p className="lead text-wrap-pretty" style={{ marginTop: 10, color: 'var(--ink-2)' }}>
                 What comes up when you picture the launch deck?
@@ -58,7 +58,7 @@ function RitualFlow({ tone, task = DECK_TASK, onAction, onClose }) {
               ))}
             </div>
             <p className="tiny" style={{ textAlign: 'center', marginTop: 18 }}>
-              There’s no wrong answer. Mira won’t share this.
+              There’s no wrong answer. Alpha won’t share this.
             </p>
           </div>
         )}
@@ -67,7 +67,7 @@ function RitualFlow({ tone, task = DECK_TASK, onAction, onClose }) {
         {step === 1 && f && (
           <div className="scroll" style={{ padding: '14px 24px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center' }}>
-              <Mira size={80} mood="happy" style={{ margin: '0 auto 22px' }} ring />
+              <Alpha size={80} mood="happy" style={{ margin: '0 auto 22px' }} ring />
               <div className="chip rise" style={{ margin: '0 auto 18px', background: 'var(--glow-soft)', color: 'var(--glow)', borderColor: 'transparent' }}>
                 <span>{f.emoji}</span> {f.label}
               </div>
@@ -104,7 +104,7 @@ function RitualFlow({ tone, task = DECK_TASK, onAction, onClose }) {
               background: 'linear-gradient(180deg, var(--accent-soft), transparent)',
               border: '1px solid var(--accent)',
             }}>
-              <Mira size={56} mood="happy" style={{ margin: '0 auto 16px' }} />
+              <Alpha size={56} mood="happy" style={{ margin: '0 auto 16px' }} />
               <div className="h2 text-wrap-pretty" style={{ fontSize: 24, lineHeight: 1.3 }}>
                 {task.micro}
               </div>
@@ -171,7 +171,7 @@ function FocusScreen({ tone, task = DECK_TASK, onDone, onClose }) {
           <p className="kicker fade" style={{ marginBottom: 8 }}>{task.action}</p>
           <h1 className="h1 fade text-wrap-pretty" style={{ textAlign: 'center', marginBottom: 28 }}>You’re in it now.</h1>
 
-          {/* Mira inside a soft progress ring */}
+          {/* Alpha inside a soft progress ring */}
           <div style={{ position: 'relative', width: 220, height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="220" height="220" style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
               <circle cx="110" cy="110" r={R} fill="none" stroke="var(--line-2)" strokeWidth="3" />
@@ -179,7 +179,7 @@ function FocusScreen({ tone, task = DECK_TASK, onDone, onClose }) {
                 strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - prog)}
                 style={{ transition: 'stroke-dashoffset 1s linear' }} />
             </svg>
-            <Mira size={132} mood="calm" ring />
+            <Alpha size={132} mood="calm" ring />
           </div>
 
           <div className="display" style={{ fontSize: 34, color: 'var(--ink)', marginTop: 26, letterSpacing: '0.02em' }}>
@@ -217,7 +217,7 @@ function RewardScreen({ tone, onHome, onClose }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 28, textAlign: 'center' }}>
           <div style={{ position: 'relative', marginBottom: 26 }}>
             {boom && <Sparkles n={20} />}
-            <Mira size={104} mood="cheer" />
+            <Alpha size={104} mood="cheer" />
           </div>
 
           <h1 className="h1 rise" style={{ fontSize: 32 }}>You did it.</h1>

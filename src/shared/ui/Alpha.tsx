@@ -2,23 +2,23 @@
 
 import { cn } from "@/shared/lib/cn";
 
-export type MiraMood = "calm" | "happy" | "thinking" | "cheer";
+export type AlphaMood = "calm" | "happy" | "thinking" | "cheer";
 
-interface MiraProps {
+interface AlphaProps {
   size?: number;
-  mood?: MiraMood;
+  mood?: AlphaMood;
   ring?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function Mira({
+export function Alpha({
   size = 64,
   mood = "calm",
   ring = false,
   className,
   style,
-}: MiraProps) {
+}: AlphaProps) {
   const isSmiling = mood === "happy" || mood === "cheer";
   const isThinking = mood === "thinking";
 
@@ -44,10 +44,10 @@ export function Mira({
           <span className="pulse-ring absolute inset-0 rounded-full border-[1.5px] border-glow opacity-0" />
         </>
       )}
-      <div className="mira" style={{ width: size, height: size }}>
-        <div className="mira-eyes">
-          <div className="mira-eye" style={eyeShape} />
-          <div className="mira-eye" style={eyeShape} />
+      <div className="alpha" style={{ width: size, height: size }}>
+        <div className="alpha-eyes">
+          <div className="alpha-eye" style={eyeShape} />
+          <div className="alpha-eye" style={eyeShape} />
         </div>
         {isSmiling && (
           <div

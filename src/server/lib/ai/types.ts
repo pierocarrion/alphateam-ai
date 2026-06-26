@@ -1,6 +1,6 @@
 /**
  * Core types for the decoupled AI provider layer (Open/Closed principle).
- * New features (Wolf/Mira analytical layer, Knowledge Hub RAG, recommendations)
+ * New features (Wolf/Alpha analytical layer, Knowledge Hub RAG, recommendations)
  * depend ONLY on {@link IAiProvider}, never on a concrete vendor SDK.
  */
 

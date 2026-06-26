@@ -1,7 +1,7 @@
 "use client";
 
-import { Mira } from "@/shared/ui";
-import type { MiraMood } from "@/shared/ui/Mira";
+import { Alpha } from "@/shared/ui";
+import type { AlphaMood } from "@/shared/ui/Alpha";
 
 interface RailProfile {
   id: string;
@@ -23,7 +23,7 @@ const STEPS = [
   { key: "setup", label: "How I'll show up" },
 ];
 
-const STEP_MOODS: MiraMood[] = ["happy", "calm", "thinking", "happy"];
+const STEP_MOODS: AlphaMood[] = ["happy", "calm", "thinking", "happy"];
 
 const TAGLINES = [
   "Let's get to know each other — quietly, no pressure.",
@@ -53,10 +53,10 @@ export function DesktopOnboardingRail({
 
         <div className="flex flex-col items-start gap-5">
           <div className="flex items-center gap-3">
-            <Mira size={72} mood={mood} ring />
+            <Alpha size={72} mood={mood} ring />
             <div className="flex flex-col">
               <span className="font-display text-2xl tracking-tight text-ink">
-                Mira
+                Alpha
               </span>
               <span className="text-xs text-ink-3">
                 Your gentle teammate

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Avatar, Button, Icon, Mira, TopBar } from "@/shared/ui";
+import { Avatar, Button, Icon, Alpha, TopBar } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import { useChannel } from "@/features/chat/application/hooks/useChannel";
 import { useMention } from "@/features/chat/application/hooks/useMention";
@@ -66,7 +66,7 @@ export function ChatClient({
       name: m.name || "Unknown",
       personId: m.personId,
     }));
-    list.push({ id: "mira", name: "Mira", personId: "mira", isBot: true });
+    list.push({ id: "alpha", name: "Alpha", personId: "alpha", isBot: true });
     return list;
   }, [members]);
 
@@ -74,10 +74,10 @@ export function ChatClient({
     const q = mention.query.trim().toLowerCase();
     if (!q) return candidates;
     const matched = candidates.filter((c) => c.name.toLowerCase().includes(q));
-    // Always surface Mira alongside matching members.
-    if (!matched.some((c) => c.id === "mira")) {
-      const mira = candidates.find((c) => c.id === "mira");
-      if (mira) matched.push(mira);
+    // Always surface Alpha alongside matching members.
+    if (!matched.some((c) => c.id === "alpha")) {
+      const alpha = candidates.find((c) => c.id === "alpha");
+      if (alpha) matched.push(alpha);
     }
     return matched;
   }, [candidates, mention.query]);
@@ -245,9 +245,9 @@ export function ChatClient({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Mira size={26} mood="calm" />
+              <Alpha size={26} mood="calm" />
               <span className="text-xs text-ink-3">
-                {warm ? tr("chat.miraHere") : tr("chat.mira")}
+                {warm ? tr("chat.alphaHere") : tr("chat.alpha")}
               </span>
             </div>
           </div>
@@ -273,7 +273,7 @@ export function ChatClient({
               {session?.user?.name || tr("chat.you")} · {tr("chat.listeningQuietly")}
             </div>
           </div>
-          <Mira size={28} mood="calm" />
+          <Alpha size={28} mood="calm" />
         </div>
 
         {/* Messages */}

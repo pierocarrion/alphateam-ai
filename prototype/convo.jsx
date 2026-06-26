@@ -91,7 +91,7 @@ function useConversation() {
     setMessages(m => [...m, { id, who: 'maya', time, text: clean }]);
 
     if (looksLikeTask(clean)) {
-      // Mira quietly notices — no chat reply, just the inline chip
+      // Alpha quietly notices — no chat reply, just the inline chip
       const t = setTimeout(() => {
         setDetected({ anchorId: id, task: deriveTask(clean), status: 'open' });
       }, 1100);

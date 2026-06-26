@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { fetchJson, ApiError } from "@/shared/lib/api";
-import { Avatar, Icon, Mira, type PersonId } from "@/shared/ui";
+import { Avatar, Icon, Alpha, type PersonId } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
 import { SmartCylinder } from "./SmartCylinder";
 import type {
@@ -65,7 +65,7 @@ export function GoalProgressTracker({ goalId, goalTitle, warm }: GoalProgressTra
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center py-16 text-sm text-ink-3">
-        <Mira size={32} mood="thinking" />
+        <Alpha size={32} mood="thinking" />
         <span className="ml-3">Analizando el avance del objetivo…</span>
       </div>
     );
@@ -271,7 +271,7 @@ function InsightsPanel({
         {insights.map((i) => (
           <li key={i.id} className="flex items-start gap-2.5 text-sm">
             <span className="mt-0.5">
-              <Mira size={20} mood={warm ? "calm" : "thinking"} />
+              <Alpha size={20} mood={warm ? "calm" : "thinking"} />
             </span>
             <span className="text-ink-2 text-wrap-pretty">{i.text}</span>
           </li>

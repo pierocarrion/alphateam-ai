@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mira, TopBar } from "@/shared/ui";
+import { Alpha, TopBar } from "@/shared/ui";
 import { GoalProgressTracker } from "@/features/projects/presentation/components/GoalProgressTracker";
 
 interface ProgressClientProps {
@@ -38,7 +38,7 @@ export function ProgressClient({
         className="lg:hidden"
         kicker="Coordinación"
         title="Progreso"
-        trailing={<Mira size={28} mood="calm" />}
+        trailing={<Alpha size={28} mood="calm" />}
       />
       <div className="flex-1 overflow-y-auto scrollbar-hide px-[18px] pb-6 pt-2 lg:max-w-3xl lg:mx-auto lg:pt-6">
         <div className="hidden lg:block">
@@ -88,7 +88,7 @@ export function ProgressClient({
 function EmptyState() {
   return (
     <div className="card mt-2 flex flex-col items-center gap-3 p-8 text-center">
-      <Mira size={40} mood="thinking" />
+      <Alpha size={40} mood="thinking" />
       <p className="text-sm text-ink-2">
         Aún no hay un objetivo SMART en este proyecto.
       </p>

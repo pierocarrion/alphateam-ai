@@ -2,20 +2,20 @@ import type { AiClient } from "@/server/lib/ai/client";
 import type { KnowledgeResource } from "@/features/knowledge/domain/entities/KnowledgeResource";
 
 /**
- * Parsing + dispatch for natural-language @Mira commands inside the Group Chat.
+ * Parsing + dispatch for natural-language @Alpha commands inside the Group Chat.
  *
  * Supported intents (extensible via {@link COMMANDS}):
- *   @mira resume / summarize this conversation
- *   @mira identify risks / riesgos
- *   @mira create tasks / crea tareas pendientes
- *   @mira generate a retrospective / retrospectiva
- *   @mira create a strategy / estrategia comercial
- *   @mira fetch: <topic>          (RAG retrieval over the Knowledge Hub)
+ *   @alpha resume / summarize this conversation
+ *   @alpha identify risks / riesgos
+ *   @alpha create tasks / crea tareas pendientes
+ *   @alpha generate a retrospective / retrospectiva
+ *   @alpha create a strategy / estrategia comercial
+ *   @alpha fetch: <topic>          (RAG retrieval over the Knowledge Hub)
  *
  * Intent detection is language-agnostic (ES/EN keywords) and falls back to a
  * general grounded answer when no command matches.
  */
-export type MiraCommandId =
+export type AlphaCommandId =
   | "summary"
   | "risks"
   | "tasks"
@@ -25,13 +25,13 @@ export type MiraCommandId =
   | "general";
 
 export interface ParsedCommand {
-  command: MiraCommandId;
+  command: AlphaCommandId;
   argument?: string;
   raw: string;
 }
 
 interface CommandDef {
-  id: MiraCommandId;
+  id: AlphaCommandId;
   keywords: string[];
 }
 
@@ -45,11 +45,11 @@ const COMMANDS: CommandDef[] = [
 
 const FETCH_PATTERN = /fetch\s*:\s*(.+)|fetch\s+(.+)/i;
 
-export function parseMiraCommand(rawText: string): ParsedCommand {
+export function parseAlphaCommand(rawText: string): ParsedCommand {
   const text = rawText.trim();
-  // Remove leading "@mira" / "mira," token so keyword matching is stable.
+  // Remove leading "@alpha" / "alpha," token so keyword matching is stable.
   const stripped = text
-    .replace(/(?:^|\s)@?\s*mira\b[,:]?\s*/i, "")
+    .replace(/(?:^|\s)@?\s*alpha\b[,:]?\s*/i, "")
     .trim();
 
   const fetchMatch = stripped.match(FETCH_PATTERN);
@@ -71,7 +71,7 @@ export interface ConversationMessage {
   text: string;
 }
 
-export interface MiraCommandContext {
+export interface AlphaCommandContext {
   workspaceId: string;
   channelId: string;
   projectName?: string;
@@ -80,8 +80,8 @@ export interface MiraCommandContext {
   knowledge?: { title: string; snippet: string }[];
 }
 
-export interface MiraCommandResult {
-  command: MiraCommandId;
+export interface AlphaCommandResult {
+  command: AlphaCommandId;
   /** Markdown-ish text reply to post back into the channel. */
   reply: string;
   /** Structured payload to persist as a ChannelInsight (optional). */
@@ -97,10 +97,10 @@ export interface MiraCommandResult {
  * the provider, and returns a normalized result. Depends only on {@link AiClient}
  * so it is trivially testable with a fake client.
  */
-export class MiraCommandRouter {
+export class AlphaCommandRouter {
   constructor(private readonly ai: AiClient) {}
 
-  async run(parsed: ParsedCommand, ctx: MiraCommandContext): Promise<MiraCommandResult> {
+  async run(parsed: ParsedCommand, ctx: AlphaCommandContext): Promise<AlphaCommandResult> {
     const conversationBlock = formatConversation(ctx.conversation);
     const knowledgeBlock = ctx.knowledge?.length
       ? `\n\nRelevant knowledge from the project's Knowledge Hub:\n${ctx.knowledge.map((k) => `- ${k.title}: ${k.snippet}`).join("\n")}`
@@ -143,7 +143,7 @@ export class MiraCommandRouter {
       default:
         return this.ask(
           parsed,
-          `You are Mira, embedded in a team's project chat and you were @mentioned. The user's latest message is: "${parsed.argument ?? parsed.raw}". Respond naturally and warmly. If it's a greeting ("hola", "hi", "qué tal"), greet back in the SAME language and offer help. If it's a question, answer directly using the project context and knowledge below when relevant.${knowledgeBlock}\n\nConversation context:\n${conversationBlock}\n\nCRITICAL: Reply in the same language as the user's latest message (Spanish→Spanish, English→English, etc.). Keep it concise (max 4 sentences) and friendly, like a teammate.`,
+          `You are Alpha, embedded in a team's project chat and you were @mentioned. The user's latest message is: "${parsed.argument ?? parsed.raw}". Respond naturally and warmly. If it's a greeting ("hola", "hi", "qué tal"), greet back in the SAME language and offer help. If it's a question, answer directly using the project context and knowledge below when relevant.${knowledgeBlock}\n\nConversation context:\n${conversationBlock}\n\nCRITICAL: Reply in the same language as the user's latest message (Spanish→Spanish, English→English, etc.). Keep it concise (max 4 sentences) and friendly, like a teammate.`,
           "general"
         );
     }
@@ -153,7 +153,7 @@ export class MiraCommandRouter {
     parsed: ParsedCommand,
     prompt: string,
     bucket: string
-  ): Promise<MiraCommandResult> {
+  ): Promise<AlphaCommandResult> {
     if (!this.ai.provider.isEnabled()) {
       return {
         command: parsed.command,
@@ -164,7 +164,7 @@ export class MiraCommandRouter {
     }
     const res = await this.ai.provider.chat({
       system:
-        "You are Mira, a sharp, concise project analyst embedded in a team chat. Ground every answer strictly in the provided conversation and knowledge. Use markdown bullets. Never invent facts. LANGUAGE RULE (highest priority): Detect the language of the user's latest message and ALWAYS reply in that exact same language. If the user writes in Spanish, reply in Spanish. If in English, reply in English. Match the user's language precisely — never default to English.",
+        "You are Alpha, a sharp, concise project analyst embedded in a team chat. Ground every answer strictly in the provided conversation and knowledge. Use markdown bullets. Never invent facts. LANGUAGE RULE (highest priority): Detect the language of the user's latest message and ALWAYS reply in that exact same language. If the user writes in Spanish, reply in Spanish. If in English, reply in English. Match the user's language precisely — never default to English.",
       messages: [{ role: "user", content: prompt }],
       maxTokens: 700,
       temperature: 0.3,
@@ -186,9 +186,9 @@ export class MiraCommandRouter {
 
   private async fetch(
     parsed: ParsedCommand,
-    ctx: MiraCommandContext,
+    ctx: AlphaCommandContext,
     conversationBlock: string
-  ): Promise<MiraCommandResult> {
+  ): Promise<AlphaCommandResult> {
     // The actual RAG retrieval is performed by the caller (who has the repo);
     // here we synthesize a grounded answer from the supplied knowledge.
     const topic = parsed.argument ?? "(no topic)";
@@ -209,7 +209,7 @@ export class MiraCommandRouter {
     }
     const res = await this.ai.provider.chat({
       system:
-        "You are Mira answering a @mira fetch: request. Synthesize a grounded, concise answer using ONLY the provided knowledge snippets. Cite titles inline. If the snippets don't cover the request, say so plainly. LANGUAGE RULE: Always reply in the same language as the user's request.",
+        "You are Alpha answering a @alpha fetch: request. Synthesize a grounded, concise answer using ONLY the provided knowledge snippets. Cite titles inline. If the snippets don't cover the request, say so plainly. LANGUAGE RULE: Always reply in the same language as the user's request.",
       messages: [
         {
           role: "user",

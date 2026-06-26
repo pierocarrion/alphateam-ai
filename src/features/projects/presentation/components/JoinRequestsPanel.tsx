@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mira, Button, Card, Avatar, TopBar } from "@/shared/ui";
+import { Alpha, Button, Card, Avatar, TopBar } from "@/shared/ui";
 import { toast } from "sonner";
 import { fetchJson, ApiError } from "@/shared/lib/api";
 import { personIdFromName } from "@/shared/lib/person";
@@ -98,7 +98,7 @@ export function JoinRequestsPanel() {
       />
       <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pt-6 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full lg:pt-8 lg:pb-8">
         <div className="mb-5 flex items-center gap-3">
-          <Mira size={44} mood="happy" />
+          <Alpha size={44} mood="happy" />
           <div>
             <div className="text-xs text-ink-3">Solicitudes de ingreso</div>
             <div className="font-display text-[22px] text-ink">Tu equipo</div>

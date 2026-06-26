@@ -18,7 +18,7 @@ export function DesktopMessage({ message, highlight, isYou }: DesktopMessageProp
     ? message.name
     : message.who
     ? message.who.charAt(0).toUpperCase() + message.who.slice(1)
-    : "Mira";
+    : "Alpha";
 
   const profileHref = message.userId ? `/profile/${message.userId}` : null;
   const nameNode = isYou ? (

@@ -5,7 +5,7 @@ export { FeedbackWidget } from "./FeedbackWidget";
 export { HubRow } from "./HubRow";
 export { Icon, type IconName } from "./Icon";
 export { LoadingScreen } from "./LoadingScreen";
-export { Mira, type MiraMood } from "./Mira";
+export { Alpha, type AlphaMood } from "./Alpha";
 export { Overlay } from "./Overlay";
 export { SettingsGroup, SettingRow, SettingRowToggle } from "./SettingsGroup";
 export { Sparkles } from "./Sparkles";

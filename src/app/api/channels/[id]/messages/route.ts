@@ -7,11 +7,11 @@ import { prisma } from "@/server/lib/prisma";
 import { deriveTaskEnhanced, looksLikeTask } from "@/features/tasks/lib/detect";
 import { coordinate } from "@/server/lib/aiCoordinator";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
-import { ensureMiraBotUser } from "@/server/lib/miraBot";
+import { ensureAlphaBotUser } from "@/server/lib/alphaBot";
 import { createLogger } from "@/shared/lib/logger";
 import {
-  generateMiraChannelReply,
-  isMentionedMira,
+  generateAlphaChannelReply,
+  isMentionedAlpha,
   maybeCaptureLeaderAnswer,
 } from "@/server/lib/chatKnowledge";
 import { publishRealtime } from "@/server/lib/realtime";
@@ -216,8 +216,8 @@ export async function POST(
       payload: { text, channelId: id, fromUserId: user.id },
     });
 
-    // --- Mira @mention reply (awaited so it streams back with the send) ---
-    let miraReply: {
+    // --- Alpha @mention reply (awaited so it streams back with the send) ---
+    let alphaReply: {
       id: string;
       who: string;
       name: string | null;
@@ -225,32 +225,32 @@ export async function POST(
       text: string;
       userId: string;
     } | null = null;
-    if (isMentionedMira(text)) {
+    if (isMentionedAlpha(text)) {
       try {
-        // Rich command path: @mira resume/risks/tasks/fetch/... routed through
+        // Rich command path: @alpha resume/risks/tasks/fetch/... routed through
         // the analytical layer + Knowledge Hub RAG. Falls back to the generic
         // grounded reply for plain mentions.
-        const { parseMiraCommand } = await import("@/features/chat/application/miraCommands");
-        const { runMiraInChannel } = await import("@/server/lib/miraCommandsService");
-        const command = parseMiraCommand(text);
+        const { parseAlphaCommand } = await import("@/features/chat/application/alphaCommands");
+        const { runAlphaInChannel } = await import("@/server/lib/alphaCommandsService");
+        const command = parseAlphaCommand(text);
         let replyText: string | null = null;
         if (command.command !== "general") {
-          const { result } = await runMiraInChannel({ channelId: id, text });
+          const { result } = await runAlphaInChannel({ channelId: id, text });
           replyText = result.reply;
         } else {
-          replyText = await generateMiraChannelReply({
+          replyText = await generateAlphaChannelReply({
             workspaceId: channel.workspaceId,
             messageText: text,
             senderName: user.name,
           });
         }
         if (replyText) {
-          const bot = await ensureMiraBotUser();
+          const bot = await ensureAlphaBotUser();
           const botMessage = await prisma.message.create({
             data: { channelId: id, userId: bot.id, content: replyText },
             include: { user: { select: { id: true, name: true } } },
           });
-          miraReply = {
+          alphaReply = {
             id: botMessage.id,
             who: personIdFromName(botMessage.user.name ?? ""),
             name: botMessage.user.name,
@@ -260,7 +260,7 @@ export async function POST(
           };
         }
       } catch (err) {
-        apiLog.error("mira reply error", err);
+        apiLog.error("alpha reply error", err);
       }
     }
 
@@ -268,7 +268,7 @@ export async function POST(
     const senderMembership = channel.workspace.memberships.find((m) => m.userId === user.id);
     const isLeader =
       senderMembership?.role === "leader" || senderMembership?.role === "admin";
-    if (!isMentionedMira(text) && isLeader) {
+    if (!isMentionedAlpha(text) && isLeader) {
       after(() =>
         maybeCaptureLeaderAnswer({
           workspaceId: channel.workspaceId,
@@ -281,7 +281,7 @@ export async function POST(
       );
     }
 
-    // Broadcast the new message (and any Mira reply) over the realtime SSE stream
+    // Broadcast the new message (and any Alpha reply) over the realtime SSE stream
     // so all connected clients in this workspace update without polling.
     publishRealtime("message_sent", {
       workspaceId: channel.workspaceId,
@@ -293,12 +293,12 @@ export async function POST(
         name: message.user.name,
       },
     });
-    if (miraReply) {
-      publishRealtime("mira_reply", {
+    if (alphaReply) {
+      publishRealtime("alpha_reply", {
         workspaceId: channel.workspaceId,
         channelId: id,
-        messageId: miraReply.id,
-        data: { text: miraReply.text, name: miraReply.name },
+        messageId: alphaReply.id,
+        data: { text: alphaReply.text, name: alphaReply.name },
       });
     }
     if (detected) {
@@ -319,7 +319,7 @@ export async function POST(
         userId: message.userId,
       },
       detected,
-      miraReply,
+      alphaReply,
       agentActions: actions,
       _agentLog: log,
     });

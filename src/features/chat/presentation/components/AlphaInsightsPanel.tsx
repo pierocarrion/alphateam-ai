@@ -26,22 +26,22 @@ interface Insight {
   createdAt: string;
 }
 
-interface MiraInsightsPanelProps {
+interface AlphaInsightsPanelProps {
   channelId: string;
 }
 
 const TYPE_KEYS: Record<string, string> = {
-  summary: "mira.type.summary",
-  risks: "mira.type.risks",
-  tasks: "mira.type.tasks",
-  decisions: "mira.type.decisions",
-  retrospective: "mira.type.retrospective",
-  strategy: "mira.type.strategy",
-  fetch: "mira.type.fetch",
-  general: "mira.type.general",
+  summary: "alpha.type.summary",
+  risks: "alpha.type.risks",
+  tasks: "alpha.type.tasks",
+  decisions: "alpha.type.decisions",
+  retrospective: "alpha.type.retrospective",
+  strategy: "alpha.type.strategy",
+  fetch: "alpha.type.fetch",
+  general: "alpha.type.general",
 };
 
-export function MiraInsightsPanel({ channelId }: MiraInsightsPanelProps) {
+export function AlphaInsightsPanel({ channelId }: AlphaInsightsPanelProps) {
   const [tasks, setTasks] = useState<InsightTask[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,24 +73,24 @@ export function MiraInsightsPanel({ channelId }: MiraInsightsPanelProps) {
     <aside className="hidden w-[300px] flex-none flex-col border-l border-line bg-bg-2 xl:flex">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <Icon name="spark" size={16} color="var(--color-accent)" />
-        <span className="text-[13px] font-bold text-ink">{t(locale, "mira.panel")}</span>
+        <span className="text-[13px] font-bold text-ink">{t(locale, "alpha.panel")}</span>
       </div>
 
       <div className="flex border-b border-line">
         <TabButton active={tab === "tasks"} onClick={() => setTab("tasks")}>
-          {t(locale, "mira.tasks", { count: tasks.length })}
+          {t(locale, "alpha.tasks", { count: tasks.length })}
         </TabButton>
         <TabButton active={tab === "insights"} onClick={() => setTab("insights")}>
-          {t(locale, "mira.insights", { count: insights.length })}
+          {t(locale, "alpha.insights", { count: insights.length })}
         </TabButton>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {loading ? (
-          <p className="px-2 text-xs text-ink-3">{t(locale, "mira.analyzing")}</p>
+          <p className="px-2 text-xs text-ink-3">{t(locale, "alpha.analyzing")}</p>
         ) : tab === "tasks" ? (
           tasks.length === 0 ? (
-            <Empty text={t(locale, "mira.noTasks")} />
+            <Empty text={t(locale, "alpha.noTasks")} />
           ) : (
             <div className="flex flex-col gap-2">
               {tasks.map((tk) => (
@@ -112,7 +112,7 @@ export function MiraInsightsPanel({ channelId }: MiraInsightsPanelProps) {
             </div>
           )
         ) : insights.length === 0 ? (
-          <Empty text={t(locale, "mira.noInsights")} />
+          <Empty text={t(locale, "alpha.noInsights")} />
         ) : (
           <div className="flex flex-col gap-2">
             {insights.map((i) => (

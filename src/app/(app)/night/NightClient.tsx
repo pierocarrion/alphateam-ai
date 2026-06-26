@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Mira, Button } from "@/shared/ui";
+import { Alpha, Button } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 
 interface NightClientProps {
@@ -53,7 +53,7 @@ export function NightClient({ warm, name, windDownsThisWeek }: NightClientProps)
       {/* Stage 0 — invitation */}
       {stage === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center px-8 py-8 text-center">
-          <Mira size={84} mood="calm" className="mb-6" />
+          <Alpha size={84} mood="calm" className="mb-6" />
           <p className="fade text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#9FB8E0" }}>
             {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
           </p>
@@ -85,7 +85,7 @@ export function NightClient({ warm, name, windDownsThisWeek }: NightClientProps)
         <div className="flex flex-1 flex-col items-center justify-center px-8 py-8 text-center">
           <div className="relative mb-9 flex h-[200px] w-[200px] items-center justify-center">
             <div className="breathe-halo" />
-            <Mira size={96} mood="calm" />
+            <Alpha size={96} mood="calm" />
           </div>
           <h1 className="h1 breathe-word">Breathe in…</h1>
           <p className="body mt-2.5 text-ink-2">Follow the glow. Four slow rounds.</p>
@@ -95,7 +95,7 @@ export function NightClient({ warm, name, windDownsThisWeek }: NightClientProps)
       {/* Stage 2 — goodnight */}
       {stage === 2 && (
         <div className="flex flex-1 flex-col items-center justify-center px-8 py-8 text-center">
-          <Mira size={64} mood="happy" className="mb-6 opacity-90" />
+          <Alpha size={64} mood="happy" className="mb-6 opacity-90" />
           <h1 className="h1 rise">Goodnight, {name}.</h1>
           <p className="lead rise mt-3 max-w-[260px] text-ink-2">
             I’ll be here in the morning. Rest is the most productive thing you’ll do tonight.

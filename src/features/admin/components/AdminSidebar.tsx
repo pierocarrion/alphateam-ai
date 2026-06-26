@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/shared/lib/cn";
-import { Mira } from "@/shared/ui";
+import { Alpha } from "@/shared/ui";
 import { useLocale } from "@/i18n/useLocale";
 import { LanguageToggle } from "@/i18n/LanguageToggle";
 import { t } from "@/i18n/messages";
@@ -31,7 +31,7 @@ export function AdminSidebar({ userName }: { userName: string }) {
   return (
     <aside className="hidden w-[248px] flex-none flex-col border-r border-line bg-bg lg:flex">
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <Mira size={32} mood="happy" />
+        <Alpha size={32} mood="happy" />
         <div className="leading-tight">
           <div className="font-display text-[15px] text-ink">
             {t(locale, "admin.console")}

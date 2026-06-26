@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  MiraCommandRouter,
-  parseMiraCommand,
+  AlphaCommandRouter,
+  parseAlphaCommand,
   formatConversation,
-  type MiraCommandContext,
-} from "./miraCommands";
+  type AlphaCommandContext,
+} from "./alphaCommands";
 import type { AiClient } from "@/server/lib/ai/client";
 
 function makeFakeAi(enabled: boolean, reply: string): AiClient {
@@ -31,7 +31,7 @@ function makeFakeAi(enabled: boolean, reply: string): AiClient {
   };
 }
 
-const baseCtx: MiraCommandContext = {
+const baseCtx: AlphaCommandContext = {
   workspaceId: "w1",
   channelId: "c1",
   projectName: "Acme",
@@ -41,43 +41,43 @@ const baseCtx: MiraCommandContext = {
   ],
 };
 
-describe("parseMiraCommand", () => {
+describe("parseAlphaCommand", () => {
   it("detects summary in EN and ES", () => {
-    expect(parseMiraCommand("@mira resume esta conversación").command).toBe("summary");
-    expect(parseMiraCommand("@mira summarize").command).toBe("summary");
-    expect(parseMiraCommand("mira, dame un resumen de lo dicho").command).toBe("summary");
+    expect(parseAlphaCommand("@alpha resume esta conversación").command).toBe("summary");
+    expect(parseAlphaCommand("@alpha summarize").command).toBe("summary");
+    expect(parseAlphaCommand("alpha, dame un resumen de lo dicho").command).toBe("summary");
   });
 
   it("detects risks and tasks intents", () => {
-    expect(parseMiraCommand("@mira identify risks").command).toBe("risks");
-    expect(parseMiraCommand("@mira identifica riesgos").command).toBe("risks");
-    expect(parseMiraCommand("@mira crea tareas pendientes").command).toBe("tasks");
-    expect(parseMiraCommand("@mira action items").command).toBe("tasks");
+    expect(parseAlphaCommand("@alpha identify risks").command).toBe("risks");
+    expect(parseAlphaCommand("@alpha identifica riesgos").command).toBe("risks");
+    expect(parseAlphaCommand("@alpha crea tareas pendientes").command).toBe("tasks");
+    expect(parseAlphaCommand("@alpha action items").command).toBe("tasks");
   });
 
   it("detects fetch: with colon and argument", () => {
-    const parsed = parseMiraCommand("@mira fetch: marketing strategy");
+    const parsed = parseAlphaCommand("@alpha fetch: marketing strategy");
     expect(parsed.command).toBe("fetch");
     expect(parsed.argument).toBe("marketing strategy");
   });
 
   it("detects fetch with space form", () => {
-    const parsed = parseMiraCommand("@mira fetch onboarding process");
+    const parsed = parseAlphaCommand("@alpha fetch onboarding process");
     expect(parsed.command).toBe("fetch");
     expect(parsed.argument).toBe("onboarding process");
   });
 
   it("detects retrospective and strategy", () => {
-    expect(parseMiraCommand("@mira genera una retrospectiva").command).toBe("retrospective");
-    expect(parseMiraCommand("@mira crea una estrategia comercial").command).toBe("strategy");
+    expect(parseAlphaCommand("@alpha genera una retrospectiva").command).toBe("retrospective");
+    expect(parseAlphaCommand("@alpha crea una estrategia comercial").command).toBe("strategy");
   });
 
   it("falls back to general when no keyword matches", () => {
-    expect(parseMiraCommand("@mira cómo vas?").command).toBe("general");
+    expect(parseAlphaCommand("@alpha cómo vas?").command).toBe("general");
   });
 
   it("does not false-trigger on substrings like 'admirable'", () => {
-    expect(parseMiraCommand("this is admirable work").command).toBe("general");
+    expect(parseAlphaCommand("this is admirable work").command).toBe("general");
   });
 });
 
@@ -90,33 +90,33 @@ describe("formatConversation", () => {
   });
 });
 
-describe("MiraCommandRouter", () => {
+describe("AlphaCommandRouter", () => {
   it("returns a graceful fallback when AI is disabled", async () => {
-    const router = new MiraCommandRouter(makeFakeAi(false, "x"));
-    const result = await router.run(parseMiraCommand("@mira resume"), baseCtx);
+    const router = new AlphaCommandRouter(makeFakeAi(false, "x"));
+    const result = await router.run(parseAlphaCommand("@alpha resume"), baseCtx);
     expect(result.usedAi).toBe(false);
     expect(result.reply).toMatch(/AI isn't enabled|disabled/i);
   });
 
   it("calls the provider and returns its reply for summary", async () => {
-    const router = new MiraCommandRouter(makeFakeAi(true, "OK"));
-    const result = await router.run(parseMiraCommand("@mira resume"), baseCtx);
+    const router = new AlphaCommandRouter(makeFakeAi(true, "OK"));
+    const result = await router.run(parseAlphaCommand("@alpha resume"), baseCtx);
     expect(result.usedAi).toBe(true);
     expect(result.reply).toContain("OK");
     expect(result.structured?.bucket).toBe("summary");
   });
 
   it("fetch reports nothing indexed when knowledge is empty", async () => {
-    const router = new MiraCommandRouter(makeFakeAi(true, "OK"));
-    const result = await router.run(parseMiraCommand("@mira fetch: sales plan"), baseCtx);
+    const router = new AlphaCommandRouter(makeFakeAi(true, "OK"));
+    const result = await router.run(parseAlphaCommand("@alpha fetch: sales plan"), baseCtx);
     expect(result.command).toBe("fetch");
     expect(result.reply).toMatch(/nothing indexed|found nothing/i);
     expect(result.usedAi).toBe(false);
   });
 
   it("fetch returns raw snippets when AI is disabled but knowledge exists", async () => {
-    const router = new MiraCommandRouter(makeFakeAi(false, "x"));
-    const result = await router.run(parseMiraCommand("@mira fetch: sales"), {
+    const router = new AlphaCommandRouter(makeFakeAi(false, "x"));
+    const result = await router.run(parseAlphaCommand("@alpha fetch: sales"), {
       ...baseCtx,
       knowledge: [{ title: "Sales Playbook", snippet: "Qualify by pain" }],
     });
@@ -125,8 +125,8 @@ describe("MiraCommandRouter", () => {
   });
 
   it("fetch synthesizes a grounded answer when AI is enabled and knowledge exists", async () => {
-    const router = new MiraCommandRouter(makeFakeAi(true, "SYNTH"));
-    const result = await router.run(parseMiraCommand("@mira fetch: sales"), {
+    const router = new AlphaCommandRouter(makeFakeAi(true, "SYNTH"));
+    const result = await router.run(parseAlphaCommand("@alpha fetch: sales"), {
       ...baseCtx,
       knowledge: [{ title: "Sales Playbook", snippet: "Qualify by pain" }],
     });

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button, Icon, Mira, Overlay, TopBar, Avatar } from "@/shared/ui";
+import { Button, Icon, Alpha, Overlay, TopBar, Avatar } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 
 interface TaskConfirmClientProps {
@@ -46,7 +46,7 @@ export function TaskConfirmClient({ task, warm }: TaskConfirmClientProps) {
       <div className="flex h-full flex-col">
         <div className="h-[58px] flex-none" />
         <TopBar
-          kicker="Mira noticed"
+          kicker="Alpha noticed"
           title="Is this yours?"
           trailing={
             <button
@@ -80,7 +80,7 @@ export function TaskConfirmClient({ task, warm }: TaskConfirmClientProps) {
 
             <div className="rounded-2xl border border-line bg-surface p-[18px]">
               <div className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-                What Mira heard
+                What Alpha heard
               </div>
               <div className="font-display text-[22px] leading-tight text-ink">
                 {task.title}
@@ -114,7 +114,7 @@ export function TaskConfirmClient({ task, warm }: TaskConfirmClientProps) {
               }}
             >
               <div className="flex items-start gap-3">
-                <Mira size={34} mood="happy" />
+                <Alpha size={34} mood="happy" />
                 <div className="flex-1">
                   <div className="mb-1.5 text-xs font-bold uppercase tracking-[0.14em] text-accent">
                     Your first step, already tiny

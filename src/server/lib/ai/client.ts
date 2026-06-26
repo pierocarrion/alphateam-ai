@@ -6,8 +6,8 @@ import { createAiProvider, createEmbedder, readProviderName } from "./factory";
  * this object so the underlying vendor can be swapped via env without touching
  * domain code (Dependency Inversion).
  *
- * Existing Mira code (`gemini.ts`) is untouched for backward compatibility;
- * new modules (Knowledge Hub RAG, Wolf/Mira analytical layer) use this client.
+ * Existing Alpha code (`gemini.ts`) is untouched for backward compatibility;
+ * new modules (Knowledge Hub RAG, Wolf/Alpha analytical layer) use this client.
  */
 export interface AiClient {
   readonly provider: IAiProvider;

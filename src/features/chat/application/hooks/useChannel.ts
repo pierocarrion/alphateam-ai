@@ -22,7 +22,7 @@ interface ChannelResponse {
 interface SendMessageResponse {
   message: ChatMessageData;
   detected: DetectedTaskDraft | null;
-  miraReply?: ChatMessageData | null;
+  alphaReply?: ChatMessageData | null;
 }
 
 export function useChannel(channelId: string) {
@@ -47,7 +47,7 @@ export function useChannel(channelId: string) {
       queryClient.setQueryData<ChannelResponse>(queryKey, (old) => {
         if (!old) return old;
         const next = [...old.messages, result.message];
-        if (result.miraReply) next.push(result.miraReply);
+        if (result.alphaReply) next.push(result.alphaReply);
         return { ...old, messages: next };
       });
     },

@@ -9,9 +9,9 @@ function WelcomeScreen({ tone, onBegin }) {
       <div className="pad-top" />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
         <div style={{ position: 'relative', marginBottom: 30 }}>
-          <Mira size={110} mood="happy" ring />
+          <Alpha size={110} mood="happy" ring />
         </div>
-        <p className="kicker rise" style={{ color: 'var(--accent)' }}>Hi, I’m Mira</p>
+        <p className="kicker rise" style={{ color: 'var(--accent)' }}>Hi, I’m Alpha</p>
         <h1 className="h1 rise text-wrap-pretty" style={{ marginTop: 12, fontSize: 32 }}>
           Not a task manager. A gentle nudge to begin.
         </h1>
@@ -75,7 +75,7 @@ function OnboardingFlow({ tone, onComplete }) {
         {/* 0 — name/role */}
         {step === 0 && (
           <div>
-            <Mira size={56} mood="happy" style={{ marginBottom: 18 }} />
+            <Alpha size={56} mood="happy" style={{ marginBottom: 18 }} />
             <h1 className="h1">Nice to meet you.</h1>
             <p className="body" style={{ marginTop: 10 }}>What kind of work fills your days? (No wrong answer — this just helps me speak your language.)</p>
             <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
@@ -88,7 +88,7 @@ function OnboardingFlow({ tone, onComplete }) {
         {/* 1 — hardest time */}
         {step === 1 && (
           <div>
-            <Mira size={56} mood="calm" style={{ marginBottom: 18 }} />
+            <Alpha size={56} mood="calm" style={{ marginBottom: 18 }} />
             <h1 className="h1">When is starting hardest?</h1>
             <p className="body" style={{ marginTop: 10 }}>I’ll show up at the moment you need a hand — and stay quiet the rest of the time.</p>
             <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
@@ -103,7 +103,7 @@ function OnboardingFlow({ tone, onComplete }) {
         {/* 2 — profile */}
         {step === 2 && (
           <div>
-            <Mira size={56} mood="thinking" style={{ marginBottom: 18 }} />
+            <Alpha size={56} mood="thinking" style={{ marginBottom: 18 }} />
             <h1 className="h1">What pulls you off the most?</h1>
             <p className="body" style={{ marginTop: 10 }}>Be honest — I’m the only one who sees this.</p>
             <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
@@ -122,7 +122,7 @@ function OnboardingFlow({ tone, onComplete }) {
         {/* 3 — result */}
         {step === 3 && prof && (
           <div style={{ textAlign: 'center' }}>
-            <Mira size={80} mood="happy" ring style={{ margin: '6px auto 20px' }} />
+            <Alpha size={80} mood="happy" ring style={{ margin: '6px auto 20px' }} />
             <p className="kicker" style={{ color: 'var(--accent)' }}>Here’s how I’ll show up</p>
             <h1 className="h1" style={{ marginTop: 10 }}>{prof.name}</h1>
             <p className="lead text-wrap-pretty" style={{ marginTop: 14, color: 'var(--ink-2)' }}>{prof.plan}</p>
@@ -165,7 +165,7 @@ function IntentionCapture({ tone, onStart, onClose }) {
           <IconBtn name="close" onClick={onClose} label="Close" />
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 24px' }}>
-          <Mira size={64} mood="calm" style={{ margin: '0 auto 20px' }} />
+          <Alpha size={64} mood="calm" style={{ margin: '0 auto 20px' }} />
           <h1 className="h1 text-wrap-pretty" style={{ textAlign: 'center' }}>What’s on your mind?</h1>
           <p className="body text-wrap-pretty" style={{ textAlign: 'center', marginTop: 10 }}>
             Just say it plainly. Don’t organize it — that’s my job.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Mira } from "@/shared/ui";
+import { Button, Alpha } from "@/shared/ui";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 
 interface InterceptCardProps {
@@ -21,10 +21,10 @@ export function InterceptCard({ warm, task, onShow, onDismiss }: InterceptCardPr
       }}
     >
       <div className="flex items-start gap-2.5">
-        <Mira size={28} mood="happy" />
+        <Alpha size={28} mood="happy" />
         <div className="flex-1">
           <div className="mb-0.5 text-xs font-bold uppercase tracking-wider text-glow">
-            Mira · just for you
+            Alpha · just for you
           </div>
           <div className="text-sm leading-snug text-ink">
             {task.selfMade

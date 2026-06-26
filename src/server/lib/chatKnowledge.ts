@@ -3,7 +3,7 @@ import { container } from "@/server/lib/container";
 import { createLogger } from "@/shared/lib/logger";
 import {
   extractLeaderAnswerToKnowledge,
-  generateMiraResponse,
+  generateAlphaResponse,
   isGeminiEnabled,
 } from "@/server/lib/gemini";
 import type { KnowledgeBaseItem } from "@/features/projects/domain/repositories/IProjectRepository";
@@ -11,21 +11,21 @@ import type { KnowledgeBaseItem } from "@/features/projects/domain/repositories/
 const log = createLogger("chatKnowledge");
 
 /**
- * Matches "@mira", "mira," / "mira?" / "hey mira" at a word boundary.
+ * Matches "@alpha", "alpha," / "alpha?" / "hey alpha" at a word boundary.
  * The "@" must be at the start of the message or preceded by whitespace, so
- * substrings like "mirage", "admirable" or "email@mira" do not trigger it.
+ * substrings like "mirage", "admirable" or "email@alpha" do not trigger it.
  */
-const MIRA_MENTION_PATTERN = /(?:^|\s)@?mira\b/i;
+const ALPHA_MENTION_PATTERN = /(?:^|\s)@?alpha\b/i;
 
-export function isMentionedMira(text: string): boolean {
-  return MIRA_MENTION_PATTERN.test(text);
+export function isMentionedAlpha(text: string): boolean {
+  return ALPHA_MENTION_PATTERN.test(text);
 }
 
 /**
- * Generates Mira's reply grounded in the project knowledge base.
+ * Generates Alpha's reply grounded in the project knowledge base.
  * Returns null when Gemini is disabled or fails (graceful degradation).
  */
-export async function generateMiraChannelReply(args: {
+export async function generateAlphaChannelReply(args: {
   workspaceId: string;
   messageText: string;
   senderName?: string | null;
@@ -60,7 +60,7 @@ export async function generateMiraChannelReply(args: {
     log.error("findById (reply) failed", err);
   }
 
-  const result = await generateMiraResponse({
+  const result = await generateAlphaResponse({
     userName: args.senderName ?? undefined,
     message: args.messageText,
     knowledge,
@@ -83,8 +83,8 @@ export async function maybeCaptureLeaderAnswer(args: {
   leaderMessageText: string;
 }): Promise<KnowledgeBaseItem | null> {
   if (!isGeminiEnabled()) return null;
-  // If the leader is addressing Mira, this isn't a reusable answer to capture.
-  if (isMentionedMira(args.leaderMessageText)) return null;
+  // If the leader is addressing Alpha, this isn't a reusable answer to capture.
+  if (isMentionedAlpha(args.leaderMessageText)) return null;
 
   try {
     const channel = await prisma.channel.findUnique({

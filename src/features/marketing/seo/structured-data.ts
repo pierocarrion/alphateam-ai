@@ -70,10 +70,10 @@ export function landingStructuredData() {
         {
           "@type": "Question",
           name:
-            "How does Mira detect procrastination in team chat?",
+            "How does Alpha detect procrastination in team chat?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Mira listens to your team chat (e.g. Slack), spots vague or stalled tasks, and converts them into a tiny, concrete 2-minute first step so starting feels effortless.",
+            text: "Alpha listens to your team chat (e.g. Slack), spots vague or stalled tasks, and converts them into a tiny, concrete 2-minute first step so starting feels effortless.",
           },
         },
         {
@@ -81,7 +81,7 @@ export function landingStructuredData() {
           name: "Is my team's chat data private?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Mira only surfaces personal next steps to each individual and aggregate load signals to leaders. There is no public shaming, and no raw messages are exposed in dashboards.",
+            text: "Alpha only surfaces personal next steps to each individual and aggregate load signals to leaders. There is no public shaming, and no raw messages are exposed in dashboards.",
           },
         },
         {

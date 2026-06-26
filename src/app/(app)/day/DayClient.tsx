@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Mira, TopBar, Button } from "@/shared/ui";
+import { Alpha, TopBar, Button } from "@/shared/ui";
 
 interface Task {
   id: string;
@@ -35,7 +35,7 @@ export function DayClient({ heroTask, otherTasks }: DayClientProps) {
         </p>
 
         <div className="rise rounded-[28px] border border-line-2 bg-gradient-to-br from-surface-2 to-surface p-6 text-center shadow-2xl">
-          <Mira size={56} mood="calm" className="mx-auto mb-4" />
+          <Alpha size={56} mood="calm" className="mx-auto mb-4" />
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">The one thing</p>
           <h1 className="mt-2.5 font-display text-[26px] leading-tight text-ink text-wrap-pretty">
             {heroTask?.title ?? "Draft the Q3 launch deck"}

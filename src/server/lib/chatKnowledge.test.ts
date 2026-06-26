@@ -2,19 +2,19 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   isGeminiEnabled: vi.fn(),
-  generateMiraResponse: vi.fn(),
+  generateAlphaResponse: vi.fn(),
   extractLeaderAnswerToKnowledge: vi.fn(),
 }));
 
 vi.mock("@/server/lib/gemini", () => ({
   isGeminiEnabled: mocks.isGeminiEnabled,
-  generateMiraResponse: mocks.generateMiraResponse,
+  generateAlphaResponse: mocks.generateAlphaResponse,
   extractLeaderAnswerToKnowledge: mocks.extractLeaderAnswerToKnowledge,
 }));
 
 import {
-  isMentionedMira,
-  generateMiraChannelReply,
+  isMentionedAlpha,
+  generateAlphaChannelReply,
   maybeCaptureLeaderAnswer,
 } from "./chatKnowledge";
 import { getTestPrisma, seedWorkspace } from "@/tests/helpers/db";
@@ -24,32 +24,32 @@ beforeEach(() => {
   mocks.isGeminiEnabled.mockReturnValue(true);
 });
 
-describe("isMentionedMira", () => {
+describe("isMentionedAlpha", () => {
   it.each([
-    "@mira what's up?",
-    "hey mira, help me",
-    "Mira?",
-    "Hey @Mira!",
-    "MIRA help",
-    "  mira ",
-    "hello\n@mira can you?",
+    "@alpha what's up?",
+    "hey alpha, help me",
+    "Alpha?",
+    "Hey @Alpha!",
+    "ALPHA help",
+    "  alpha ",
+    "hello\n@alpha can you?",
   ])("detects a mention in %j", (text) => {
-    expect(isMentionedMira(text)).toBe(true);
+    expect(isMentionedAlpha(text)).toBe(true);
   });
 
   it.each([
     "mirage",
     "admirable",
     "good morning",
-    "email@mira",
+    "email@alpha",
     "we admire the plan",
     "",
   ])("does not detect a mention in %j", (text) => {
-    expect(isMentionedMira(text)).toBe(false);
+    expect(isMentionedAlpha(text)).toBe(false);
   });
 });
 
-describe("generateMiraChannelReply", () => {
+describe("generateAlphaChannelReply", () => {
   it("grounds the reply in the project knowledge base", async () => {
     const prisma = await getTestPrisma();
     const { workspace } = await seedWorkspace();
@@ -57,45 +57,45 @@ describe("generateMiraChannelReply", () => {
       data: { workspaceId: workspace.id, title: "Refunds", content: "Refunds within 30 days." },
     });
 
-    mocks.generateMiraResponse.mockResolvedValue({
+    mocks.generateAlphaResponse.mockResolvedValue({
       ok: true,
       data: "You can refund within 30 days.",
       model: "test",
     });
 
-    const reply = await generateMiraChannelReply({
+    const reply = await generateAlphaChannelReply({
       workspaceId: workspace.id,
-      messageText: "@mira what is the refund policy?",
+      messageText: "@alpha what is the refund policy?",
       senderName: "Mem",
     });
 
     expect(reply).toBe("You can refund within 30 days.");
-    expect(mocks.generateMiraResponse).toHaveBeenCalledOnce();
-    const arg = mocks.generateMiraResponse.mock.calls[0][0];
+    expect(mocks.generateAlphaResponse).toHaveBeenCalledOnce();
+    const arg = mocks.generateAlphaResponse.mock.calls[0][0];
     expect(arg.knowledge).toEqual([{ title: "Refunds", content: "Refunds within 30 days." }]);
-    expect(arg.message).toBe("@mira what is the refund policy?");
+    expect(arg.message).toBe("@alpha what is the refund policy?");
   });
 
   it("returns null when Gemini is disabled", async () => {
     mocks.isGeminiEnabled.mockReturnValue(false);
-    const reply = await generateMiraChannelReply({
+    const reply = await generateAlphaChannelReply({
       workspaceId: "ws",
-      messageText: "@mira hi",
+      messageText: "@alpha hi",
     });
     expect(reply).toBeNull();
-    expect(mocks.generateMiraResponse).not.toHaveBeenCalled();
+    expect(mocks.generateAlphaResponse).not.toHaveBeenCalled();
   });
 
   it("returns null when Gemini fails", async () => {
     const { workspace } = await seedWorkspace();
-    mocks.generateMiraResponse.mockResolvedValue({
+    mocks.generateAlphaResponse.mockResolvedValue({
       ok: false,
       error: "boom",
       model: "test",
     });
-    const reply = await generateMiraChannelReply({
+    const reply = await generateAlphaChannelReply({
       workspaceId: workspace.id,
-      messageText: "@mira hi",
+      messageText: "@alpha hi",
     });
     expect(reply).toBeNull();
   });
@@ -194,13 +194,13 @@ describe("maybeCaptureLeaderAnswer", () => {
     expect(item).toBeNull();
   });
 
-  it("does nothing when the leader is addressing Mira", async () => {
+  it("does nothing when the leader is addressing Alpha", async () => {
     const { workspace, channel, leader } = await seedConversation();
     const item = await maybeCaptureLeaderAnswer({
       workspaceId: workspace.id,
       channelId: channel.id,
       leaderUserId: leader.id,
-      leaderMessageText: "@mira what is our refund policy?",
+      leaderMessageText: "@alpha what is our refund policy?",
     });
     expect(item).toBeNull();
     expect(mocks.extractLeaderAnswerToKnowledge).not.toHaveBeenCalled();

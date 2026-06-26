@@ -207,7 +207,7 @@ export async function proposeMeetingSlot(input: {
     .map((c, i) => `${i + 1}. ${localLabel(c.start)} → ${localLabel(c.end)}`)
     .join("\n");
 
-  const prompt = `Eres Mira, un asistente de productividad cálido. Dos personas de un equipo necesitan una sesión corta de contexto.
+  const prompt = `Eres Alpha, un asistente de productividad cálido. Dos personas de un equipo necesitan una sesión corta de contexto.
 
 Quien pide: ${input.requesterName}
 Experto/a: ${input.expertName}

@@ -1,13 +1,13 @@
-// companion.jsx — Mira (the companion orb) + shared UI primitives
+// companion.jsx — Alpha (the companion orb) + shared UI primitives
 // Exports to window for the other babel scripts.
 
 const { useState, useEffect, useRef } = React;
 
 /* ----------------------------------------------------------------
-   Mira — friendly companion. Composed of simple circles only.
+   Alpha — friendly companion. Composed of simple circles only.
    mood: 'calm' | 'happy' | 'thinking' | 'cheer'
    ---------------------------------------------------------------- */
-function Mira({ size = 64, mood = 'calm', ring = false, style = {} }) {
+function Alpha({ size = 64, mood = 'calm', ring = false, style = {} }) {
   const eyeStyle =
     mood === 'happy' || mood === 'cheer'
       ? { height: '14%', borderRadius: '999px 999px 0 0', transform: 'translateY(2px)' }
@@ -20,10 +20,10 @@ function Mira({ size = 64, mood = 'calm', ring = false, style = {} }) {
           <div className="pulse-ring" style={{ inset: 0, animationDelay: 'calc(1.7s * var(--m))' }} />
         </>
       )}
-      <div className="mira" style={{ width: size, height: size }}>
-        <div className="mira-eyes">
-          <div className="mira-eye" style={eyeStyle} />
-          <div className="mira-eye" style={eyeStyle} />
+      <div className="alpha" style={{ width: size, height: size }}>
+        <div className="alpha-eyes">
+          <div className="alpha-eye" style={eyeStyle} />
+          <div className="alpha-eye" style={eyeStyle} />
         </div>
         {(mood === 'happy' || mood === 'cheer') && (
           <div style={{
@@ -205,6 +205,6 @@ function Placeholder({ label, h = 120, style = {} }) {
 }
 
 Object.assign(window, {
-  Mira, Avatar, Icon, TopBar, IconBtn, Btn, Sparkles, Placeholder,
+  Alpha, Avatar, Icon, TopBar, IconBtn, Btn, Sparkles, Placeholder,
   PEOPLE, shade, iconBtnStyle,
 });

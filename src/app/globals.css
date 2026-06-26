@@ -80,8 +80,8 @@ body {
   display: none;
 }
 
-/* Mira orb */
-.mira {
+/* Alpha orb */
+.alpha {
   position: relative;
   border-radius: 50%;
   background:
@@ -90,10 +90,10 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.12) inset,
     0 8px 30px -6px var(--color-glow-soft),
     0 0 38px -4px var(--color-glow-soft);
-  animation: mira-breathe calc(4.6s * var(--m, 1)) ease-in-out infinite;
+  animation: alpha-breathe calc(4.6s * var(--m, 1)) ease-in-out infinite;
 }
 
-.mira::after {
+.alpha::after {
   content: "";
   position: absolute;
   top: 12%;
@@ -105,12 +105,12 @@ body {
   filter: blur(1px);
 }
 
-@keyframes mira-breathe {
+@keyframes alpha-breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.045); }
 }
 
-.mira-eyes {
+.alpha-eyes {
   position: absolute;
   inset: 0;
   display: flex;
@@ -119,22 +119,22 @@ body {
   gap: 18%;
 }
 
-.mira-eye {
+.alpha-eye {
   width: 11%;
   height: 24%;
   background: #2a2030;
   border-radius: 999px;
-  animation: mira-blink calc(5.2s * var(--m, 1)) ease-in-out infinite;
+  animation: alpha-blink calc(5.2s * var(--m, 1)) ease-in-out infinite;
 }
 
-@keyframes mira-blink {
+@keyframes alpha-blink {
   0%, 92%, 100% { transform: scaleY(1); }
   95% { transform: scaleY(0.12); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mira,
-  .mira-eye {
+  .alpha,
+  .alpha-eye {
     animation: none !important;
   }
 }

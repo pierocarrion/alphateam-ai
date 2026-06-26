@@ -24,7 +24,7 @@ function NightScreen({ tone, onClose }) {
       {/* STAGE 0 — invitation */}
       {stage === 0 && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
-          <Mira size={84} mood="calm" style={{ marginBottom: 26 }} />
+          <Alpha size={84} mood="calm" style={{ marginBottom: 26 }} />
           <p className="kicker fade" style={{ color: '#9FB8E0' }}>11:14 pm</p>
           <h1 className="h1 rise text-wrap-pretty" style={{ marginTop: 12, fontSize: 30 }}>
             The scroll can wait.
@@ -50,7 +50,7 @@ function NightScreen({ tone, onClose }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
           <div style={{ position: 'relative', width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 36 }}>
             <div className="breathe-halo" />
-            <Mira size={96} mood="calm" />
+            <Alpha size={96} mood="calm" />
           </div>
           <h1 className="h1 breathe-word">Breathe in…</h1>
           <p className="body" style={{ marginTop: 10 }}>Follow the glow. Four slow rounds.</p>
@@ -60,7 +60,7 @@ function NightScreen({ tone, onClose }) {
       {/* STAGE 2 — goodnight */}
       {stage === 2 && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
-          <Mira size={64} mood="happy" style={{ marginBottom: 24, opacity: 0.9 }} />
+          <Alpha size={64} mood="happy" style={{ marginBottom: 24, opacity: 0.9 }} />
           <h1 className="h1 rise">Goodnight, Maya.</h1>
           <p className="lead rise text-wrap-pretty" style={{ marginTop: 12, maxWidth: 260, color: 'var(--ink-2)' }}>
             I’ll be here in the morning. Rest is the most productive thing you’ll do tonight.

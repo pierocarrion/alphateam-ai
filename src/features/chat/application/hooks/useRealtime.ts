@@ -22,7 +22,7 @@ interface UseRealtimeOptions {
 /**
  * Subscribes the client to the realtime SSE stream for a workspace and
  * invalidates the relevant react-query caches when events arrive, so the
- * Group Chat, Mira insights panel and Knowledge Hub stay live without polling.
+ * Group Chat, Alpha insights panel and Knowledge Hub stay live without polling.
  */
 export function useRealtime({ workspaceId, onEvent }: UseRealtimeOptions) {
   const queryClient = useQueryClient();
@@ -45,12 +45,12 @@ export function useRealtime({ workspaceId, onEvent }: UseRealtimeOptions) {
 
       switch (event.type) {
         case "message_sent":
-        case "mira_reply":
+        case "alpha_reply":
           if (event.channelId) {
             queryClient.invalidateQueries({ queryKey: ["channel", event.channelId] });
           }
           break;
-        case "mira_insight":
+        case "alpha_insight":
         case "task_detected":
         case "task_updated":
           if (event.channelId) {

@@ -5,8 +5,8 @@ import { prisma } from "@/server/lib/prisma";
 import { jsonError } from "@/server/lib/apiErrors";
 
 /**
- * Returns recent Mira insights + auto-detected open tasks for the channel's
- * workspace, powering the "Wolf/Mira" side panel (tasks, risks, decisions,
+ * Returns recent Alpha insights + auto-detected open tasks for the channel's
+ * workspace, powering the "Wolf/Alpha" side panel (tasks, risks, decisions,
  * summaries) in the enriched Group Chat.
  */
 export async function GET(

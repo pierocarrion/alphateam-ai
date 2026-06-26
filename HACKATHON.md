@@ -1,10 +1,10 @@
-﻿# AlphaLead AI — Hackathon Deliverable
+# AlphaLead AI — Hackathon Deliverable
 
 ## 30-second narrative
 
 Procrastination is not a time problem; it is an emotion problem. Most productivity tools shame users with overdue lists, broken streaks, and public scores. **AlphaLead AI** does the opposite.
 
-Mira, our gentle companion orb, listens to team chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. No guilt, no piles, no streaks — just a kind nudge to begin.
+Alpha, our gentle companion orb, listens to team chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. No guilt, no piles, no streaks — just a kind nudge to begin.
 
 For teams, AlphaLead adds a quiet layer of care: a Crew space that spots load imbalance, pairs people for hard starts, and tracks recovered time instead of hours lost.
 
@@ -24,10 +24,10 @@ For teams, AlphaLead adds a quiet layer of care: a Crew space that spots load im
 
 1. **Landing** — founder/manager sees value prop and joins waitlist.
 2. **Home** — one immediate, tiny step is surfaced; the rest is hidden.
-3. **Chat** — type “I need to write the launch report”; Mira quietly detects it.
+3. **Chat** — type “I need to write the launch report”; Alpha quietly detects it.
 4. **Task sheet** — accept the AI-shrunken first step.
 5. **Ritual** — pick a feeling, validate it, start the 2-minute unlock.
-6. **Focus** — a calm timer with Mira; no countdown pressure.
+6. **Focus** — a calm timer with Alpha; no countdown pressure.
 7. **Reward** — celebrate starting and see recovered minutes.
 8. **Crew** — check team mood, load guardian, milestone, pair-start.
 9. **Settings** — share evidence/feedback for the hackathon.
@@ -107,7 +107,7 @@ For detailed setup (APIs, Cloud SQL, Secret Manager, service account), see [GCP_
 
 - Gemini is used via **Vertex AI** in GCP.
 - The default model is **Gemini 2.5 Flash** (cheap + fast).
-- All task detection, Mira chat, and crew mood analysis fallback to the existing heuristic engine if Gemini is disabled or fails.
+- All task detection, Alpha chat, and crew mood analysis fallback to the existing heuristic engine if Gemini is disabled or fails.
 - In production, `GEMINI_ENABLED=true` is set automatically by `cloudbuild.yaml`.
 - Local dev can run without Gemini by leaving `GEMINI_ENABLED=false`.
 

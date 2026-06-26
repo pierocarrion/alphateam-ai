@@ -4,37 +4,37 @@ import { container } from "@/server/lib/container";
 import { createLogger } from "@/shared/lib/logger";
 import { knowledgeContainer } from "@/features/knowledge/infrastructure/knowledgeContainer";
 import {
-  MiraCommandRouter,
-  parseMiraCommand,
+  AlphaCommandRouter,
+  parseAlphaCommand,
   type ConversationMessage,
-  type MiraCommandContext,
-  type MiraCommandResult,
-} from "@/features/chat/application/miraCommands";
+  type AlphaCommandContext,
+  type AlphaCommandResult,
+} from "@/features/chat/application/alphaCommands";
 import { publishRealtime } from "@/server/lib/realtime";
 
-const log = createLogger("mira");
+const log = createLogger("alpha");
 
-export interface RunMiraOptions {
+export interface RunAlphaOptions {
   channelId: string;
   text: string;
   /** Limit how many recent messages feed the analysis. */
   historyLimit?: number;
 }
 
-export interface RunMiraOutput {
-  parsed: ReturnType<typeof parseMiraCommand>;
-  result: MiraCommandResult;
+export interface RunAlphaOutput {
+  parsed: ReturnType<typeof parseAlphaCommand>;
+  result: AlphaCommandResult;
 }
 
 /**
- * High-level orchestrator: given a chat message that mentions Mira, it parses
+ * High-level orchestrator: given a chat message that mentions Alpha, it parses
  * the command, builds the conversation context, optionally retrieves Knowledge
  * Hub resources (RAG) for `fetch`, runs the router, and persists the structured
- * output as a ChannelInsight. Used by both the inline @mira path and the
- * explicit /api/channels/[id]/mira endpoint.
+ * output as a ChannelInsight. Used by both the inline @alpha path and the
+ * explicit /api/channels/[id]/alpha endpoint.
  */
-export async function runMiraInChannel(opts: RunMiraOptions): Promise<RunMiraOutput> {
-  const parsed = parseMiraCommand(opts.text);
+export async function runAlphaInChannel(opts: RunAlphaOptions): Promise<RunAlphaOutput> {
+  const parsed = parseAlphaCommand(opts.text);
   const historyLimit = opts.historyLimit ?? 30;
 
   const channel = await prisma.channel.findUnique({
@@ -54,14 +54,14 @@ export async function runMiraInChannel(opts: RunMiraOptions): Promise<RunMiraOut
     .reverse()
     .map((m) => ({ author: m.user.name ?? "Someone", text: m.content }));
 
-  const ctx: MiraCommandContext = {
+  const ctx: AlphaCommandContext = {
     workspaceId: channel?.workspaceId ?? "",
     channelId: opts.channelId,
     projectName: channel?.workspace.name,
     conversation,
   };
 
-  // RAG retrieval: always ground Mira on the project's Knowledge Hub so she can
+  // RAG retrieval: always ground Alpha on the project's Knowledge Hub so she can
   // answer questions about any project data in any command, not just `fetch`.
   if (ctx.workspaceId && parsed.argument) {
     try {
@@ -79,7 +79,7 @@ export async function runMiraInChannel(opts: RunMiraOptions): Promise<RunMiraOut
     }
   }
 
-  const router = new MiraCommandRouter(getAiClient());
+  const router = new AlphaCommandRouter(getAiClient());
   const result = await router.run(parsed, ctx);
 
   // Persist the structured insight for the side panel + audit trail.
@@ -101,8 +101,8 @@ export async function runMiraInChannel(opts: RunMiraOptions): Promise<RunMiraOut
     } catch (err) {
       log.error("persist insight error", err);
     }
-    // Notify connected clients that a new Mira insight is available.
-    publishRealtime("mira_insight", {
+    // Notify connected clients that a new Alpha insight is available.
+    publishRealtime("alpha_insight", {
       workspaceId: ctx.workspaceId,
       channelId: opts.channelId,
       data: { type: parsed.command, usedAi: result.usedAi },
@@ -140,22 +140,22 @@ async function materializeTasksFromReply(
   // so the leader can review/convert. (Full NLP extraction happens in the
   // analytical layer; this guarantees traceability in the task system.)
   const existing = await prisma.task.findFirst({
-    where: { title: { startsWith: "Acciones detectadas por Mira" }, status: "open" },
+    where: { title: { startsWith: "Acciones detectadas por Alpha" }, status: "open" },
   });
   if (existing) return;
   await prisma.task.create({
     data: {
       userId: fallbackUserId,
-      title: "Acciones detectadas por Mira",
+      title: "Acciones detectadas por Alpha",
       category: "Review",
-      app: "Mira",
+      app: "Alpha",
       load: "Light",
-      micro: "Revisar las acciones detectadas por Mira y asignarlas.",
+      micro: "Revisar las acciones detectadas por Alpha y asignarlas.",
       action: "revisar y asignar",
       resource: "Chat",
       fromQuote: reply.slice(0, 200),
       status: "open",
-      tags: ["mira", "auto-detected"],
+      tags: ["alpha", "auto-detected"],
     },
   });
   void channelId;

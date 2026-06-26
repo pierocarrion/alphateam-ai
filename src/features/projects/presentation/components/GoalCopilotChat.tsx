@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { fetchJson, ApiError } from "@/shared/lib/api";
-import { Icon, Mira } from "@/shared/ui";
+import { Icon, Alpha } from "@/shared/ui";
 
 interface GoalCopilotChatProps {
   goalId: string;
@@ -55,7 +55,7 @@ export function GoalCopilotChat({ goalId }: GoalCopilotChatProps) {
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2">
-        <Mira size={22} mood="thinking" />
+        <Alpha size={22} mood="thinking" />
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
           Copiloto del objetivo
         </p>
@@ -82,7 +82,7 @@ export function GoalCopilotChat({ goalId }: GoalCopilotChatProps) {
                 {ex.q}
               </div>
               <div className="flex items-start gap-2">
-                <Mira size={18} mood="calm" />
+                <Alpha size={18} mood="calm" />
                 <p className="flex-1 rounded-[14px] rounded-bl-sm bg-surface-2 px-3 py-2 text-[13px] text-ink-2 text-wrap-pretty">
                   {ex.a}
                 </p>
@@ -102,7 +102,7 @@ export function GoalCopilotChat({ goalId }: GoalCopilotChatProps) {
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Pregúntale a Mira sobre el objetivo…"
+          placeholder="Pregúntale a Alpha sobre el objetivo…"
           className="flex-1 rounded-full border border-line bg-surface-2 px-3.5 py-2.5 text-[13px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
         />
         <button

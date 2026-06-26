@@ -1,7 +1,7 @@
 /**
  * In-process realtime pub/sub broker for Server-Sent Events.
  *
- * Publishers (message POST, Mira command service, task detection) call
+ * Publishers (message POST, Alpha command service, task detection) call
  * {@link publishRealtime}; SSE subscribers ({@link RealtimeSSEHandler})
  * receive events for the workspaces/channels they're authorized on.
  *
@@ -15,8 +15,8 @@ const log = createLogger("realtime");
 
 export type RealtimeEventType =
   | "message_sent"
-  | "mira_reply"
-  | "mira_insight"
+  | "alpha_reply"
+  | "alpha_insight"
   | "task_detected"
   | "task_updated"
   | "reaction_added"

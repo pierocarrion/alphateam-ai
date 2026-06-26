@@ -1,4 +1,4 @@
-﻿// insights.jsx — Me hub + Insights (no guilt) + Day mode (anti-multitask) + Settings
+// insights.jsx — Me hub + Insights (no guilt) + Day mode (anti-multitask) + Settings
 const { useState: useStateIn } = React;
 
 /* ---------------- Me hub ---------------- */
@@ -6,7 +6,7 @@ function MeScreen({ tone, go, onReplayWelcome }) {
   return (
     <div className="screen">
       <div className="pad-top" />
-      <TopBar kicker="Just for you" title="You & Mira" trailing={<Mira size={28} mood="happy" />} />
+      <TopBar kicker="Just for you" title="You & Alpha" trailing={<Alpha size={28} mood="happy" />} />
       <div className="scroll" style={{ padding: '6px 18px 16px' }}>
         <div className="stagger" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* recovered highlight */}
@@ -105,7 +105,7 @@ function InsightsScreen({ tone, onBack }) {
           </div>
 
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '0 4px' }}>
-            <Mira size={30} mood="happy" />
+            <Alpha size={30} mood="happy" />
             <p className="tiny text-wrap-pretty" style={{ flex: 1 }}>No streaks to break here. You can always begin again — that’s the point.</p>
           </div>
         </div>
@@ -131,7 +131,7 @@ function DayModeScreen({ tone, onBack, onStart }) {
           background: 'linear-gradient(165deg, var(--surface-2), var(--surface))',
           border: '1px solid var(--line-2)', boxShadow: '0 24px 50px -24px rgba(0,0,0,0.6)',
         }}>
-          <Mira size={56} mood="calm" style={{ margin: '0 auto 18px' }} />
+          <Alpha size={56} mood="calm" style={{ margin: '0 auto 18px' }} />
           <p className="kicker" style={{ color: 'var(--accent)' }}>The one thing</p>
           <h1 className="h1 text-wrap-pretty" style={{ marginTop: 10, fontSize: 26 }}>Draft the Q3 launch deck</h1>
           <p className="body" style={{ marginTop: 10 }}>First step: open it and type one messy sentence.</p>
@@ -184,7 +184,7 @@ function SettingsScreen({ tone, onBack }) {
           <SettingRow title="Add an app" detail="" plus last />
         </SettingsGroup>
 
-        <SettingsGroup label="Nudges" note="Gentle by design. Mira will never alarm, shame, or show what you missed.">
+        <SettingsGroup label="Nudges" note="Gentle by design. Alpha will never alarm, shame, or show what you missed.">
           <SettingRowToggle title="Gentle check-ins" on={nudges} onToggle={() => setNudges(v => !v)} />
           <SettingRowToggle title="Pair-start invites" on={pair} onToggle={() => setPair(v => !v)} />
           <SettingRowToggle title="Quiet mode (pause all)" on={quiet} onToggle={() => setQuiet(v => !v)} last />

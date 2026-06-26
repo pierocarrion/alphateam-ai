@@ -43,7 +43,7 @@ export function WaitlistForm({ buttonText = "Join the waitlist" }: { buttonText?
       <div className="rounded-2xl border border-sage/30 bg-sage-soft px-6 py-5 text-center">
         <p className="text-[17px] font-bold text-sage">You&apos;re on the list.</p>
         <p className="mt-1 text-sm text-ink-2">
-          Mira will reach out soon with early access.
+          Alpha will reach out soon with early access.
         </p>
       </div>
     );

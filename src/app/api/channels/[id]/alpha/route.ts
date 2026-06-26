@@ -4,12 +4,12 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
-import { ensureMiraBotUser } from "@/server/lib/miraBot";
-import { runMiraInChannel } from "@/server/lib/miraCommandsService";
+import { ensureAlphaBotUser } from "@/server/lib/alphaBot";
+import { runAlphaInChannel } from "@/server/lib/alphaCommandsService";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(4000),
-  /** When true, persists Mira's reply as a bot Message in the channel. */
+  /** When true, persists Alpha's reply as a bot Message in the channel. */
   postReply: z.boolean().optional(),
 });
 
@@ -54,11 +54,11 @@ export async function POST(
       return NextResponse.json({ error: "You don't have access to that channel." }, { status: 403 });
     }
 
-    const { result, parsed: command } = await runMiraInChannel({ channelId: id, text: parsed.data.text });
+    const { result, parsed: command } = await runAlphaInChannel({ channelId: id, text: parsed.data.text });
 
     let postedMessage: { id: string; text: string } | null = null;
     if (parsed.data.postReply) {
-      const bot = await ensureMiraBotUser();
+      const bot = await ensureAlphaBotUser();
       const msg = await prisma.message.create({
         data: { channelId: id, userId: bot.id, content: result.reply },
         select: { id: true, content: true },

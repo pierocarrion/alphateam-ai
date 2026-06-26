@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
 import { recoveredMinutesByDay } from "@/server/lib/metrics";
-import { Mira, TopBar } from "@/shared/ui";
+import { Alpha, TopBar } from "@/shared/ui";
 
 const FALLBACK_WEEK = [
   { d: "M", v: 0 },
@@ -109,7 +109,7 @@ export default async function InsightsPage() {
           </div>
 
           <div className="flex items-center gap-3 px-1">
-            <Mira size={30} mood="happy" />
+            <Alpha size={30} mood="happy" />
             <p className="flex-1 text-xs text-ink-3 text-wrap-pretty">
               No streaks to break here. You can always begin again — that’s the point.
             </p>

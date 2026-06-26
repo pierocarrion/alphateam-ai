@@ -1,6 +1,6 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Mira } from "@/shared/ui";
+import { Alpha } from "@/shared/ui";
 import { WaitlistForm } from "@/features/marketing/components/WaitlistForm";
 import {
   landingStructuredData,
@@ -46,7 +46,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 lg:px-12">
         <div className="flex items-center gap-2.5">
-          <Mira size={32} mood="happy" />
+          <Alpha size={32} mood="happy" />
           <span className="font-display text-xl text-ink">AlphaLead</span>
         </div>
         <div className="flex items-center gap-6">
@@ -69,7 +69,7 @@ export default function LandingPage() {
           Built for teams that want to move
         </div>
         <h1 className="mt-6 max-w-3xl font-display text-[42px] leading-[1.05] text-ink sm:text-[56px] lg:text-[68px]">
-          Your team loses 2+ hours a day to procrastination. Mira gets it back.
+          Your team loses 2+ hours a day to procrastination. Alpha gets it back.
         </h1>
         <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-2">
           AlphaLead AI listens to your team chat, turns vague tasks into tiny first steps, and helps
@@ -86,7 +86,7 @@ export default function LandingPage() {
         <div className="mt-14 w-full max-w-4xl rounded-[32px] border border-line-2 bg-surface p-6 shadow-2xl sm:p-10">
           <div className="flex flex-col gap-6 text-left sm:flex-row sm:items-start">
             <div className="flex-1">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">Mira noticed</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">Alpha noticed</p>
               <p className="mt-2 text-[17px] text-ink-2">
                 &ldquo;Could you pull together a rough draft of the Q3 launch deck?&rdquo;
               </p>
@@ -98,9 +98,9 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-line bg-bg p-6 text-center">
-              <Mira size={72} mood="calm" />
+              <Alpha size={72} mood="calm" />
               <p className="mt-4 font-display text-xl text-ink">2-minute ritual</p>
-              <p className="mt-1 text-sm text-ink-2">Starting is the hardest part. Mira sits with you.</p>
+              <p className="mt-1 text-sm text-ink-2">Starting is the hardest part. Alpha sits with you.</p>
             </div>
           </div>
         </div>
@@ -124,16 +124,16 @@ export default function LandingPage() {
       <section className="px-6 py-20 lg:px-12">
         <div className="mx-auto max-w-5xl">
           <h2 className="text-center font-display text-[28px] text-ink sm:text-[36px]">
-            How Mira runs your team&apos;s momentum
+            How Alpha runs your team&apos;s momentum
           </h2>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
               title="Detects tasks in chat"
-              desc="Mira listens to Slack/team chat, spots hidden tasks, and turns them into tiny first steps."
+              desc="Alpha listens to Slack/team chat, spots hidden tasks, and turns them into tiny first steps."
             />
             <FeatureCard
               title="2-minute rituals"
-              desc="No more staring at a blank page. Mira guides each person through the emotional threshold of starting."
+              desc="No more staring at a blank page. Alpha guides each person through the emotional threshold of starting."
             />
             <FeatureCard
               title="Private leader dashboard"
@@ -141,7 +141,7 @@ export default function LandingPage() {
             />
             <FeatureCard
               title="Pair-start"
-              desc="When someone is stuck, Mira matches them with a teammate to start together."
+              desc="When someone is stuck, Alpha matches them with a teammate to start together."
             />
             <FeatureCard
               title="Check engine alerts"
@@ -149,7 +149,7 @@ export default function LandingPage() {
             />
             <FeatureCard
               title="Daily check-in"
-              desc="Every morning Mira asks how the team feels and adjusts the day&apos;s priorities."
+              desc="Every morning Alpha asks how the team feels and adjusts the day&apos;s priorities."
             />
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function LandingPage() {
           Stop the delay before it spreads.
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-lg text-ink-2">
-          Join the teams using Mira to recover focus, protect energy, and ship on time.
+          Join the teams using Alpha to recover focus, protect energy, and ship on time.
         </p>
         <div className="mx-auto mt-8 flex max-w-md justify-center">
           <WaitlistForm buttonText="Get early access" />

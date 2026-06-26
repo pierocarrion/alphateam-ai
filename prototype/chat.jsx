@@ -27,8 +27,8 @@ function ChatScreen({ tone, convo, onShowTask }) {
           <div className="tiny" style={{ marginTop: 1 }}>Daniel, Sofía, Theo, Priya · you</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Mira size={26} mood="calm" />
-          <span className="tiny" style={{ color: 'var(--ink-3)' }}>{warm ? 'Mira’s here' : 'Mira'}</span>
+          <Alpha size={26} mood="calm" />
+          <span className="tiny" style={{ color: 'var(--ink-3)' }}>{warm ? 'Alpha’s here' : 'Alpha'}</span>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ function ChatScreen({ tone, convo, onShowTask }) {
           </button>
         </div>
         <div className="tiny" style={{ textAlign: 'center', marginTop: 7, color: 'var(--ink-3)' }}>
-          Try “I need to write the launch report” — Mira will quietly notice.
+          Try “I need to write the launch report” — Alpha will quietly notice.
         </div>
       </div>
     </div>
@@ -152,9 +152,9 @@ function InterceptCard({ warm, task, onShow, onDismiss }) {
       boxShadow: '0 12px 30px -12px var(--glow-soft)',
     }}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <Mira size={28} mood="happy" />
+        <Alpha size={28} mood="happy" />
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--glow)', marginBottom: 3 }}>Mira · just for you</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--glow)', marginBottom: 3 }}>Alpha · just for you</div>
           <div style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--ink)' }}>
             {task.selfMade
               ? (warm ? 'Sounds like a real task hiding in there. Want me to shrink it into a 2‑minute start?' : 'That sounds like a task. Turn it into a 2‑minute first step?')

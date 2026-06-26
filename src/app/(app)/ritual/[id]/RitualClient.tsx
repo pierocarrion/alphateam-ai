@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button, Icon, Mira, Overlay, Sparkles } from "@/shared/ui";
+import { Button, Icon, Alpha, Overlay, Sparkles } from "@/shared/ui";
 import { fetchJson } from "@/shared/lib/api";
 import { FEELINGS } from "@/features/rituals/lib/feelings";
 
@@ -153,7 +153,7 @@ function UnlockStep({
         {step === 0 && (
           <div className="flex h-full flex-col justify-center py-4">
             <div className="mb-5 text-center">
-              <Mira size={72} mood="calm" className="mx-auto mb-4" />
+              <Alpha size={72} mood="calm" className="mx-auto mb-4" />
               <h1 className="font-display text-[28px] leading-tight text-ink">
                 Before we start…
               </h1>
@@ -183,14 +183,14 @@ function UnlockStep({
               ))}
             </div>
             <p className="mt-4 text-center text-xs text-ink-3">
-              There’s no wrong answer. Mira won’t share this.
+              There’s no wrong answer. Alpha won’t share this.
             </p>
           </div>
         )}
 
         {step === 1 && selected && (
           <div className="flex h-full flex-col justify-center py-4 text-center">
-            <Mira size={80} mood="happy" ring className="mx-auto mb-5" />
+            <Alpha size={80} mood="happy" ring className="mx-auto mb-5" />
             <div
               className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-xs font-bold text-glow"
               style={{ background: "var(--color-glow-soft)" }}
@@ -238,7 +238,7 @@ function UnlockStep({
                   "linear-gradient(180deg, var(--color-accent-soft), transparent)",
               }}
             >
-              <Mira size={56} mood="happy" className="mx-auto mb-4" />
+              <Alpha size={56} mood="happy" className="mx-auto mb-4" />
               <div
                 className="font-display text-[24px] leading-snug text-ink"
                 style={{ lineHeight: 1.3 }}
@@ -369,7 +369,7 @@ function FocusStep({
               style={{ transition: "stroke-dashoffset 1s linear" }}
             />
           </svg>
-          <Mira size={132} mood="calm" ring />
+          <Alpha size={132} mood="calm" ring />
         </div>
 
         <div
@@ -422,7 +422,7 @@ function RewardStep({
       <div className="flex flex-1 flex-col items-center justify-center px-7 text-center">
         <div className="relative mb-6">
           {boom && <Sparkles n={20} />}
-          <Mira size={104} mood="cheer" />
+          <Alpha size={104} mood="cheer" />
         </div>
 
         <h1 className="font-display text-[32px] text-ink">You did it.</h1>

@@ -4,7 +4,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/server/lib/prisma";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { buildLeaderBriefing } from "@/server/lib/leaderBriefing";
-import { Mira, Button, Icon } from "@/shared/ui";
+import { Alpha, Button, Icon } from "@/shared/ui";
 import { LeaderHome } from "./LeaderHome";
 import { getLocale } from "@/i18n/server";
 import { t } from "@/i18n/messages";
@@ -75,7 +75,7 @@ async function MemberHome({
       <div className="flex-1 overflow-y-auto scrollbar-hide px-5 pb-4 lg:max-w-3xl lg:mx-auto">
         {/* greeting */}
         <div className="mb-5 flex items-center gap-3 pt-1">
-          <Mira size={44} mood="happy" />
+          <Alpha size={44} mood="happy" />
           <div>
             <div className="text-xs text-ink-3">{tr("home.greeting")}</div>
             <div className="font-display text-[22px] text-ink">{name}</div>
@@ -109,7 +109,7 @@ async function MemberHome({
 
         {/* reassurance */}
         <div className="mb-5 mt-4 flex items-center gap-3 px-1">
-          <Mira size={22} mood="calm" />
+          <Alpha size={22} mood="calm" />
           <p className="flex-1 text-xs text-ink-3">
             {tr(
               warm ? "home.reassuranceWarm" : "home.reassuranceBalanced",

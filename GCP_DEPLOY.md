@@ -1,4 +1,4 @@
-﻿# AlphaLead AI — GCP Staging & Production Deployment Guide
+# AlphaLead AI — GCP Staging & Production Deployment Guide
 
 This guide walks through deploying AlphaLead AI to Google Cloud Platform (GCP) using a fully managed, serverless stack.
 
@@ -15,7 +15,7 @@ This guide walks through deploying AlphaLead AI to Google Cloud Platform (GCP) u
 | **Cloud Monitoring** | Uptime checks, alerts, and dashboards |
 | **Cloud Load Balancing** (optional) | Custom domain + HTTPS + CDN for production |
 | **Cloud DNS** (optional) | Custom domain DNS records |
-| **Vertex AI** | Gemini LLM calls for task detection, Mira chat, and crew mood analysis |
+| **Vertex AI** | Gemini LLM calls for task detection, Alpha chat, and crew mood analysis |
 | **Cloud Storage** (optional) | Static assets, backups, or export dumps |
 
 ## Architecture overview
