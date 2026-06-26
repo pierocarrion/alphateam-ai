@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/lib/prisma";
 import { requireSuperAdmin } from "@/server/lib/requireSuperAdmin";
+import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
 const ALLOWED_ACTIONS = new Set(["block", "unblock", "promote", "demote"]);
 
@@ -90,6 +91,43 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     where: { id },
     data,
     select: { id: true, blocked: true, globalRole: true },
+  });
+
+  // Notify the affected user of the admin action (in-app + push).
+  const action = body.action;
+  safeAfter(async () => {
+    try {
+      const titles: Record<string, { title: string; body: string }> = {
+        block: {
+          title: "Cuenta suspendida",
+          body: "Un administrador suspendió tu cuenta. Si crees que es un error, escríbenos.",
+        },
+        unblock: {
+          title: "Cuenta reactivada",
+          body: "Tu cuenta fue reactivada. Ya puedes volver a usar la plataforma.",
+        },
+        promote: {
+          title: "Ahora eres administrador",
+          body: "Un administrador te dio permisos de super administrador.",
+        },
+        demote: {
+          title: "Permisos de administrador retirados",
+          body: "Tu rol de super administrador fue retirado.",
+        },
+      };
+      const msg = action ? titles[action] : undefined;
+      if (msg) {
+        await notifyUser({
+          userId: id,
+          type: "admin_action",
+          title: msg.title,
+          body: msg.body,
+          data: { action },
+        });
+      }
+    } catch {
+      // best-effort
+    }
   });
 
   return NextResponse.json({ user: updated });

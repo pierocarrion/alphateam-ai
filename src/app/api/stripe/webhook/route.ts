@@ -3,8 +3,33 @@ import { getStripe } from "@/server/lib/stripe";
 import { prisma } from "@/server/lib/prisma";
 import Stripe from "stripe";
 import { jsonError, toFriendlyMessage } from "@/server/lib/apiErrors";
+import { notifyUser } from "@/server/lib/notifications";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+/**
+ * Finds the workspace owner (the leader/admin with the earliest membership) for
+ * a subscription row, so we can notify them of billing issues.
+ */
+async function findOwnerUserIdBySubscription(
+  subscriptionId: string
+): Promise<{ userId: string; workspaceId: string } | null> {
+  const sub = await prisma.workspaceSubscription.findFirst({
+    where: { stripeSubscriptionId: subscriptionId },
+    select: { workspaceId: true },
+  });
+  if (!sub) return null;
+  const leader = await prisma.membership.findFirst({
+    where: {
+      workspaceId: sub.workspaceId,
+      role: { in: ["leader", "admin"] },
+      status: "active",
+    },
+    orderBy: { joinedAt: "asc" },
+    select: { userId: true },
+  });
+  return leader ? { userId: leader.userId, workspaceId: sub.workspaceId } : null;
+}
 
 export async function POST(request: Request) {
   try {
@@ -62,6 +87,18 @@ export async function POST(request: Request) {
             where: { stripeSubscriptionId: subscriptionId },
             data: { status: "past_due" },
           });
+          const owner = await findOwnerUserIdBySubscription(subscriptionId);
+          if (owner) {
+            await notifyUser({
+              userId: owner.userId,
+              type: "payment_failed",
+              title: "No pudimos cobrar tu suscripción",
+              body: "Hubo un problema con tu método de pago. Revisa tu facturación para evitar perder acceso.",
+              data: { workspaceId: owner.workspaceId },
+              workspaceId: owner.workspaceId,
+              url: "/settings/billing",
+            }).catch(() => void 0);
+          }
         }
         break;
       }
@@ -72,6 +109,18 @@ export async function POST(request: Request) {
           where: { stripeSubscriptionId: sub.id },
           data: { status: "cancelled", plan: "free" },
         });
+        const owner = await findOwnerUserIdBySubscription(sub.id);
+        if (owner) {
+          await notifyUser({
+            userId: owner.userId,
+            type: "subscription_cancelled",
+            title: "Tu suscripción fue cancelada",
+            body: "Tu plan pasó a free. Puedes reactivarlo cuando quieras desde facturación.",
+            data: { workspaceId: owner.workspaceId },
+            workspaceId: owner.workspaceId,
+            url: "/settings/billing",
+          }).catch(() => void 0);
+        }
         break;
       }
     }

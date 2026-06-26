@@ -76,6 +76,8 @@ model User {
   alphaDocuments         AlphaDocument[]
   assignedProjectTasks   ProjectTask[] @relation("ProjectTaskAssignee")
   createdProjectTasks    ProjectTask[] @relation("ProjectTaskCreator")
+  notifications          Notification[]
+  pushSubscriptions      PushSubscription[]
 }
 
 model UserProfile {
@@ -987,5 +989,42 @@ model ProjectTask {
   @@index([workspaceId, assigneeId])
   @@index([assigneeId, status])
 }
+
+// ===== Notifications (in-app inbox + push) =====
+
+/// Notificación persistente mostrada en la campana/centro de notificaciones.
+/// El campo `type` se mapea en el cliente a texto localizado; `data` lleva
+/// contexto (workspaceId, taskId, etc.) para deep-linking.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // join_approved | join_rejected | task_assigned | invite_received | payment_failed | admin_action | join_request_received | dm_started
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ===== Push subscriptions (FCM tokens por dispositivo) =====
+
+/// Token FCM registrado por el navegador/dispositivo de un usuario.
+/// Un usuario puede tener varios (varios dispositivos).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 
 

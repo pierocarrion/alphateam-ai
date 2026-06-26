@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/server/lib/prisma";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
+import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
 function dmChannelName(userIds: [string, string]): string {
   return `dm:${userIds.sort().join(":")}`;
@@ -124,6 +125,35 @@ export async function POST(request: Request) {
         },
       },
       include: { participants: true },
+    });
+
+    // Notify the partner that a new DM was started with them.
+    safeAfter(async () => {
+      try {
+        const [starter, ws] = await Promise.all([
+          prisma.user.findUnique({ where: { id: user.id }, select: { name: true } }),
+          prisma.workspace.findUnique({ where: { id: workspace.id }, select: { name: true } }),
+        ]);
+        await notifyUser({
+          userId: partnerId,
+          type: "dm_started",
+          title: "Nuevo mensaje directo",
+          body: `${
+            starter?.name ?? "Alguien"
+          } inició una conversación contigo${
+            ws ? ` · ${ws.name}` : ""
+          }.`,
+          data: {
+            workspaceId: workspace.id,
+            channelId: channel.id,
+            partnerId: user.id,
+          },
+          workspaceId: workspace.id,
+          url: `/${workspace.id}/chat`,
+        });
+      } catch {
+        // best-effort
+      }
     });
 
     return NextResponse.json({

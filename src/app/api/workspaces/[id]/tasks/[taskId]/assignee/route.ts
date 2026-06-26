@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/server/lib/prisma";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireProjectMember, isLeaderOrAdmin } from "@/server/lib/requireProjectMember";
+import { publishRealtime } from "@/server/lib/realtime";
+import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
 const assignSchema = z.object({
   // null = unassign. A userId = assign to that member.
@@ -73,6 +75,42 @@ export async function POST(
         createdBy: { select: { id: true, name: true } },
       },
     });
+
+    // Realtime: let connected Kanban clients refresh instantly.
+    publishRealtime("task_updated", {
+      workspaceId: auth.workspaceId,
+      channelId: auth.workspaceId,
+      data: { taskId: task.id, assigneeId: requestedAssignee },
+    });
+
+    // Notify the newly assigned member (skip self-assign to avoid noise).
+    const newAssigneeId = requestedAssignee;
+    if (newAssigneeId && newAssigneeId !== auth.user.id) {
+      safeAfter(async () => {
+        try {
+          const workspace = await prisma.workspace.findUnique({
+            where: { id: auth.workspaceId },
+            select: { name: true },
+          });
+          await notifyUser({
+            userId: newAssigneeId,
+            type: "task_assigned",
+            title: "Te asignaron una tarea",
+            body: `“${task.title}”${
+              workspace ? ` · ${workspace.name}` : ""
+            }`,
+            data: {
+              workspaceId: auth.workspaceId,
+              taskId: task.id,
+            },
+            workspaceId: auth.workspaceId,
+            url: `/${auth.workspaceId}/tasks`,
+          });
+        } catch {
+          // best-effort
+        }
+      });
+    }
 
     return NextResponse.json({ task });
   } catch (error) {

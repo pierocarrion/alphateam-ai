@@ -16,6 +16,8 @@ import {
   WorkspaceSwitcher,
   type SwitcherWorkspace,
 } from "./WorkspaceSwitcher";
+import { NotificationCenter } from "@/features/notifications/NotificationCenter";
+import { useFcmToken } from "@/features/notifications/useFcmToken";
 
 export interface SidebarChannel {
   id: string;
@@ -95,6 +97,10 @@ export function DesktopSidebar({
   const [locale] = useLocale();
   const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const [openingDm, setOpeningDm] = useState<string | null>(null);
+
+  // Register an FCM push token for the signed-in user (best-effort, no-op
+  // until the Firebase SDK + VAPID key are configured).
+  useFcmToken(true);
 
   const selfPersonId = personIdFromName(userName || "you");
   const roleLabel = userRole.charAt(0).toUpperCase() + userRole.slice(1);
@@ -339,9 +345,7 @@ export function DesktopSidebar({
             </div>
           </Link>
           <LanguageToggle className="shrink-0" />
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center">
-            <Icon name="bell" size={17} color="var(--color-ink-3)" />
-          </span>
+          <NotificationCenter />
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}

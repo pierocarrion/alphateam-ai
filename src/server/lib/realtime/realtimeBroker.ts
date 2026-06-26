@@ -19,7 +19,8 @@ export type RealtimeEventType =
   | "mira_insight"
   | "task_detected"
   | "task_updated"
-  | "reaction_added";
+  | "reaction_added"
+  | "notification_received";
 
 export interface RealtimeEvent {
   type: RealtimeEventType;

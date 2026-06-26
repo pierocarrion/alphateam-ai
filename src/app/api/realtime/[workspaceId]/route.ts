@@ -71,6 +71,14 @@ export async function GET(
       }, 25000);
 
       unsubscribe = broker.subscribe((event: RealtimeEvent) => {
+        // Notification events are user-scoped, not workspace-scoped: deliver to
+        // the connected user whose id matches the target in `data.userId`.
+        if (event.type === "notification_received") {
+          const targetUserId = (event.data as { userId?: unknown }).userId;
+          if (targetUserId !== user.id) return;
+          send(event);
+          return;
+        }
         if (event.workspaceId !== workspaceId) return;
         send(event);
       });

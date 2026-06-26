@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/server/lib/prisma";
 import { requireSuperAdmin } from "@/server/lib/requireSuperAdmin";
+import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
 const ALLOWED_PLANS = new Set(["free", "team", "business"]);
 
@@ -82,6 +83,39 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     create: { workspaceId: id, plan: body.plan, status: "active" },
     update: { plan: body.plan },
     select: { workspaceId: true, plan: true, status: true },
+  });
+
+  // Notify the workspace owner (leader/admin) that the plan changed.
+  safeAfter(async () => {
+    try {
+      const [workspace, leader] = await Promise.all([
+        prisma.workspace.findUnique({ where: { id }, select: { name: true } }),
+        prisma.membership.findFirst({
+          where: {
+            workspaceId: id,
+            role: { in: ["leader", "admin"] },
+            status: "active",
+          },
+          orderBy: { joinedAt: "asc" },
+          select: { userId: true },
+        }),
+      ]);
+      if (leader) {
+        await notifyUser({
+          userId: leader.userId,
+          type: "admin_action",
+          title: "El plan de tu proyecto cambió",
+          body: `Un administrador cambió el plan de ${
+            workspace?.name ?? "tu proyecto"
+          } a: ${body.plan}.`,
+          data: { workspaceId: id, plan: body.plan },
+          workspaceId: id,
+          url: "/settings/billing",
+        });
+      }
+    } catch {
+      // best-effort
+    }
   });
 
   return NextResponse.json({ subscription: sub });
