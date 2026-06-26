@@ -38,6 +38,7 @@ export interface CreateProjectInput {
   emoji?: string;
   teamSize?: string;
   leaderUserId: string;
+  methodology: "scrum" | "design_thinking";
   knowledgeBase: KnowledgeSeedItem[];
   goal?: { title: string; milestone?: string } | null;
 }

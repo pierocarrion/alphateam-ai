@@ -22,6 +22,7 @@ export const createProjectSchema = z.object({
   emoji: z.string().max(8).optional(),
   teamSize: z.string().max(20).optional(),
   tone: z.enum(["warm", "balanced"]).optional(),
+  methodology: z.enum(["scrum", "design_thinking"]),
   knowledgeBase: z
     .array(
       z.object({
@@ -78,6 +79,7 @@ export class CreateProject {
       emoji: input.emoji?.trim() || undefined,
       teamSize: input.teamSize?.trim() || undefined,
       leaderUserId: input.userId,
+      methodology: input.methodology,
       knowledgeBase: (input.knowledgeBase ?? []).map((k) => ({
         title: k.title,
         content: k.content || k.title,

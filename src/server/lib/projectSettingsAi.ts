@@ -135,7 +135,7 @@ Respond with JSON only:
 }`;
 
   const result = await generateJSON<AiInsightBundle>(prompt, {
-    maxTokens: 1100,
+    maxTokens: 4096,
     temperature: 0.35,
   });
   if (!result.ok || !result.data) {

@@ -50,6 +50,36 @@ const TONES = [
   { id: "balanced", labelKey: "wizard.tone.balanced", emoji: "🧭" },
 ];
 
+const DESIGN_THINKING_HINTS = [
+  "usuario",
+  "user",
+  "ux",
+  "research",
+  "investigaci",
+  "prototip",
+  "empat",
+  "landing",
+  "web",
+  "app",
+  "dise",
+  "design",
+  "marca",
+  "brand",
+];
+
+function ruleBasedMethodology(
+  industry: string | null,
+  category: string | null,
+  description: string
+): string | null {
+  const text = `${industry ?? ""} ${category ?? ""} ${description}`.toLowerCase();
+  if (DESIGN_THINKING_HINTS.some((h) => text.includes(h))) return "design_thinking";
+  if (category === "launch" || category === "operations" || category === "event") {
+    return "scrum";
+  }
+  return null;
+}
+
 export interface KnowledgeDoc {
   title: string;
   sourceUrl: string;
@@ -174,7 +204,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
 
   const canContinue =
     (step === 0 && name.trim().length >= 2 && hashtagOk) ||
-    (step === 1 && description.trim().length > 0 && industry && category) ||
+    (step === 1 && description.trim().length > 0 && industry && category && !!selectedMethodology) ||
     (step === 2 && !!teamSize) ||
     step === 3;
 
@@ -204,6 +234,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
           category: categoryLabel ? t(locale, categoryLabel.labelKey) : undefined,
           teamSize: teamSize ?? undefined,
           tone,
+          methodology: selectedMethodology,
           knowledgeBase: cleanDocs,
           goal:
             goalTitle.trim().length > 0
@@ -499,6 +530,7 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
                 hint={methodologyHint}
                 locale={locale}
                 selectedKey={selectedMethodology}
+                fallbackSuggestedKey={ruleBasedMethodology(industry, category, description)}
                 onSelect={(key) => {
                   userPickedMethodology.current = true;
                   setSelectedMethodology(key);
@@ -737,59 +769,63 @@ function MethodologySuggestionCard({
   hint,
   locale,
   selectedKey,
+  fallbackSuggestedKey,
   onSelect,
 }: {
   hint: MethodologyHintState;
   locale: import("@/i18n/messages").Locale;
   selectedKey: string | null;
+  fallbackSuggestedKey: string | null;
   onSelect: (key: string) => void;
 }) {
   const OPTIONS = METHODOLOGIES.filter(
     (m) => m.key === "scrum" || m.key === "design_thinking"
   );
 
-  if (hint.loading) {
-    return (
-      <div className="mt-5 rounded-2xl border border-line-2 bg-surface-2 p-5">
-        <div className="flex items-center gap-2">
-          <span className="text-base">✨</span>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-            {t(locale, "wizard.method.suggests")}
-          </span>
-        </div>
-        <p className="mt-2 text-sm text-ink-3">
-          {t(locale, "wizard.method.loading")}
-        </p>
-      </div>
-    );
-  }
-
-  if (hint.error || !hint.data) return null;
-
-  const suggestedKey = hint.data.key;
-  const confidenceLabel =
-    hint.data.confidence >= 75
+  const suggestedKey = hint.data?.key ?? fallbackSuggestedKey;
+  const confidenceLabel = hint.data
+    ? hint.data.confidence >= 75
       ? t(locale, "wizard.method.confHigh")
       : hint.data.confidence >= 50
         ? t(locale, "wizard.method.confMid")
-        : t(locale, "wizard.method.confLow");
+        : t(locale, "wizard.method.confLow")
+    : null;
 
   return (
     <div className="mt-5">
       <div className="flex items-center gap-2">
-        <span className="text-base">✨</span>
-        <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-          {t(locale, "wizard.method.suggests")}
-        </span>
-        <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-ink">
-          {confidenceLabel}
-        </span>
+        <span className="text-base">🧭</span>
+        <label className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
+          {t(locale, "wizard.method.choose")}
+        </label>
       </div>
 
-      {hint.data.rationale && (
-        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
-          {hint.data.rationale}
-        </p>
+      {hint.loading && (
+        <div className="mt-2 flex items-center gap-2 rounded-2xl border border-line-2 bg-surface-2 px-4 py-3">
+          <span className="text-sm">✨</span>
+          <span className="text-[13px] text-ink-3">{t(locale, "wizard.method.loading")}</span>
+        </div>
+      )}
+
+      {!hint.loading && hint.data && (
+        <div className="mt-2 rounded-2xl border border-line-2 bg-surface-2 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-base">✨</span>
+            <span className="text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
+              {t(locale, "wizard.method.suggests")}
+            </span>
+            {confidenceLabel && (
+              <span className="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-ink">
+                {confidenceLabel}
+              </span>
+            )}
+          </div>
+          {hint.data.rationale && (
+            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-2">
+              {hint.data.rationale}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">

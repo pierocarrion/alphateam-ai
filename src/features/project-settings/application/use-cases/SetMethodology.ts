@@ -35,6 +35,20 @@ export class SetMethodology {
     );
 
     const previous = await this.deps.methodologyRepository.list(request.workspaceId);
+
+    // La metodología principal es inmutable: se define al crear el proyecto
+    // y no puede reasignarse posteriormente.
+    const hasPrimary = previous.some((m) => m.tier === "primary");
+    const changesPrimary =
+      hasPrimary &&
+      (input.primary !== previous.find((m) => m.tier === "primary")?.methodologyKey);
+    if (changesPrimary) {
+      throw new UserFacingError(
+        "La metodología principal no se puede cambiar una vez creado el proyecto.",
+        409
+      );
+    }
+
     const next = await this.deps.methodologyRepository.set({
       workspaceId: request.workspaceId,
       primary: input.primary,

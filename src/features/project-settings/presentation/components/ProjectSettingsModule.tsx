@@ -7,12 +7,14 @@ import { SmartGoalEditor } from "@/features/project-settings/presentation/compon
 import { TeamManager } from "@/features/project-settings/presentation/components/TeamManager";
 import { KpiChips } from "@/features/project-settings/presentation/components/KpiChips";
 import { AiInsightsPanel } from "@/features/project-settings/presentation/components/AiInsightsPanel";
+import { MethodologyExplorer } from "@/features/project-settings/presentation/components/MethodologyExplorer";
 import { Spinner } from "@/features/project-settings/presentation/components/primitives";
 
-type Tab = "smart" | "team" | "kpis" | "ai";
+type Tab = "smart" | "methodology" | "team" | "kpis" | "ai";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "smart", label: "Objetivo SMART", icon: "🎯" },
+  { id: "methodology", label: "Metodología", icon: "🧭" },
   { id: "team", label: "Equipo", icon: "👥" },
   { id: "kpis", label: "KPIs", icon: "📊" },
   { id: "ai", label: "IA", icon: "✨" },
@@ -79,6 +81,9 @@ export function ProjectSettingsModule({
                 workspaceId={workspaceId}
                 smartGoal={settings.data.smartGoal}
               />
+            )}
+            {tab === "methodology" && (
+              <MethodologyExplorer methodologies={settings.data.methodologies} />
             )}
             {tab === "team" && (
               <TeamManager

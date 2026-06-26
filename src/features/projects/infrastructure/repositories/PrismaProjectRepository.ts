@@ -245,6 +245,14 @@ export class PrismaProjectRepository implements IProjectRepository {
         data: { workspaceId: workspace.id, plan: "free", status: "active" },
       });
 
+      await tx.projectMethodology.create({
+        data: {
+          workspaceId: workspace.id,
+          methodologyKey: input.methodology,
+          tier: "primary",
+        },
+      });
+
       await tx.channel.create({
         data: {
           workspaceId: workspace.id,
