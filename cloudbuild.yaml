@@ -1,12 +1,16 @@
 ﻿steps:
-  # Run Drizzle migrations against Cloud SQL before deploying.
-  # This ensures the database schema is up to date so requests don't hit
-  # "table does not exist" errors at runtime.
+  # Reconcile the Drizzle schema against Cloud SQL before deploying.
+  # Uses `push` (not `migrate`) because this database was originally created
+  # by Prisma: the table schema already exists but Drizzle's migration
+  # tracker (__drizzle_migrations) is empty, so `migrate` would fail trying
+  # to CREATE TABLE that already exist. `push` introspects the live DB,
+  # diffs against drizzle/schema/* and applies only what's missing.
+  # `--force` skips interactive prompts in CI; `--verbose` logs every statement.
   #
   # The DATABASE_URL secret is stored in Cloud Run socket format
   # (postgresql://user:pass@/db?host=/cloudsql/project:region:instance).
   # The Cloud SQL proxy exposes the instance on 127.0.0.1:5432, so we
-  # rewrite the URL to point at localhost before running Prisma.
+  # rewrite the URL to point at localhost before running drizzle-kit.
   - name: "node:20-alpine"
     entrypoint: sh
     args:
@@ -21,13 +25,13 @@
         sleep 8
         # Rewrite DATABASE_URL: replace socket-path host with localhost:5432
         # Handles: postgresql://user:pass@/db?host=/cloudsql/...  ->  ...@localhost:5432/db
-        export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||; s|$$|?schema=public|')"
+        export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||')"
         echo "DATABASE_URL host: $$(echo "$$DATABASE_URL" | sed -E 's|.*@([^/:]+).*|\1|')"
         npm ci --ignore-scripts
-        npx drizzle-kit migrate
-        MIGRATE_STATUS=$?
+        npx drizzle-kit push --force --verbose
+        PUSH_STATUS=$?
         kill $$PROXY_PID || true
-        exit $$MIGRATE_STATUS
+        exit $$PUSH_STATUS
     secretEnv: ["DATABASE_URL"]
 
   # Pull the previously pushed image so docker can reuse its layers as cache
