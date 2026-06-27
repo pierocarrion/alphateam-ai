@@ -1,7 +1,7 @@
 ﻿steps:
-  # Run Prisma migrations against Cloud SQL before deploying.
+  # Run Drizzle migrations against Cloud SQL before deploying.
   # This ensures the database schema is up to date so requests don't hit
-  # Prisma P2021 ("table does not exist") errors at runtime.
+  # "table does not exist" errors at runtime.
   #
   # The DATABASE_URL secret is stored in Cloud Run socket format
   # (postgresql://user:pass@/db?host=/cloudsql/project:region:instance).
@@ -24,7 +24,7 @@
         export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||; s|$$|?schema=public|')"
         echo "DATABASE_URL host: $$(echo "$$DATABASE_URL" | sed -E 's|.*@([^/:]+).*|\1|')"
         npm ci --ignore-scripts
-        npx prisma migrate deploy
+        npx drizzle-kit migrate
         MIGRATE_STATUS=$?
         kill $$PROXY_PID || true
         exit $$MIGRATE_STATUS
@@ -42,8 +42,8 @@
         docker pull "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:latest" || true
 
   # Build the container image, reusing layers from the pulled image. The
-  # `npm ci` + `prisma generate` layers are reused whenever package-lock.json
-  # is unchanged, so only source-level changes re-trigger `next build`.
+  # `npm ci` layers are reused whenever package-lock.json is unchanged, so
+  # only source-level changes re-trigger `next build`.
   - name: "gcr.io/cloud-builders/docker"
     args:
       - build

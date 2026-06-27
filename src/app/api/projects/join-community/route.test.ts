@@ -1,7 +1,13 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { POST } from "./route";
-import { seedUser, resetDatabase, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, resetDatabase, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
+import {
+  workspace as workspaceTable,
+  channel as channelTable,
+  membership as membershipTable,
+} from "@drizzle/schema";
+import { eq, and, count } from "drizzle-orm";
 
 describe("POST /api/projects/join-community", () => {
   beforeEach(async () => {
@@ -17,9 +23,9 @@ describe("POST /api/projects/join-community", () => {
     const { user } = await seedUser({ name: "Nuevo" });
     await mockSession(user);
 
-    const prisma = await getTestPrisma();
-    const before = await prisma.workspace.count();
-    expect(before).toBe(0);
+    const db = await getTestDb();
+    const [{ before }] = await db.select({ before: count() }).from(workspaceTable);
+    expect(Number(before)).toBe(0);
 
     const response = await POST();
     const data = await response.json();
@@ -27,20 +33,18 @@ describe("POST /api/projects/join-community", () => {
     expect(data.workspace.hashtag).toBe("#comunidad");
 
     // Workspace + general channel + subscription created once.
-    const after = await prisma.workspace.count();
-    expect(after).toBe(1);
-    const channels = await prisma.channel.findMany({
-      where: { workspaceId: data.workspace.id },
+    const [{ after }] = await db.select({ after: count() }).from(workspaceTable);
+    expect(Number(after)).toBe(1);
+    const channels = await db.query.channel.findMany({
+      where: eq(channelTable.workspaceId, data.workspace.id),
     });
     expect(channels.some((c) => c.name === "general")).toBe(true);
 
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId: user.id,
-          workspaceId: data.workspace.id,
-        },
-      },
+    const membership = await db.query.membership.findFirst({
+      where: and(
+        eq(membershipTable.userId, user.id),
+        eq(membershipTable.workspaceId, data.workspace.id),
+      ),
     });
     expect(membership?.role).toBe("member");
   });
@@ -59,12 +63,13 @@ describe("POST /api/projects/join-community", () => {
 
     expect(secondData.workspace.id).toBe(firstData.workspace.id);
 
-    const prisma = await getTestPrisma();
-    const count = await prisma.workspace.count();
-    expect(count).toBe(1);
-    const members = await prisma.membership.count({
-      where: { workspaceId: firstData.workspace.id },
-    });
-    expect(members).toBe(2);
+    const db = await getTestDb();
+    const [{ c }] = await db.select({ c: count() }).from(workspaceTable);
+    expect(Number(c)).toBe(1);
+    const [{ members }] = await db
+      .select({ members: count() })
+      .from(membershipTable)
+      .where(eq(membershipTable.workspaceId, firstData.workspace.id));
+    expect(Number(members)).toBe(2);
   });
 });

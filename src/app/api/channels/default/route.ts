@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { channel, membership, user as userTable, workspace } from "@drizzle/schema";
+import { eq, inArray, and } from "drizzle-orm";
 import { runWorkspaceHealthCheck } from "@/server/lib/aiCheckEngine";
 import { jsonError } from "@/server/lib/apiErrors";
 
@@ -15,9 +17,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) {
       return NextResponse.json(
@@ -26,22 +28,35 @@ export async function GET(request: Request) {
       );
     }
 
-    const workspace = await prisma.workspace.findFirst({
-      where: { memberships: { some: { userId: user.id } } },
-      include: {
-        channels: { where: { name: "q3-launch" }, take: 1 },
-      },
-    });
+    const membershipWorkspaceIds = await db
+      .select({ workspaceId: membership.workspaceId })
+      .from(membership)
+      .where(eq(membership.userId, user.id));
 
-    if (!workspace) {
+    const workspaceRow = membershipWorkspaceIds.length
+      ? await db.query.workspace.findFirst({
+          where: inArray(
+            workspace.id,
+            membershipWorkspaceIds.map((m) => m.workspaceId)
+          ),
+        })
+      : null;
+
+    if (!workspaceRow) {
       return NextResponse.json(
         { error: "No default channel is set up for you yet." },
         { status: 404 }
       );
     }
 
-    const channel = workspace.channels[0];
-    if (!channel) {
+    const channelRow = await db.query.channel.findFirst({
+      where: and(
+        eq(channel.workspaceId, workspaceRow.id),
+        eq(channel.name, "q3-launch")
+      ),
+    });
+
+    if (!channelRow) {
       return NextResponse.json(
         { error: "We couldn't find the default channel." },
         { status: 404 }
@@ -50,11 +65,16 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     if (searchParams.get("health") === "1") {
-      const report = await runWorkspaceHealthCheck(workspace.id);
-      return NextResponse.json({ channel: { id: channel.id, name: channel.name }, health: report });
+      const report = await runWorkspaceHealthCheck(workspaceRow.id);
+      return NextResponse.json({
+        channel: { id: channelRow.id, name: channelRow.name },
+        health: report,
+      });
     }
 
-    return NextResponse.json({ channel: { id: channel.id, name: channel.name } });
+    return NextResponse.json({
+      channel: { id: channelRow.id, name: channelRow.name },
+    });
   } catch (error) {
     return jsonError(error);
   }

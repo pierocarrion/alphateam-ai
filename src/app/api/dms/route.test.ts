@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { POST, GET } from "./route";
-import { seedMember, getTestPrisma } from "@/tests/helpers/db";
+import { seedMember, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import { channelParticipant as channelParticipantTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 const URL = "http://localhost:3000/api/dms";
 
@@ -30,9 +32,9 @@ describe("POST /api/dms", () => {
     expect(data.created).toBe(true);
     expect(data.channel.type).toBe("dm");
 
-    const prisma = await getTestPrisma();
-    const participants = await prisma.channelParticipant.findMany({
-      where: { channelId: data.channel.id },
+    const db = await getTestDb();
+    const participants = await db.query.channelParticipant.findMany({
+      where: eq(channelParticipantTable.channelId, data.channel.id),
     });
     expect(participants).toHaveLength(2);
     expect(participants.map((p) => p.userId).sort()).toEqual(

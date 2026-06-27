@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { userProfile } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
 
@@ -16,9 +18,9 @@ export async function GET() {
     const auth = await requireUser();
     if (auth.response) return auth.response;
 
-    const profile = await prisma.userProfile.findUnique({
-      where: { userId: auth.user.id },
-      select: {
+    const profile = await db.query.userProfile.findFirst({
+      where: eq(userProfile.userId, auth.user.id),
+      columns: {
         tone: true,
         gentleCheckIns: true,
         pairStartInvites: true,
@@ -56,28 +58,29 @@ export async function PATCH(request: Request) {
     }
 
     const data = parsed.data;
-    const profile = await prisma.userProfile.upsert({
-      where: { userId: user.id },
-      update: {
-        ...(data.tone !== undefined ? { tone: data.tone } : {}),
-        ...(data.gentleCheckIns !== undefined ? { gentleCheckIns: data.gentleCheckIns } : {}),
-        ...(data.pairStartInvites !== undefined ? { pairStartInvites: data.pairStartInvites } : {}),
-        ...(data.quietMode !== undefined ? { quietMode: data.quietMode } : {}),
-      },
-      create: {
+    const [profile] = await db.insert(userProfile)
+      .values({
         userId: user.id,
         tone: data.tone ?? "warm",
         gentleCheckIns: data.gentleCheckIns ?? true,
         pairStartInvites: data.pairStartInvites ?? true,
         quietMode: data.quietMode ?? false,
-      },
-      select: {
-        tone: true,
-        gentleCheckIns: true,
-        pairStartInvites: true,
-        quietMode: true,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: userProfile.userId,
+        set: {
+          ...(data.tone !== undefined ? { tone: data.tone } : {}),
+          ...(data.gentleCheckIns !== undefined ? { gentleCheckIns: data.gentleCheckIns } : {}),
+          ...(data.pairStartInvites !== undefined ? { pairStartInvites: data.pairStartInvites } : {}),
+          ...(data.quietMode !== undefined ? { quietMode: data.quietMode } : {}),
+        },
+      })
+      .returning({
+        tone: userProfile.tone,
+        gentleCheckIns: userProfile.gentleCheckIns,
+        pairStartInvites: userProfile.pairStartInvites,
+        quietMode: userProfile.quietMode,
+      });
 
     return NextResponse.json(profile);
   } catch (error) {

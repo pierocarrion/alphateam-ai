@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { requireUser } from "@/server/lib/auth";
 import { container } from "@/server/lib/container";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { knowledgeBaseItem } from "@drizzle/schema";
 
 const patchSchema = z.object({
   title: z.string().min(1).max(120).optional(),
@@ -39,9 +41,9 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.knowledgeBaseItem.findUnique({
-      where: { id: itemId },
-      select: { workspaceId: true },
+    const existing = await db.query.knowledgeBaseItem.findFirst({
+      where: eq(knowledgeBaseItem.id, itemId),
+      columns: { workspaceId: true },
     });
     if (!existing || existing.workspaceId !== id) {
       return NextResponse.json(
@@ -82,9 +84,9 @@ export async function DELETE(
       );
     }
 
-    const existing = await prisma.knowledgeBaseItem.findUnique({
-      where: { id: itemId },
-      select: { workspaceId: true },
+    const existing = await db.query.knowledgeBaseItem.findFirst({
+      where: eq(knowledgeBaseItem.id, itemId),
+      columns: { workspaceId: true },
     });
     if (!existing || existing.workspaceId !== id) {
       return NextResponse.json(

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { PrismaClientKnownRequestError } from "@prisma/client";
 import {
   jsonError,
   parseRequestBody,
@@ -9,11 +8,11 @@ import {
 } from "./apiErrors";
 import { UserFacingError } from "./errors";
 
-function prismaError(code: string): PrismaClientKnownRequestError {
-  return new PrismaClientKnownRequestError("raw prisma message", {
-    code,
-    clientVersion: "test",
-  });
+// Synthetic DB error carrying a Prisma-style code. The error mapper keys off
+// the `code` field matching /^P\d{3,4}$/ (see isPrismaKnown in apiErrors.ts),
+// so no Prisma runtime dependency is required.
+function prismaError(code: string): unknown {
+  return Object.assign(new Error("raw db message"), { code });
 }
 
 describe("toFriendlyMessage", () => {

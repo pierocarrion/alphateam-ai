@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  workspace as workspaceTable,
+  workspaceSubscription,
+  membership,
+  user,
+} from "@drizzle/schema";
+import { eq, and, inArray, desc, asc } from "drizzle-orm";
 import { requireSuperAdmin } from "@/server/lib/requireSuperAdmin";
 import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
@@ -14,46 +21,73 @@ export async function GET(
 
   const { id } = await params;
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      hashtag: true,
-      emoji: true,
-      description: true,
-      category: true,
-      industry: true,
-      createdAt: true,
-      subscriptions: {
-        take: 1,
-        select: { plan: true, status: true, currentPeriodEnd: true },
-      },
-      memberships: {
-        select: {
-          id: true,
-          role: true,
-          projectRole: true,
-          status: true,
-          joinedAt: true,
-          user: { select: { id: true, name: true, email: true } },
-        },
-        orderBy: { joinedAt: "desc" },
-      },
-    },
-  });
+  const rows = await db.select({
+    id: workspaceTable.id,
+    name: workspaceTable.name,
+    slug: workspaceTable.slug,
+    hashtag: workspaceTable.hashtag,
+    description: workspaceTable.description,
+    category: workspaceTable.category,
+    industry: workspaceTable.industry,
+    createdAt: workspaceTable.createdAt,
+    subPlan: workspaceSubscription.plan,
+    subStatus: workspaceSubscription.status,
+    subCurrentPeriodEnd: workspaceSubscription.currentPeriodEnd,
+    membershipId: membership.id,
+    membershipRole: membership.role,
+    membershipProjectRole: membership.projectRole,
+    membershipStatus: membership.status,
+    membershipJoinedAt: membership.joinedAt,
+    userId: user.id,
+    userName: user.name,
+    userEmail: user.email,
+  })
+    .from(workspaceTable)
+    .leftJoin(workspaceSubscription, eq(workspaceSubscription.workspaceId, workspaceTable.id))
+    .leftJoin(membership, eq(membership.workspaceId, workspaceTable.id))
+    .leftJoin(user, eq(user.id, membership.userId))
+    .where(eq(workspaceTable.id, id))
+    .orderBy(desc(membership.joinedAt));
 
-  if (!workspace) {
+  if (rows.length === 0) {
     return NextResponse.json({ error: "Workspace no encontrado." }, { status: 404 });
   }
-  return NextResponse.json({
-    workspace: {
-      ...workspace,
-      subscription: workspace.subscriptions[0] ?? null,
-      subscriptions: undefined,
-    },
-  });
+
+  const first = rows[0];
+  const memberships = rows
+    .filter((r) => r.membershipId !== null)
+    .map((r) => ({
+      id: r.membershipId,
+      role: r.membershipRole,
+      projectRole: r.membershipProjectRole,
+      status: r.membershipStatus,
+      joinedAt: r.membershipJoinedAt,
+      user: { id: r.userId, name: r.userName, email: r.userEmail },
+    }));
+  const subscription =
+    first.subPlan !== null || first.subStatus !== null || first.subCurrentPeriodEnd !== null
+      ? {
+          plan: first.subPlan,
+          status: first.subStatus,
+          currentPeriodEnd: first.subCurrentPeriodEnd,
+        }
+      : null;
+
+  const workspace = {
+    id: first.id,
+    name: first.name,
+    slug: first.slug,
+    hashtag: first.hashtag,
+    description: first.description,
+    category: first.category,
+    industry: first.industry,
+    createdAt: first.createdAt,
+    subscription,
+    subscriptions: undefined,
+    memberships,
+  };
+
+  return NextResponse.json({ workspace });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,34 +104,42 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     );
   }
 
-  const exists = await prisma.workspace.findUnique({
-    where: { id },
-    select: { id: true },
+  const exists = await db.query.workspace.findFirst({
+    where: eq(workspaceTable.id, id),
+    columns: { id: true },
   });
   if (!exists) {
     return NextResponse.json({ error: "Workspace no encontrado." }, { status: 404 });
   }
 
-  const sub = await prisma.workspaceSubscription.upsert({
-    where: { workspaceId: id },
-    create: { workspaceId: id, plan: body.plan, status: "active" },
-    update: { plan: body.plan },
-    select: { workspaceId: true, plan: true, status: true },
-  });
+  const [sub] = await db.insert(workspaceSubscription)
+    .values({ workspaceId: id, plan: body.plan, status: "active" })
+    .onConflictDoUpdate({
+      target: workspaceSubscription.workspaceId,
+      set: { plan: body.plan },
+    })
+    .returning({
+      workspaceId: workspaceSubscription.workspaceId,
+      plan: workspaceSubscription.plan,
+      status: workspaceSubscription.status,
+    });
 
   // Notify the workspace owner (leader/admin) that the plan changed.
   safeAfter(async () => {
     try {
-      const [workspace, leader] = await Promise.all([
-        prisma.workspace.findUnique({ where: { id }, select: { name: true } }),
-        prisma.membership.findFirst({
-          where: {
-            workspaceId: id,
-            role: { in: ["leader", "admin"] },
-            status: "active",
-          },
-          orderBy: { joinedAt: "asc" },
-          select: { userId: true },
+      const [ws, leader] = await Promise.all([
+        db.query.workspace.findFirst({
+          where: eq(workspaceTable.id, id),
+          columns: { name: true },
+        }),
+        db.query.membership.findFirst({
+          where: and(
+            eq(membership.workspaceId, id),
+            inArray(membership.role, ["leader", "admin"]),
+            eq(membership.status, "active")
+          ),
+          orderBy: asc(membership.joinedAt),
+          columns: { userId: true },
         }),
       ]);
       if (leader) {
@@ -106,7 +148,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           type: "admin_action",
           title: "El plan de tu proyecto cambió",
           body: `Un administrador cambió el plan de ${
-            workspace?.name ?? "tu proyecto"
+            ws?.name ?? "tu proyecto"
           } a: ${body.plan}.`,
           data: { workspaceId: id, plan: body.plan },
           workspaceId: id,
@@ -130,6 +172,6 @@ export async function DELETE(
 
   const { id } = await params;
 
-  await prisma.workspace.delete({ where: { id } });
+  await db.delete(workspaceTable).where(eq(workspaceTable.id, id));
   return NextResponse.json({ ok: true });
 }

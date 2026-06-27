@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  channel,
+  channelParticipant,
+  membership,
+  message,
+  user as userTable,
+  workspace,
+} from "@drizzle/schema";
+import { eq, and, asc, desc, inArray } from "drizzle-orm";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
 import { notifyUser, safeAfter } from "@/server/lib/notifications";
@@ -15,29 +24,70 @@ export async function GET() {
     if (auth.response) return auth.response;
     const user = auth.user;
 
-    const channels = await prisma.channel.findMany({
-      where: {
-        type: "dm",
-        participants: { some: { userId: user.id } },
-      },
-      include: {
-        participants: {
-          include: { user: { select: { id: true, name: true } } },
-        },
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { id: true, content: true, createdAt: true },
-        },
-      },
+    const myParticipations = await db.query.channelParticipant.findMany({
+      where: eq(channelParticipant.userId, user.id),
+      columns: { channelId: true },
     });
+    const channelIds = myParticipations.map((p) => p.channelId);
+
+    const channels = channelIds.length
+      ? await db.query.channel.findMany({
+          where: and(
+            inArray(channel.id, channelIds),
+            eq(channel.type, "dm")
+          ),
+        })
+      : [];
+
+    const channelIdsDm = channels.map((c) => c.id);
+
+    const [participants, lastByChannel] = await Promise.all([
+      channelIdsDm.length
+        ? db
+            .select({
+              channelId: channelParticipant.channelId,
+              userId: channelParticipant.userId,
+              userName: userTable.name,
+            })
+            .from(channelParticipant)
+            .leftJoin(userTable, eq(userTable.id, channelParticipant.userId))
+            .where(inArray(channelParticipant.channelId, channelIdsDm))
+        : Promise.resolve([]),
+      (async () => {
+        const map = new Map<
+          string,
+          { id: string; content: string; createdAt: Date }
+        >();
+        await Promise.all(
+          channelIdsDm.map(async (cid) => {
+            const [last] = await db
+              .select({
+                id: message.id,
+                content: message.content,
+                createdAt: message.createdAt,
+              })
+              .from(message)
+              .where(eq(message.channelId, cid))
+              .orderBy(desc(message.createdAt))
+              .limit(1);
+            if (last) map.set(cid, last);
+          })
+        );
+        return map;
+      })(),
+    ]);
 
     const dms = channels.map((c) => {
-      const peer = c.participants.find((p) => p.userId !== user.id)?.user ?? null;
-      const last = c.messages[0];
+      const peerParticipant = participants.find(
+        (p) => p.channelId === c.id && p.userId !== user.id
+      );
+      const peer = peerParticipant
+        ? { id: peerParticipant.userId, name: peerParticipant.userName ?? null }
+        : null;
+      const last = lastByChannel.get(c.id);
       return {
         id: c.id,
-        peer: peer ? { id: peer.id, name: peer.name } : null,
+        peer,
         lastMessage: last
           ? { id: last.id, preview: last.content.slice(0, 80), at: last.createdAt }
           : null,
@@ -78,21 +128,35 @@ export async function POST(request: Request) {
       );
     }
 
-    const workspace = workspaceId
-      ? await prisma.workspace.findUnique({ where: { id: workspaceId } })
-      : await prisma.workspace.findFirst({
-          where: { memberships: { some: { userId: user.id } } },
-        });
+    let workspaceRow;
+    if (workspaceId) {
+      workspaceRow = await db.query.workspace.findFirst({
+        where: eq(workspace.id, workspaceId),
+      });
+    } else {
+      const firstMembership = await db.query.membership.findFirst({
+        where: eq(membership.userId, user.id),
+        orderBy: asc(membership.joinedAt),
+      });
+      workspaceRow = firstMembership
+        ? await db.query.workspace.findFirst({
+            where: eq(workspace.id, firstMembership.workspaceId),
+          })
+        : null;
+    }
 
-    if (!workspace) {
+    if (!workspaceRow) {
       return NextResponse.json(
         { error: "We couldn't find a workspace for this conversation." },
         { status: 404 }
       );
     }
 
-    const partnerMembership = await prisma.membership.findFirst({
-      where: { workspaceId: workspace.id, userId: partnerId },
+    const partnerMembership = await db.query.membership.findFirst({
+      where: and(
+        eq(membership.workspaceId, workspaceRow.id),
+        eq(membership.userId, partnerId)
+      ),
     });
     if (!partnerMembership) {
       return NextResponse.json(
@@ -103,9 +167,12 @@ export async function POST(request: Request) {
 
     const name = dmChannelName([user.id, partnerId]);
 
-    const existing = await prisma.channel.findFirst({
-      where: { workspaceId: workspace.id, type: "dm", name },
-      include: { participants: true },
+    const existing = await db.query.channel.findFirst({
+      where: and(
+        eq(channel.workspaceId, workspaceRow.id),
+        eq(channel.type, "dm"),
+        eq(channel.name, name)
+      ),
     });
 
     if (existing) {
@@ -115,24 +182,35 @@ export async function POST(request: Request) {
       });
     }
 
-    const channel = await prisma.channel.create({
-      data: {
-        workspaceId: workspace.id,
-        name,
-        type: "dm",
-        participants: {
-          create: [{ userId: user.id }, { userId: partnerId }],
-        },
-      },
-      include: { participants: true },
+    const [createdChannel] = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(channel)
+        .values({
+          workspaceId: workspaceRow.id,
+          name,
+          type: "dm",
+        })
+        .returning();
+      await tx.insert(channelParticipant).values([
+        { channelId: created.id, userId: user.id },
+        { channelId: created.id, userId: partnerId },
+      ]);
+      return [created] as const;
     });
 
-    // Notify the partner that a new DM was started with them.
+    const channelId = createdChannel.id;
+
     safeAfter(async () => {
       try {
         const [starter, ws] = await Promise.all([
-          prisma.user.findUnique({ where: { id: user.id }, select: { name: true } }),
-          prisma.workspace.findUnique({ where: { id: workspace.id }, select: { name: true } }),
+          db.query.user.findFirst({
+            where: eq(userTable.id, user.id),
+            columns: { name: true },
+          }),
+          db.query.workspace.findFirst({
+            where: eq(workspace.id, workspaceRow.id),
+            columns: { name: true },
+          }),
         ]);
         await notifyUser({
           userId: partnerId,
@@ -144,20 +222,23 @@ export async function POST(request: Request) {
             ws ? ` · ${ws.name}` : ""
           }.`,
           data: {
-            workspaceId: workspace.id,
-            channelId: channel.id,
+            workspaceId: workspaceRow.id,
+            channelId,
             partnerId: user.id,
           },
-          workspaceId: workspace.id,
-          url: `/${workspace.id}/chat`,
+          workspaceId: workspaceRow.id,
+          url: `/${workspaceRow.id}/chat`,
         });
       } catch {
-        // best-effort
       }
     });
 
     return NextResponse.json({
-      channel: { id: channel.id, name: channel.name, type: channel.type },
+      channel: {
+        id: createdChannel.id,
+        name: createdChannel.name,
+        type: createdChannel.type,
+      },
       created: true,
     });
   } catch (error) {

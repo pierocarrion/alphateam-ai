@@ -1,6 +1,11 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  membership as membershipTable,
+} from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getRealtimeBroker, type RealtimeEvent } from "@/server/lib/realtime";
 
 export const dynamic = "force-dynamic";
@@ -23,15 +28,15 @@ export async function GET(
   }
   const { workspaceId } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true },
   });
   if (!user) return new Response("Not found", { status: 404 });
 
-  const isMember = await prisma.membership.findFirst({
-    where: { userId: user.id, workspaceId },
-    select: { id: true },
+  const isMember = await db.query.membership.findFirst({
+    where: and(eq(membershipTable.userId, user.id), eq(membershipTable.workspaceId, workspaceId)),
+    columns: { id: true },
   });
   if (!isMember) return new Response("Forbidden", { status: 403 });
 

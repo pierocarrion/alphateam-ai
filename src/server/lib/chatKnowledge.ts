@@ -1,4 +1,6 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { channel, message, user, membership } from "@drizzle/schema";
+import { eq, desc } from "drizzle-orm";
 import { container } from "@/server/lib/container";
 import { createLogger } from "@/shared/lib/logger";
 import {
@@ -87,27 +89,33 @@ export async function maybeCaptureLeaderAnswer(args: {
   if (isMentionedAlpha(args.leaderMessageText)) return null;
 
   try {
-    const channel = await prisma.channel.findUnique({
-      where: { id: args.channelId },
-      include: {
-        messages: {
-          include: { user: { select: { id: true, name: true } } },
-          orderBy: { createdAt: "desc" },
-          take: 8,
-        },
-        workspace: { include: { memberships: true } },
-      },
-    });
-    if (!channel) return null;
+    const [channelRow] = await db
+      .select({ id: channel.id, workspaceId: channel.workspaceId })
+      .from(channel)
+      .where(eq(channel.id, args.channelId));
+    if (!channelRow) return null;
+
+    const [messageRows, membershipRows] = await Promise.all([
+      db
+        .select({ userId: message.userId, content: message.content })
+        .from(message)
+        .where(eq(message.channelId, args.channelId))
+        .orderBy(desc(message.createdAt))
+        .limit(8),
+      db
+        .select({ userId: membership.userId, role: membership.role })
+        .from(membership)
+        .where(eq(membership.workspaceId, channelRow.workspaceId)),
+    ]);
 
     const leaderIds = new Set(
-      channel.workspace.memberships
+      membershipRows
         .filter((m) => m.role === "leader" || m.role === "admin")
         .map((m) => m.userId)
     );
 
     // Most recent prior message from a non-leader that looks like a question.
-    const candidate = channel.messages.find(
+    const candidate = messageRows.find(
       (m) =>
         m.userId !== args.leaderUserId &&
         !leaderIds.has(m.userId) &&

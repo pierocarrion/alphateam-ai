@@ -1,11 +1,13 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { PATCH } from "./route";
-import { seedUser, resetDatabase, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, resetDatabase, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { callRouteHandler, createJsonRequest } from "@/tests/helpers/fetch";
 import { CreateProject } from "@/features/projects/application/use-cases/CreateProject";
 import { RequestToJoin } from "@/features/projects/application/use-cases/RequestToJoin";
 import { PrismaProjectRepository } from "@/features/projects/infrastructure/repositories/PrismaProjectRepository";
+import { membership as membershipTable } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 
 const repo = new PrismaProjectRepository();
 const createProject = new CreateProject(repo);
@@ -58,14 +60,12 @@ describe("PATCH /api/projects/requests/[id]", () => {
     expect(response.status).toBe(200);
     expect(data.request.status).toBe("approved");
 
-    const prisma = await getTestPrisma();
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId: collaborator.id,
-          workspaceId: project.id,
-        },
-      },
+    const db = await getTestDb();
+    const membership = await db.query.membership.findFirst({
+      where: and(
+        eq(membershipTable.userId, collaborator.id),
+        eq(membershipTable.workspaceId, project.id),
+      ),
     });
     expect(membership?.role).toBe("member");
   });
@@ -85,16 +85,14 @@ describe("PATCH /api/projects/requests/[id]", () => {
     );
     expect(response.status).toBe(200);
 
-    const prisma = await getTestPrisma();
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId: collaborator.id,
-          workspaceId: project.id,
-        },
-      },
+    const db = await getTestDb();
+    const membership = await db.query.membership.findFirst({
+      where: and(
+        eq(membershipTable.userId, collaborator.id),
+        eq(membershipTable.workspaceId, project.id),
+      ),
     });
-    expect(membership).toBeNull();
+    expect(membership).toBeUndefined();
   });
 
   it("forbids a non-leader from approving", async () => {

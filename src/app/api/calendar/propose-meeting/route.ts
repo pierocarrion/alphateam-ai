@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  membership as membershipTable,
+  user as userTable,
+  meeting as meetingTable,
+} from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { requireUser } from "@/server/lib/auth";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import {
@@ -47,18 +53,21 @@ export async function POST(request: Request) {
     }
 
     // The expert must share the requester's active workspace.
-    const expertMembership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId: expertId,
-          workspaceId: active.workspaceId,
-        },
-      },
-      select: {
-        role: true,
-        user: { select: { id: true, name: true } },
-      },
-    });
+    const [expertMembership] = await db
+      .select({
+        role: membershipTable.role,
+        userId: userTable.id,
+        userName: userTable.name,
+      })
+      .from(membershipTable)
+      .innerJoin(userTable, eq(membershipTable.userId, userTable.id))
+      .where(
+        and(
+          eq(membershipTable.userId, expertId),
+          eq(membershipTable.workspaceId, active.workspaceId)
+        )
+      )
+      .limit(1);
     if (!expertMembership) {
       throw new UserFacingError(
         "Esa persona no es parte de tu proyecto actual.",
@@ -66,9 +75,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const requester = await prisma.user.findUnique({
-      where: { id: requesterId },
-      select: { name: true },
+    const requester = await db.query.user.findFirst({
+      where: eq(userTable.id, requesterId),
+      columns: { name: true },
     });
 
     const [requesterConnected, expertConnected] = await Promise.all([
@@ -83,7 +92,7 @@ export async function POST(request: Request) {
     }
     if (!expertConnected) {
       throw new UserFacingError(
-        `${expertMembership.user.name ?? "Esa persona"} aún no conecta su Google Calendar. Pídele que lo haga desde Ajustes.`,
+        `${expertMembership.userName ?? "Esa persona"} aún no conecta su Google Calendar. Pídele que lo haga desde Ajustes.`,
         409
       );
     }
@@ -92,21 +101,21 @@ export async function POST(request: Request) {
       requesterId,
       expertId,
       requesterName: requester?.name ?? "Someone",
-      expertName: expertMembership.user.name ?? "Someone",
+      expertName: expertMembership.userName ?? "Someone",
       reason,
     });
 
-    const meeting = await prisma.meeting.create({
-      data: {
+    const [meeting] = await db
+      .insert(meetingTable)
+      .values({
         workspaceId: active.workspaceId,
         ownerId: requesterId,
-        title: `Sesión de contexto · ${expertMembership.user.name ?? "experto"}`,
+        title: `Sesión de contexto · ${expertMembership.userName ?? "experto"}`,
         reason,
         scheduledAt: new Date(proposal.start),
         status: "pending",
-      },
-      select: { id: true },
-    });
+      })
+      .returning({ id: meetingTable.id });
 
     return NextResponse.json({
       meetingId: meeting.id,

@@ -1,4 +1,11 @@
-import { prisma } from "./prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  userProfile,
+  membership as membershipTable,
+  workspace as workspaceTable,
+} from "@drizzle/schema";
+import { eq, and, asc } from "drizzle-orm";
 
 export interface ActiveWorkspace {
   workspaceId: string;
@@ -26,6 +33,44 @@ export interface ActiveWorkspaceResult {
   }[];
 }
 
+interface MembershipRow {
+  workspaceId: string;
+  role: string;
+  workspace: {
+    id: string;
+    name: string;
+    emoji: string | null;
+    hashtag: string;
+  };
+}
+
+async function loadMemberships(userId: string): Promise<MembershipRow[]> {
+  const rows = await db
+    .select({
+      workspaceId: membershipTable.workspaceId,
+      role: membershipTable.role,
+      wsId: workspaceTable.id,
+      wsName: workspaceTable.name,
+      wsEmoji: workspaceTable.emoji,
+      wsHashtag: workspaceTable.hashtag,
+    })
+    .from(membershipTable)
+    .leftJoin(workspaceTable, eq(workspaceTable.id, membershipTable.workspaceId))
+    .where(eq(membershipTable.userId, userId))
+    .orderBy(asc(membershipTable.joinedAt));
+
+  return rows.map((r) => ({
+    workspaceId: r.workspaceId,
+    role: r.role,
+    workspace: {
+      id: r.wsId ?? r.workspaceId,
+      name: r.wsName ?? "",
+      emoji: r.wsEmoji ?? null,
+      hashtag: r.wsHashtag ?? "",
+    },
+  }));
+}
+
 /**
  * Resolves the user's active workspace.
  *
@@ -37,30 +82,25 @@ export interface ActiveWorkspaceResult {
  * should redirect to setup in that case.
  */
 export async function getActiveWorkspace(userId: string): Promise<ActiveWorkspaceResult> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      profile: { select: { lastActiveWorkspaceId: true } },
-      memberships: {
-        orderBy: { joinedAt: "asc" },
-        include: {
-          workspace: {
-            select: { id: true, name: true, emoji: true, hashtag: true },
-          },
-        },
-      },
-    },
-  });
+  const [userRow, memberships] = await Promise.all([
+    db
+      .select({ lastActiveWorkspaceId: userProfile.lastActiveWorkspaceId })
+      .from(userTable)
+      .leftJoin(userProfile, eq(userProfile.userId, userTable.id))
+      .where(eq(userTable.id, userId))
+      .then((rows) => rows[0] ?? null),
+    loadMemberships(userId),
+  ]);
 
-  if (!user || user.memberships.length === 0) {
+  if (!userRow || memberships.length === 0) {
     return { active: null, memberships: [] };
   }
 
-  const lastId = user.profile?.lastActiveWorkspaceId ?? null;
+  const lastId = userRow.lastActiveWorkspaceId ?? null;
   const matched = lastId
-    ? user.memberships.find((m) => m.workspaceId === lastId)
+    ? memberships.find((m) => m.workspaceId === lastId)
     : undefined;
-  const chosen = matched ?? user.memberships[0];
+  const chosen = matched ?? memberships[0];
 
   return {
     active: {
@@ -70,7 +110,7 @@ export async function getActiveWorkspace(userId: string): Promise<ActiveWorkspac
       workspaceHashtag: chosen.workspace.hashtag,
       role: chosen.role ?? "member",
     },
-    memberships: user.memberships.map((m) => ({
+    memberships: memberships.map((m) => ({
       workspaceId: m.workspaceId,
       role: m.role,
       workspace: m.workspace,
@@ -95,34 +135,35 @@ export interface AppSession {
 export async function resolveAppSessionByEmail(
   email: string
 ): Promise<AppSession | null> {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: {
-      profile: { select: { lastActiveWorkspaceId: true, onboarded: true } },
-      memberships: {
-        orderBy: { joinedAt: "asc" },
-        include: {
-          workspace: {
-            select: { id: true, name: true, emoji: true, hashtag: true },
-          },
-        },
-      },
-    },
-  });
+  const [userRow, memberships] = await Promise.all([
+    db
+      .select({
+        id: userTable.id,
+        name: userTable.name,
+        globalRole: userTable.globalRole,
+        lastActiveWorkspaceId: userProfile.lastActiveWorkspaceId,
+        onboarded: userProfile.onboarded,
+      })
+      .from(userTable)
+      .leftJoin(userProfile, eq(userProfile.userId, userTable.id))
+      .where(eq(userTable.email, email))
+      .then((rows) => rows[0] ?? null),
+    loadMembershipsByEmail(email),
+  ]);
 
-  if (!user) return null;
+  if (!userRow) return null;
 
-  const lastId = user.profile?.lastActiveWorkspaceId ?? null;
+  const lastId = userRow.lastActiveWorkspaceId ?? null;
   const matched = lastId
-    ? user.memberships.find((m) => m.workspaceId === lastId)
+    ? memberships.find((m) => m.workspaceId === lastId)
     : undefined;
-  const chosen = matched ?? user.memberships[0] ?? null;
+  const chosen = matched ?? memberships[0] ?? null;
 
   return {
-    userId: user.id,
-    userName: user.name ?? "you",
-    globalRole: user.globalRole ?? null,
-    onboarded: user.profile?.onboarded ?? false,
+    userId: userRow.id,
+    userName: userRow.name ?? "you",
+    globalRole: userRow.globalRole ?? null,
+    onboarded: userRow.onboarded ?? false,
     active: chosen
       ? {
           workspaceId: chosen.workspaceId,
@@ -132,12 +173,21 @@ export async function resolveAppSessionByEmail(
           role: chosen.role ?? "member",
         }
       : null,
-    memberships: user.memberships.map((m) => ({
+    memberships: memberships.map((m) => ({
       workspaceId: m.workspaceId,
       role: m.role,
       workspace: m.workspace,
     })),
   };
+}
+
+async function loadMembershipsByEmail(email: string): Promise<MembershipRow[]> {
+  const userRow = await db.query.user.findFirst({
+    where: eq(userTable.email, email),
+    columns: { id: true },
+  });
+  if (!userRow) return [];
+  return loadMemberships(userRow.id);
 }
 
 /**
@@ -148,15 +198,18 @@ export async function setActiveWorkspace(
   userId: string,
   workspaceId: string
 ): Promise<boolean> {
-  const member = await prisma.membership.findUnique({
-    where: { userId_workspaceId: { userId, workspaceId } },
-    select: { id: true },
+  const member = await db.query.membership.findFirst({
+    where: and(
+      eq(membershipTable.userId, userId),
+      eq(membershipTable.workspaceId, workspaceId)
+    ),
+    columns: { id: true },
   });
   if (!member) return false;
 
-  await prisma.userProfile.update({
-    where: { userId },
-    data: { lastActiveWorkspaceId: workspaceId },
-  });
+  await db
+    .update(userProfile)
+    .set({ lastActiveWorkspaceId: workspaceId })
+    .where(eq(userProfile.userId, userId));
   return true;
 }

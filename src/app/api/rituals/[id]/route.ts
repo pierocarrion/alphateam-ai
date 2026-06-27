@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task, ritualSession } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
@@ -28,8 +30,8 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.ritualSession.findFirst({
-      where: { id, userId: user.id },
+    const existing = await db.query.ritualSession.findFirst({
+      where: and(eq(ritualSession.id, id), eq(ritualSession.userId, user.id)),
     });
     if (!existing) {
       return NextResponse.json(
@@ -40,19 +42,20 @@ export async function PATCH(
 
     const completedAt = parsed.data.completed ? new Date() : existing.completedAt;
 
-    const ritual = await prisma.ritualSession.update({
-      where: { id },
-      data: { completedAt },
-    });
+    const [ritual] = await db
+      .update(ritualSession)
+      .set({ completedAt })
+      .where(eq(ritualSession.id, id))
+      .returning();
 
     let recoveredMinutes = existing.recoveredMinutes;
     const justCompleted = parsed.data.completed && !existing.completedAt;
 
     if (justCompleted && existing.taskId) {
-      await prisma.task.update({
-        where: { id: existing.taskId },
-        data: { status: "done", completedAt: new Date() },
-      });
+      await db
+        .update(task)
+        .set({ status: "done", completedAt: new Date() })
+        .where(eq(task.id, existing.taskId));
     }
 
     if (justCompleted) {

@@ -10,7 +10,9 @@
  * Callers should invoke this from `after()` (fire-and-forget) so it never
  * blocks the HTTP response and never surfaces failures to the end user.
  */
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { notification, pushSubscription } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { publishRealtime } from "@/server/lib/realtime";
 import { sendPush } from "./fcm";
 import { createLogger } from "@/shared/lib/logger";
@@ -52,22 +54,24 @@ export interface NotifyResult {
  */
 export async function notifyUser(input: NotifyInput): Promise<NotifyResult | null> {
   try {
-    const notification = await prisma.notification.create({
-      data: {
+    const [created] = await db
+      .insert(notification)
+      .values({
         userId: input.userId,
         type: input.type,
         title: input.title,
         body: input.body,
         data: (input.data ?? {}) as object,
-      },
-    });
+      })
+      .returning({ id: notification.id });
+    const createdId = created!.id;
 
     // Realtime: user-scoped delivery (the SSE route matches on data.userId).
     publishRealtime("notification_received", {
       workspaceId: input.workspaceId ?? "__global__",
       data: {
         userId: input.userId,
-        notificationId: notification.id,
+        notificationId: createdId,
         type: input.type,
         title: input.title,
         body: input.body,
@@ -77,9 +81,9 @@ export async function notifyUser(input: NotifyInput): Promise<NotifyResult | nul
     // Push: best-effort, fetch tokens lazily.
     let pushed = 0;
     try {
-      const subs = await prisma.pushSubscription.findMany({
-        where: { userId: input.userId },
-        select: { token: true },
+      const subs = await db.query.pushSubscription.findMany({
+        where: eq(pushSubscription.userId, input.userId),
+        columns: { token: true },
       });
       if (subs.length) {
         pushed = await sendPush({
@@ -98,7 +102,7 @@ export async function notifyUser(input: NotifyInput): Promise<NotifyResult | nul
       log.error("push side-effect failed", pushErr);
     }
 
-    return { id: notification.id, pushed };
+    return { id: createdId, pushed };
   } catch (err) {
     log.error("notifyUser failed", err);
     return null;

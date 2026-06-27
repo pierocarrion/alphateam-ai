@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { getServerSession } from "next-auth/next";
-import { getTestPrisma } from "./db";
+import { getTestDb } from "./db";
+import { user as userTable, userProfile } from "@drizzle/schema";
 
 const TEST_SECRET = "test-secret-must-be-at-least-32-characters-long";
 
@@ -39,24 +40,23 @@ export async function seedUserAndAuth(input?: {
   password?: string;
   onboarded?: boolean;
 }) {
-  const client = await getTestPrisma();
+  const db = await getTestDb();
   const name = input?.name ?? "Test User";
   const email =
     input?.email?.toLowerCase() ??
     `test-${crypto.randomUUID()}@example.com`;
   const passwordHash = input?.password ?? "password123";
 
-  const user = await client.user.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      profile: {
-        create: {
-          onboarded: input?.onboarded ?? false,
-        },
-      },
-    },
+  const user = await db.transaction(async (tx) => {
+    const [u] = await tx
+      .insert(userTable)
+      .values({ name, email, passwordHash })
+      .returning();
+    await tx.insert(userProfile).values({
+      userId: u!.id,
+      onboarded: input?.onboarded ?? false,
+    });
+    return u!;
   });
 
   const cookie = await createTestSessionCookie(user.id);

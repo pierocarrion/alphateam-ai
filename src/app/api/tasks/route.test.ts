@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { POST } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest } from "@/tests/helpers/fetch";
 import { deriveTask } from "@/features/tasks/lib/detect";
+import { task as taskTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 describe("POST /api/tasks", () => {
   it("returns 401 when not authenticated", async () => {
@@ -29,8 +31,10 @@ describe("POST /api/tasks", () => {
     expect(data.task.title).toBe(draft.title);
     expect(data.task.status).toBe("open");
 
-    const prisma = await getTestPrisma();
-    const tasks = await prisma.task.findMany({ where: { userId: user.id } });
+    const db = await getTestDb();
+    const tasks = await db.query.task.findMany({
+      where: eq(taskTable.userId, user.id),
+    });
     expect(tasks).toHaveLength(1);
   });
 

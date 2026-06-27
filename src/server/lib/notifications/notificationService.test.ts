@@ -1,8 +1,10 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { resetDatabase, seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { resetDatabase, seedUser, getTestDb } from "@/tests/helpers/db";
 import { notifyUser } from "./notificationService";
 import { InProcessRealtimeBroker, setRealtimeBroker } from "@/server/lib/realtime";
 import type { RealtimeEvent } from "@/server/lib/realtime";
+import { eq } from "drizzle-orm";
+import { notification as notificationTable } from "@drizzle/schema";
 
 describe("notificationService.notifyUser", () => {
   beforeEach(async () => {
@@ -24,8 +26,10 @@ describe("notificationService.notifyUser", () => {
     });
 
     expect(result).not.toBeNull();
-    const prisma = await getTestPrisma();
-    const rows = await prisma.notification.findMany({ where: { userId: user.id } });
+    const db = await getTestDb();
+    const rows = await db.query.notification.findMany({
+      where: eq(notificationTable.userId, user.id),
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0].type).toBe("task_assigned");
     expect(rows[0].readAt).toBeNull();

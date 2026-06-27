@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { POST } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest } from "@/tests/helpers/fetch";
+import { userProfile } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 describe("POST /api/onboarding", () => {
   it("returns 401 when not authenticated", async () => {
@@ -33,8 +35,8 @@ describe("POST /api/onboarding", () => {
     expect(data.profile.onboarded).toBe(true);
     expect(data.profile.role).toBe("Designer");
 
-    const prisma = await getTestPrisma();
-    const profile = await prisma.userProfile.findUnique({ where: { userId: user.id } });
+    const db = await getTestDb();
+    const profile = await db.query.userProfile.findFirst({ where: eq(userProfile.userId, user.id) });
     expect(profile?.onboarded).toBe(true);
   });
 

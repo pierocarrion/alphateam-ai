@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { POST } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest } from "@/tests/helpers/fetch";
+import { task as taskTable } from "@drizzle/schema";
 
 async function seedTaskForUser(userId: string) {
-  const prisma = await getTestPrisma();
-  return prisma.task.create({
-    data: {
+  const db = await getTestDb();
+  const [task] = await db
+    .insert(taskTable)
+    .values({
       userId,
       title: "Test task",
       fromQuote: "“test”",
@@ -16,8 +18,9 @@ async function seedTaskForUser(userId: string) {
       micro: "Do the first tiny thing",
       action: "first tiny thing",
       status: "open",
-    },
-  });
+    })
+    .returning();
+  return task!;
 }
 
 describe("POST /api/rituals", () => {

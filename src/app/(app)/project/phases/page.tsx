@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, workspace as workspaceTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { PhaseTracker } from "@/features/project-phases/presentation/components/PhaseTracker";
 
@@ -9,9 +11,9 @@ export default async function ProjectPhasesPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true },
   });
   if (!user) redirect("/login");
 
@@ -22,9 +24,9 @@ export default async function ProjectPhasesPage() {
     redirect("/home");
   }
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: active.workspaceId },
-    select: { id: true, name: true, emoji: true },
+  const workspace = await db.query.workspace.findFirst({
+    where: eq(workspaceTable.id, active.workspaceId),
+    columns: { id: true, name: true, emoji: true },
   });
   if (!workspace) redirect("/home");
 

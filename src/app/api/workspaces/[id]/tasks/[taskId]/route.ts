@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { eq } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { projectTask, user } from "@drizzle/schema";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireProjectMember, isLeaderOrAdmin } from "@/server/lib/requireProjectMember";
 
@@ -34,9 +36,9 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.projectTask.findUnique({
-      where: { id: taskId },
-      select: { workspaceId: true, assigneeId: true, createdById: true, status: true },
+    const existing = await db.query.projectTask.findFirst({
+      where: eq(projectTask.id, taskId),
+      columns: { workspaceId: true, assigneeId: true, createdById: true, status: true },
     });
     if (!existing || existing.workspaceId !== auth.workspaceId) {
       return NextResponse.json({ error: "No encontramos esa tarea." }, { status: 404 });
@@ -56,24 +58,32 @@ export async function PATCH(
     const wasDone = existing.status === "done";
     const nowDone = data.status === "done";
 
-    const task = await prisma.projectTask.update({
-      where: { id: taskId },
-      data: {
-        ...(data.title !== undefined ? { title: data.title.trim() } : {}),
-        ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
-        ...(data.status !== undefined ? { status: data.status } : {}),
-        ...(data.priority !== undefined ? { priority: data.priority } : {}),
-        ...(data.dueDate !== undefined ? { dueDate: data.dueDate ? new Date(data.dueDate) : null } : {}),
-        ...(data.tags !== undefined ? { tags: data.tags } : {}),
-        ...(data.order !== undefined ? { order: data.order } : {}),
-        ...(!wasDone && nowDone ? { completedAt: new Date() } : {}),
-        ...(wasDone && data.status && data.status !== "done" ? { completedAt: null } : {}),
-      },
-      include: {
-        assignee: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-    });
+    const [updated] = await db.update(projectTask).set({
+      ...(data.title !== undefined ? { title: data.title.trim() } : {}),
+      ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.priority !== undefined ? { priority: data.priority } : {}),
+      ...(data.dueDate !== undefined ? { dueDate: data.dueDate ? new Date(data.dueDate) : null } : {}),
+      ...(data.tags !== undefined ? { tags: data.tags } : {}),
+      ...(data.order !== undefined ? { order: data.order } : {}),
+      ...(!wasDone && nowDone ? { completedAt: new Date() } : {}),
+      ...(wasDone && data.status && data.status !== "done" ? { completedAt: null } : {}),
+    }).where(eq(projectTask.id, taskId)).returning();
+
+    const [assigneeUser, creatorUser] = await Promise.all([
+      updated.assigneeId
+        ? db.query.user.findFirst({
+            where: eq(user.id, updated.assigneeId),
+            columns: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+      db.query.user.findFirst({
+        where: eq(user.id, updated.createdById),
+        columns: { id: true, name: true },
+      }),
+    ]);
+
+    const task = { ...updated, assignee: assigneeUser, createdBy: creatorUser };
 
     return NextResponse.json({ task });
   } catch (error) {
@@ -90,9 +100,9 @@ export async function DELETE(
     const auth = await requireProjectMember(rawProjectId);
     if (auth.response) return auth.response;
 
-    const existing = await prisma.projectTask.findUnique({
-      where: { id: taskId },
-      select: { workspaceId: true, assigneeId: true, createdById: true },
+    const existing = await db.query.projectTask.findFirst({
+      where: eq(projectTask.id, taskId),
+      columns: { workspaceId: true, assigneeId: true, createdById: true },
     });
     if (!existing || existing.workspaceId !== auth.workspaceId) {
       return NextResponse.json({ error: "No encontramos esa tarea." }, { status: 404 });
@@ -108,7 +118,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.projectTask.delete({ where: { id: taskId } });
+    await db.delete(projectTask).where(eq(projectTask.id, taskId));
     return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError(error);

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { GET, PATCH, DELETE } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import { task as taskTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 async function seedTaskForUser(userId: string) {
-  const prisma = await getTestPrisma();
-  return prisma.task.create({
-    data: {
+  const db = await getTestDb();
+  const [task] = await db
+    .insert(taskTable)
+    .values({
       userId,
       title: "Test task",
       fromQuote: "“test”",
@@ -16,8 +19,9 @@ async function seedTaskForUser(userId: string) {
       micro: "Do the first tiny thing",
       action: "first tiny thing",
       status: "open",
-    },
-  });
+    })
+    .returning();
+  return task!;
 }
 
 describe("GET /api/tasks/[id]", () => {
@@ -76,8 +80,10 @@ describe("DELETE /api/tasks/[id]", () => {
 
     expect(response.status).toBe(200);
 
-    const prisma = await getTestPrisma();
-    const deleted = await prisma.task.findUnique({ where: { id: task.id } });
-    expect(deleted).toBeNull();
+    const db = await getTestDb();
+    const deleted = await db.query.task.findFirst({
+      where: eq(taskTable.id, task.id),
+    });
+    expect(deleted ?? null).toBeNull();
   });
 });

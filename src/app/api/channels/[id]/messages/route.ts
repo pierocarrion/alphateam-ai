@@ -3,7 +3,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  channel,
+  channelParticipant,
+  membership,
+  message,
+  task,
+  user as userTable,
+} from "@drizzle/schema";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 import { deriveTaskEnhanced, looksLikeTask } from "@/features/tasks/lib/detect";
 import { coordinate } from "@/server/lib/aiCoordinator";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
@@ -37,9 +46,9 @@ export async function GET(
 
     const { id } = await params;
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
 
     if (!user) {
@@ -49,29 +58,53 @@ export async function GET(
       );
     }
 
-    const channel = await prisma.channel.findUnique({
-      where: { id },
-      include: {
-        messages: {
-          include: { user: { select: { id: true, name: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-        workspace: { include: { memberships: { include: { user: { select: { id: true, name: true } } } } } },
-        participants: { include: { user: { select: { id: true, name: true } } } },
-      },
+    const channelRow = await db.query.channel.findFirst({
+      where: eq(channel.id, id),
     });
 
-    if (!channel) {
+    if (!channelRow) {
       return NextResponse.json(
         { error: "We couldn't find that channel." },
         { status: 404 }
       );
     }
 
+    const [messages, memberships, participants] = await Promise.all([
+      db
+        .select({
+          id: message.id,
+          content: message.content,
+          userId: message.userId,
+          createdAt: message.createdAt,
+          userName: userTable.name,
+        })
+        .from(message)
+        .leftJoin(userTable, eq(userTable.id, message.userId))
+        .where(eq(message.channelId, id))
+        .orderBy(asc(message.createdAt)),
+      db
+        .select({
+          userId: membership.userId,
+          role: membership.role,
+          userName: userTable.name,
+        })
+        .from(membership)
+        .leftJoin(userTable, eq(userTable.id, membership.userId))
+        .where(eq(membership.workspaceId, channelRow.workspaceId)),
+      db
+        .select({
+          userId: channelParticipant.userId,
+          userName: userTable.name,
+        })
+        .from(channelParticipant)
+        .leftJoin(userTable, eq(userTable.id, channelParticipant.userId))
+        .where(eq(channelParticipant.channelId, id)),
+    ]);
+
     const isMember =
-      channel.type === "dm"
-        ? channel.participants.some((p) => p.userId === user.id)
-        : channel.workspace.memberships.some((m) => m.userId === user.id);
+      channelRow.type === "dm"
+        ? participants.some((p) => p.userId === user.id)
+        : memberships.some((m) => m.userId === user.id);
     if (!isMember) {
       return NextResponse.json(
         { error: "You don't have access to that channel." },
@@ -79,15 +112,17 @@ export async function GET(
       );
     }
 
-    // Look for an open task linked to any message in this channel for the current user
-    const openTask = await prisma.task.findFirst({
-      where: {
-        userId: user.id,
-        status: "open",
-        messageId: { in: channel.messages.map((m) => m.id) },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const messageIds = messages.map((m) => m.id);
+    const openTask = messageIds.length
+      ? await db.query.task.findFirst({
+          where: and(
+            eq(task.userId, user.id),
+            eq(task.status, "open"),
+            inArray(task.messageId, messageIds)
+          ),
+          orderBy: desc(task.createdAt),
+        })
+      : null;
 
     const detected = openTask
       ? {
@@ -105,26 +140,26 @@ export async function GET(
       : null;
 
     const peer =
-      channel.type === "dm"
-        ? channel.participants.find((p) => p.userId !== user.id)?.user ?? null
+      channelRow.type === "dm"
+        ? participants.find((p) => p.userId !== user.id) ?? null
         : null;
 
     return NextResponse.json({
-      channel: { id: channel.id, name: channel.name, type: channel.type },
-      peer: peer ? { id: peer.id, name: peer.name } : null,
-      messages: channel.messages.map((m) => ({
+      channel: { id: channelRow.id, name: channelRow.name, type: channelRow.type },
+      peer: peer ? { id: peer.userId, name: peer.userName } : null,
+      messages: messages.map((m) => ({
         id: m.id,
-        who: personIdFromName(m.user.name ?? ""),
-        name: m.user.name,
+        who: personIdFromName(m.userName ?? ""),
+        name: m.userName,
         time: formatTime(m.createdAt),
         text: m.content,
         userId: m.userId,
       })),
-      members: channel.workspace.memberships.map((m) => ({
-        id: m.user.id,
-        name: m.user.name ?? "Unknown",
+      members: memberships.map((m) => ({
+        id: m.userId,
+        name: m.userName ?? "Unknown",
         role: m.role,
-        personId: personIdFromName(m.user.name ?? ""),
+        personId: personIdFromName(m.userName ?? ""),
       })),
       detected,
     });
@@ -162,8 +197,8 @@ export async function POST(
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
     });
     if (!user) {
       return NextResponse.json(
@@ -172,24 +207,31 @@ export async function POST(
       );
     }
 
-    const channel = await prisma.channel.findUnique({
-      where: { id },
-      include: {
-        workspace: { include: { memberships: true } },
-        participants: true,
-      },
+    const channelRow = await db.query.channel.findFirst({
+      where: eq(channel.id, id),
     });
-    if (!channel) {
+    if (!channelRow) {
       return NextResponse.json(
         { error: "We couldn't find that channel." },
         { status: 404 }
       );
     }
 
+    const [memberships, participants] = await Promise.all([
+      db
+        .select({ userId: membership.userId, role: membership.role })
+        .from(membership)
+        .where(eq(membership.workspaceId, channelRow.workspaceId)),
+      db
+        .select({ userId: channelParticipant.userId })
+        .from(channelParticipant)
+        .where(eq(channelParticipant.channelId, id)),
+    ]);
+
     const isMember =
-      channel.type === "dm"
-        ? channel.participants.some((p) => p.userId === user.id)
-        : channel.workspace.memberships.some((m) => m.userId === user.id);
+      channelRow.type === "dm"
+        ? participants.some((p) => p.userId === user.id)
+        : memberships.some((m) => m.userId === user.id);
     if (!isMember) {
       return NextResponse.json(
         { error: "You don't have access to that channel." },
@@ -197,26 +239,25 @@ export async function POST(
       );
     }
 
-    const message = await prisma.message.create({
-      data: {
+    const [createdMessage] = await db
+      .insert(message)
+      .values({
         channelId: id,
         userId: user.id,
         content: text,
-      },
-      include: { user: { select: { id: true, name: true } } },
-    });
+      })
+      .returning();
+    const senderName = user.name;
 
     const detected = looksLikeTask(text) ? await deriveTaskEnhanced(text) : null;
 
-    // Run the agent coordinator so other agents can react to the message.
     const { actions, log } = await coordinate({
       type: "message_sent",
       userId: user.id,
-      workspaceId: channel.workspaceId,
+      workspaceId: channelRow.workspaceId,
       payload: { text, channelId: id, fromUserId: user.id },
     });
 
-    // --- Alpha @mention reply (awaited so it streams back with the send) ---
     let alphaReply: {
       id: string;
       who: string;
@@ -227,9 +268,6 @@ export async function POST(
     } | null = null;
     if (isMentionedAlpha(text)) {
       try {
-        // Rich command path: @alpha resume/risks/tasks/fetch/... routed through
-        // the analytical layer + Knowledge Hub RAG. Falls back to the generic
-        // grounded reply for plain mentions.
         const { parseAlphaCommand } = await import("@/features/chat/application/alphaCommands");
         const { runAlphaInChannel } = await import("@/server/lib/alphaCommandsService");
         const command = parseAlphaCommand(text);
@@ -239,21 +277,21 @@ export async function POST(
           replyText = result.reply;
         } else {
           replyText = await generateAlphaChannelReply({
-            workspaceId: channel.workspaceId,
+            workspaceId: channelRow.workspaceId,
             messageText: text,
             senderName: user.name,
           });
         }
         if (replyText) {
           const bot = await ensureAlphaBotUser();
-          const botMessage = await prisma.message.create({
-            data: { channelId: id, userId: bot.id, content: replyText },
-            include: { user: { select: { id: true, name: true } } },
-          });
+          const [botMessage] = await db
+            .insert(message)
+            .values({ channelId: id, userId: bot.id, content: replyText })
+            .returning();
           alphaReply = {
             id: botMessage.id,
-            who: personIdFromName(botMessage.user.name ?? ""),
-            name: botMessage.user.name,
+            who: personIdFromName(bot.name ?? ""),
+            name: bot.name,
             time: formatTime(botMessage.createdAt),
             text: botMessage.content,
             userId: botMessage.userId,
@@ -264,14 +302,13 @@ export async function POST(
       }
     }
 
-    // --- Leader Q&A auto-capture (background; never blocks the send) ---
-    const senderMembership = channel.workspace.memberships.find((m) => m.userId === user.id);
+    const senderMembership = memberships.find((m) => m.userId === user.id);
     const isLeader =
       senderMembership?.role === "leader" || senderMembership?.role === "admin";
     if (!isMentionedAlpha(text) && isLeader) {
       after(() =>
         maybeCaptureLeaderAnswer({
-          workspaceId: channel.workspaceId,
+          workspaceId: channelRow.workspaceId,
           channelId: id,
           leaderUserId: user.id,
           leaderMessageText: text,
@@ -281,21 +318,19 @@ export async function POST(
       );
     }
 
-    // Broadcast the new message (and any Alpha reply) over the realtime SSE stream
-    // so all connected clients in this workspace update without polling.
     publishRealtime("message_sent", {
-      workspaceId: channel.workspaceId,
+      workspaceId: channelRow.workspaceId,
       channelId: id,
-      messageId: message.id,
+      messageId: createdMessage.id,
       data: {
-        text: message.content,
-        userId: message.userId,
-        name: message.user.name,
+        text: createdMessage.content,
+        userId: createdMessage.userId,
+        name: senderName,
       },
     });
     if (alphaReply) {
       publishRealtime("alpha_reply", {
-        workspaceId: channel.workspaceId,
+        workspaceId: channelRow.workspaceId,
         channelId: id,
         messageId: alphaReply.id,
         data: { text: alphaReply.text, name: alphaReply.name },
@@ -303,7 +338,7 @@ export async function POST(
     }
     if (detected) {
       publishRealtime("task_detected", {
-        workspaceId: channel.workspaceId,
+        workspaceId: channelRow.workspaceId,
         channelId: id,
         data: { title: detected.title },
       });
@@ -311,12 +346,12 @@ export async function POST(
 
     return NextResponse.json({
       message: {
-        id: message.id,
-        who: personIdFromName(message.user.name ?? ""),
-        name: message.user.name,
-        time: formatTime(message.createdAt),
-        text: message.content,
-        userId: message.userId,
+        id: createdMessage.id,
+        who: personIdFromName(senderName ?? ""),
+        name: senderName,
+        time: formatTime(createdMessage.createdAt),
+        text: createdMessage.content,
+        userId: createdMessage.userId,
       },
       detected,
       alphaReply,

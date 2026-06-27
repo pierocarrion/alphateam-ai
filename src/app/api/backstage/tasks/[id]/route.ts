@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task, user as userTable, membership, auditLog } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 
@@ -28,9 +30,9 @@ async function requireLeader() {
       ),
     };
   }
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true, name: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true, name: true },
   });
   if (!user) {
     return {
@@ -59,22 +61,31 @@ export async function PATCH(
     const { user, active } = auth;
     const { id } = await params;
 
-    const existing = await prisma.task.findUnique({
-      where: { id },
-      include: { user: { select: { id: true, name: true } } },
-    });
-    if (
-      !existing ||
-      !(await prisma.membership.findUnique({
-        where: {
-          userId_workspaceId: {
-            userId: existing.userId,
-            workspaceId: active.workspaceId,
-          },
-        },
-        select: { id: true },
-      }))
-    ) {
+    const [existing] = await db
+      .select({
+        id: task.id,
+        title: task.title,
+        category: task.category,
+        app: task.app,
+        load: task.load,
+        status: task.status,
+        createdAt: task.createdAt,
+        userId: task.userId,
+        userName: userTable.name,
+      })
+      .from(task)
+      .leftJoin(userTable, eq(userTable.id, task.userId))
+      .where(eq(task.id, id));
+    const membershipRow = existing
+      ? await db.query.membership.findFirst({
+          where: and(
+            eq(membership.userId, existing.userId),
+            eq(membership.workspaceId, active.workspaceId)
+          ),
+          columns: { id: true },
+        })
+      : undefined;
+    if (!existing || !membershipRow) {
       return NextResponse.json(
         { error: "No encontramos esa tarea en tu equipo." },
         { status: 404 }
@@ -92,7 +103,7 @@ export async function PATCH(
 
     const before = {
       ownerId: existing.userId,
-      ownerName: existing.user.name ?? "Someone",
+      ownerName: existing.userName ?? "Someone",
       load: existing.load,
       status: existing.status,
     };
@@ -116,10 +127,10 @@ export async function PATCH(
       // Snooze = keep open but push the deadline forward so it leaves the
       // "active" radar for a while. Implemented as a future deadline.
       const future = new Date(Date.now() + input.snoozeHours * 3600_000);
-      await prisma.task.update({
-        where: { id },
-        data: { deadline: future },
-      });
+      await db
+        .update(task)
+        .set({ deadline: future })
+        .where(eq(task.id, id));
       action = "task.snooze";
     }
     if (input.close) {
@@ -128,10 +139,24 @@ export async function PATCH(
       action = "task.close";
     }
 
-    const updated =
-      Object.keys(data).length > 0
-        ? await prisma.task.update({ where: { id }, data })
-        : existing;
+    let updated: {
+      id: string;
+      title: string;
+      category: string;
+      app: string;
+      load: string;
+      status: string;
+      createdAt: Date;
+      userId: string;
+    } = existing;
+    if (Object.keys(data).length > 0) {
+      const [row] = await db
+        .update(task)
+        .set(data)
+        .where(eq(task.id, id))
+        .returning();
+      updated = row!;
+    }
 
     const after = {
       ownerId: updated.userId,
@@ -139,16 +164,14 @@ export async function PATCH(
       status: updated.status,
     };
 
-    await prisma.auditLog.create({
-      data: {
-        workspaceId: active.workspaceId,
-        actorId: user.id,
-        action,
-        entity: "task",
-        entityId: id,
-        before: JSON.stringify(before),
-        after: JSON.stringify(after),
-      },
+    await db.insert(auditLog).values({
+      workspaceId: active.workspaceId,
+      actorId: user.id,
+      action,
+      entity: "task",
+      entityId: id,
+      before: JSON.stringify(before),
+      after: JSON.stringify(after),
     });
 
     return NextResponse.json({

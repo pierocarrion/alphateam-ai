@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/server/lib/auth";
 import { container } from "@/server/lib/container";
 import { jsonError, parseRequestBody } from "@/server/lib/apiErrors";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  joinRequest as joinRequestTable,
+  workspace as workspaceTable,
+} from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { notifyUser, safeAfter } from "@/server/lib/notifications";
 import {
   DecideJoinRequest,
@@ -35,14 +40,14 @@ export async function PATCH(
     // Notify the applicant of the decision (in-app + push, best-effort).
     safeAfter(async () => {
       try {
-        const req = await prisma.joinRequest.findUnique({
-          where: { id: updated.id },
-          select: { userId: true, workspaceId: true },
+        const req = await db.query.joinRequest.findFirst({
+          where: eq(joinRequestTable.id, updated.id),
+          columns: { userId: true, workspaceId: true },
         });
         const workspace = req
-          ? await prisma.workspace.findUnique({
-              where: { id: req.workspaceId },
-              select: { name: true, emoji: true },
+          ? await db.query.workspace.findFirst({
+              where: eq(workspaceTable.id, req.workspaceId),
+              columns: { name: true, emoji: true },
             })
           : null;
         const wsName = workspace

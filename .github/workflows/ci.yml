@@ -40,8 +40,8 @@ jobs:
 
       - run: npm ci
 
-      - run: npx prisma generate
-      - run: npx prisma db push --accept-data-loss
+      - run: npx drizzle-kit generate
+      - run: npx drizzle-kit push --force
 
       - run: npm run lint
       - run: npm run build

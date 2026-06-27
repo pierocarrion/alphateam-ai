@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import { CreateProject, createProjectSchema } from "./CreateProject";
 import { PrismaProjectRepository } from "../../infrastructure/repositories/PrismaProjectRepository";
 import { PrismaUserRepository } from "@/features/auth/infrastructure/repositories/PrismaUserRepository";
-import { getTestPrisma } from "@/tests/helpers/db";
+import { getTestDb } from "@/tests/helpers/db";
 import { UserFacingError } from "@/server/lib/errors";
 import { resetDatabase, seedUser } from "@/tests/helpers/db";
+import { eq, and } from "drizzle-orm";
+import {
+  membership as membershipTable,
+  channel,
+  knowledgeBaseItem,
+  goal as goalTable,
+} from "@drizzle/schema";
 
 const repo = new PrismaProjectRepository();
 const userRepo = new PrismaUserRepository();
@@ -34,27 +41,28 @@ describe("CreateProject", () => {
     expect(project.hashtag).toBe("#q3-launch");
     expect(project.slug).toBe("q3-launch");
 
-    const prisma = await getTestPrisma();
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: { userId: user.id, workspaceId: project.id },
-      },
+    const db = await getTestDb();
+    const membership = await db.query.membership.findFirst({
+      where: and(
+        eq(membershipTable.userId, user.id),
+        eq(membershipTable.workspaceId, project.id)
+      ),
     });
     expect(membership?.role).toBe("leader");
 
-    const channels = await prisma.channel.findMany({
-      where: { workspaceId: project.id },
+    const channels = await db.query.channel.findMany({
+      where: eq(channel.workspaceId, project.id),
     });
     expect(channels.some((c) => c.name === "general")).toBe(true);
 
-    const kb = await prisma.knowledgeBaseItem.findMany({
-      where: { workspaceId: project.id },
+    const kb = await db.query.knowledgeBaseItem.findMany({
+      where: eq(knowledgeBaseItem.workspaceId, project.id),
     });
     expect(kb).toHaveLength(1);
     expect(kb[0].title).toBe("Brief");
 
-    const goal = await prisma.goal.findFirst({
-      where: { workspaceId: project.id },
+    const goal = await db.query.goal.findFirst({
+      where: eq(goalTable.workspaceId, project.id),
     });
     expect(goal?.title).toBe("Primer hito");
   });

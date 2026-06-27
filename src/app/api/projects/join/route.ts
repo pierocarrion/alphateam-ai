@@ -3,7 +3,13 @@ import { z } from "zod";
 import { requireUser } from "@/server/lib/auth";
 import { container } from "@/server/lib/container";
 import { jsonError, parseRequestBody } from "@/server/lib/apiErrors";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  workspace as workspaceTable,
+  membership as membershipTable,
+  user as userTable,
+} from "@drizzle/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { notifyUsers, safeAfter } from "@/server/lib/notifications";
 import { RequestToJoin } from "@/features/projects/application/use-cases/RequestToJoin";
 
@@ -35,25 +41,25 @@ export async function POST(request: Request) {
     safeAfter(async () => {
       try {
         const [workspace, leaders] = await Promise.all([
-          prisma.workspace.findUnique({
-            where: { id: joinRequest.workspaceId },
-            select: { name: true, emoji: true },
+          db.query.workspace.findFirst({
+            where: eq(workspaceTable.id, joinRequest.workspaceId),
+            columns: { name: true, emoji: true },
           }),
-          prisma.membership.findMany({
-            where: {
-              workspaceId: joinRequest.workspaceId,
-              role: { in: ["leader", "admin"] },
-              status: "active",
-            },
-            select: { userId: true },
+          db.query.membership.findMany({
+            where: and(
+              eq(membershipTable.workspaceId, joinRequest.workspaceId),
+              inArray(membershipTable.role, ["leader", "admin"]),
+              eq(membershipTable.status, "active")
+            ),
+            columns: { userId: true },
           }),
         ]);
         const wsName = workspace
           ? `${workspace.emoji ?? "🚀"} ${workspace.name}`
           : "Proyecto";
-        const applicant = await prisma.user.findUnique({
-          where: { id: auth.user.id },
-          select: { name: true },
+        const applicant = await db.query.user.findFirst({
+          where: eq(userTable.id, auth.user.id),
+          columns: { name: true },
         });
         const who = applicant?.name ?? "Alguien";
         await notifyUsers(

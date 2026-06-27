@@ -1,4 +1,6 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { channel, message, user, workspace, channelInsight, membership, task } from "@drizzle/schema";
+import { eq, desc, asc, sql } from "drizzle-orm";
 import { getAiClient } from "@/server/lib/ai";
 import { container } from "@/server/lib/container";
 import { createLogger } from "@/shared/lib/logger";
@@ -37,27 +39,39 @@ export async function runAlphaInChannel(opts: RunAlphaOptions): Promise<RunAlpha
   const parsed = parseAlphaCommand(opts.text);
   const historyLimit = opts.historyLimit ?? 30;
 
-  const channel = await prisma.channel.findUnique({
-    where: { id: opts.channelId },
-    include: {
-      messages: {
-        include: { user: { select: { name: true } } },
-        orderBy: { createdAt: "desc" },
-        take: historyLimit,
-      },
-      workspace: { select: { id: true, name: true } },
-    },
-  });
+  const [channelRow] = await db
+    .select({
+      id: channel.id,
+      workspaceId: channel.workspaceId,
+      workspaceName: workspace.name,
+    })
+    .from(channel)
+    .leftJoin(workspace, eq(workspace.id, channel.workspaceId))
+    .where(eq(channel.id, opts.channelId));
 
-  const conversation: ConversationMessage[] = (channel?.messages ?? [])
+  const messageRows = channelRow
+    ? await db
+        .select({
+          content: message.content,
+          userName: user.name,
+          createdAt: message.createdAt,
+        })
+        .from(message)
+        .leftJoin(user, eq(user.id, message.userId))
+        .where(eq(message.channelId, opts.channelId))
+        .orderBy(desc(message.createdAt))
+        .limit(historyLimit)
+    : [];
+
+  const conversation: ConversationMessage[] = messageRows
     .slice()
     .reverse()
-    .map((m) => ({ author: m.user.name ?? "Someone", text: m.content }));
+    .map((m) => ({ author: m.userName ?? "Someone", text: m.content }));
 
   const ctx: AlphaCommandContext = {
-    workspaceId: channel?.workspaceId ?? "",
+    workspaceId: channelRow?.workspaceId ?? "",
     channelId: opts.channelId,
-    projectName: channel?.workspace.name,
+    projectName: channelRow?.workspaceName ?? undefined,
     conversation,
   };
 
@@ -83,19 +97,17 @@ export async function runAlphaInChannel(opts: RunAlphaOptions): Promise<RunAlpha
   const result = await router.run(parsed, ctx);
 
   // Persist the structured insight for the side panel + audit trail.
-  if (channel && ctx.workspaceId) {
+  if (channelRow && ctx.workspaceId) {
     try {
-      await prisma.channelInsight.create({
-        data: {
-          channelId: opts.channelId,
-          workspaceId: ctx.workspaceId,
-          type: parsed.command,
-          payload: {
-            reply: result.reply,
-            usedAi: result.usedAi,
-            argument: parsed.argument,
-            ...(result.structured ?? {}),
-          },
+      await db.insert(channelInsight).values({
+        channelId: opts.channelId,
+        workspaceId: ctx.workspaceId,
+        type: parsed.command,
+        payload: {
+          reply: result.reply,
+          usedAi: result.usedAi,
+          argument: parsed.argument,
+          ...(result.structured ?? {}),
         },
       });
     } catch (err) {
@@ -128,35 +140,38 @@ async function materializeTasksFromReply(
   workspaceId: string
 ): Promise<void> {
   // Find the channel members so we can attribute extracted tasks to plausible owners.
-  const membership = await prisma.membership.findFirst({
-    where: { workspaceId },
-    orderBy: { joinedAt: "asc" },
-    include: { user: { select: { id: true } } },
-  });
-  const fallbackUserId = membership?.user.id;
+  const [firstMembership] = await db
+    .select({ userId: membership.userId })
+    .from(membership)
+    .where(eq(membership.workspaceId, workspaceId))
+    .orderBy(asc(membership.joinedAt))
+    .limit(1);
+  const fallbackUserId = firstMembership?.userId;
   if (!fallbackUserId) return;
 
   // The reply is markdown bullets; record it as a single knowledge-capture task
   // so the leader can review/convert. (Full NLP extraction happens in the
   // analytical layer; this guarantees traceability in the task system.)
-  const existing = await prisma.task.findFirst({
-    where: { title: { startsWith: "Acciones detectadas por Alpha" }, status: "open" },
-  });
+  const [existing] = await db
+    .select({ id: task.id })
+    .from(task)
+    .where(
+      sql`${task.title} LIKE ${"Acciones detectadas por Alpha%"} AND ${task.status} = 'open'`
+    )
+    .limit(1);
   if (existing) return;
-  await prisma.task.create({
-    data: {
-      userId: fallbackUserId,
-      title: "Acciones detectadas por Alpha",
-      category: "Review",
-      app: "Alpha",
-      load: "Light",
-      micro: "Revisar las acciones detectadas por Alpha y asignarlas.",
-      action: "revisar y asignar",
-      resource: "Chat",
-      fromQuote: reply.slice(0, 200),
-      status: "open",
-      tags: ["alpha", "auto-detected"],
-    },
+  await db.insert(task).values({
+    userId: fallbackUserId,
+    title: "Acciones detectadas por Alpha",
+    category: "Review",
+    app: "Alpha",
+    load: "Light",
+    micro: "Revisar las acciones detectadas por Alpha y asignarlas.",
+    action: "revisar y asignar",
+    resource: "Chat",
+    fromQuote: reply.slice(0, 200),
+    status: "open",
+    tags: ["alpha", "auto-detected"],
   });
   void channelId;
 }

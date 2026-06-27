@@ -1,4 +1,6 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task, ritualSession, teamMetric, membership, user } from "@drizzle/schema";
+import { eq, inArray, desc, and } from "drizzle-orm";
 import { HealthSignal, WorkspaceHealthReport } from "./aiTypes";
 
 const DEADLINE_DAYS = 2;
@@ -12,26 +14,51 @@ function addDays(date: Date, days: number): Date {
 export async function runWorkspaceHealthCheck(workspaceId: string): Promise<WorkspaceHealthReport> {
   const now = new Date();
 
-  const [openTasks, rituals, metrics, memberships] = await Promise.all([
-    prisma.task.findMany({
-      where: {
-        status: "open",
-        user: { memberships: { some: { workspaceId } } },
-      },
-      include: { user: { select: { id: true, name: true } } },
-    }),
-    prisma.ritualSession.findMany({
-      where: { user: { memberships: { some: { workspaceId } } } },
-    }),
-    prisma.teamMetric.findMany({
-      where: { workspaceId },
-      orderBy: { date: "desc" },
-    }),
-    prisma.membership.findMany({
-      where: { workspaceId },
-      include: { user: { select: { id: true, name: true } } },
-    }),
+  const memberUserIds = db
+    .select({ id: membership.userId })
+    .from(membership)
+    .where(eq(membership.workspaceId, workspaceId));
+
+  const [openTaskRows, ritualRows, metrics, membershipRows] = await Promise.all([
+    db
+      .select({
+        userId: task.userId,
+        deadline: task.deadline,
+        userName: user.name,
+      })
+      .from(task)
+      .leftJoin(user, eq(user.id, task.userId))
+      .where(and(eq(task.status, "open"), inArray(task.userId, memberUserIds))),
+    db
+      .select({ createdAt: ritualSession.createdAt })
+      .from(ritualSession)
+      .where(inArray(ritualSession.userId, memberUserIds)),
+    db
+      .select({
+        type: teamMetric.type,
+        value: teamMetric.value,
+        metadata: teamMetric.metadata,
+      })
+      .from(teamMetric)
+      .where(eq(teamMetric.workspaceId, workspaceId))
+      .orderBy(desc(teamMetric.date)),
+    db
+      .select({ userId: membership.userId, userName: user.name })
+      .from(membership)
+      .leftJoin(user, eq(user.id, membership.userId))
+      .where(eq(membership.workspaceId, workspaceId)),
   ]);
+
+  const openTasks = openTaskRows.map((r) => ({
+    userId: r.userId,
+    deadline: r.deadline,
+    user: { name: r.userName ?? null },
+  }));
+  const rituals = ritualRows;
+  const memberships = membershipRows.map((r) => ({
+    userId: r.userId,
+    user: { name: r.userName ?? null },
+  }));
 
   const signals: HealthSignal[] = [];
 
@@ -45,11 +72,11 @@ export async function runWorkspaceHealthCheck(workspaceId: string): Promise<Work
   const minCount = countsArr.length ? Math.min(...countsArr) : 0;
   if (maxCount - minCount >= 2 && maxCount >= 3) {
     const heavyUser = Array.from(counts.entries()).find(([, c]) => c === maxCount);
-    const user = memberships.find((m) => m.userId === heavyUser?.[0])?.user;
+    const us = memberships.find((m) => m.userId === heavyUser?.[0])?.user;
     signals.push({
       type: "load_imbalance",
       severity: "medium",
-      summary: `${user?.name ?? "Someone"} is carrying ${maxCount} open tasks. Consider sharing the load.`,
+      summary: `${us?.name ?? "Someone"} is carrying ${maxCount} open tasks. Consider sharing the load.`,
       userId: heavyUser?.[0],
       suggestedAction: "pair_match_or_rebalance",
     });

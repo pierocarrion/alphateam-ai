@@ -1,4 +1,9 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  projectPhaseState,
+  projectArtifactState,
+} from "@drizzle/schema";
+import { eq, and, asc } from "drizzle-orm";
 import type {
   ArtifactStatus,
   PhaseStatus,
@@ -78,17 +83,20 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
     workspaceId: string,
     methodologyKey: string
   ): Promise<ProjectPhaseState[]> {
-    const rows = await prisma.projectPhaseState.findMany({
-      where: { workspaceId, methodologyKey },
-      orderBy: { createdAt: "asc" },
+    const rows = await db.query.projectPhaseState.findMany({
+      where: and(
+        eq(projectPhaseState.workspaceId, workspaceId),
+        eq(projectPhaseState.methodologyKey, methodologyKey)
+      ),
+      orderBy: asc(projectPhaseState.createdAt),
     });
     return rows.map(toPhase);
   }
 
   async listArtifacts(workspaceId: string): Promise<ProjectArtifactState[]> {
-    const rows = await prisma.projectArtifactState.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "asc" },
+    const rows = await db.query.projectArtifactState.findMany({
+      where: eq(projectArtifactState.workspaceId, workspaceId),
+      orderBy: asc(projectArtifactState.createdAt),
     });
     return rows.map(toArtifact);
   }
@@ -104,17 +112,15 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
       completedAt?: Date | null;
     }
   ): Promise<ProjectPhaseState> {
-    const data: Record<string, unknown> = {};
-    if (patch.status !== undefined) data.status = patch.status;
-    if (patch.notes !== undefined) data.notes = patch.notes;
-    if (patch.startedAt !== undefined) data.startedAt = patch.startedAt;
-    if (patch.completedAt !== undefined) data.completedAt = patch.completedAt;
+    const updateData: Record<string, unknown> = {};
+    if (patch.status !== undefined) updateData.status = patch.status;
+    if (patch.notes !== undefined) updateData.notes = patch.notes;
+    if (patch.startedAt !== undefined) updateData.startedAt = patch.startedAt;
+    if (patch.completedAt !== undefined) updateData.completedAt = patch.completedAt;
 
-    const row = await prisma.projectPhaseState.upsert({
-      where: {
-        workspaceId_methodologyKey_phaseKey: { workspaceId, methodologyKey, phaseKey },
-      },
-      create: {
+    const [row] = await db
+      .insert(projectPhaseState)
+      .values({
         workspaceId,
         methodologyKey,
         phaseKey,
@@ -122,10 +128,17 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
         notes: patch.notes ?? null,
         startedAt: patch.startedAt ?? null,
         completedAt: patch.completedAt ?? null,
-      },
-      update: data,
-    });
-    return toPhase(row);
+      })
+      .onConflictDoUpdate({
+        target: [
+          projectPhaseState.workspaceId,
+          projectPhaseState.methodologyKey,
+          projectPhaseState.phaseKey,
+        ],
+        set: updateData,
+      })
+      .returning();
+    return toPhase(row!);
   }
 
   async upsertArtifact(
@@ -143,24 +156,23 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
       completedAt?: Date | null;
     }
   ): Promise<ProjectArtifactState> {
-    // Asegura que la fase exista (la creamos lazy si no existe aún).
-    const phase = await prisma.projectPhaseState.upsert({
-      where: {
-        workspaceId_methodologyKey_phaseKey: {
-          workspaceId,
-          methodologyKey: input.methodologyKey,
-          phaseKey: input.phaseKey,
-        },
-      },
-      create: {
+    const [phase] = await db
+      .insert(projectPhaseState)
+      .values({
         workspaceId,
         methodologyKey: input.methodologyKey,
         phaseKey: input.phaseKey,
         status: "not_started",
-      },
-      update: {},
-      select: { id: true },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [
+          projectPhaseState.workspaceId,
+          projectPhaseState.methodologyKey,
+          projectPhaseState.phaseKey,
+        ],
+        set: {},
+      })
+      .returning({ id: projectPhaseState.id });
 
     const updateData: Record<string, unknown> = {};
     if (input.status !== undefined) updateData.status = input.status;
@@ -172,13 +184,11 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
     if (input.startedAt !== undefined) updateData.startedAt = input.startedAt;
     if (input.completedAt !== undefined) updateData.completedAt = input.completedAt;
 
-    const row = await prisma.projectArtifactState.upsert({
-      where: {
-        workspaceId_artifactKey: { workspaceId, artifactKey: input.artifactKey },
-      },
-      create: {
+    const [row] = await db
+      .insert(projectArtifactState)
+      .values({
         workspaceId,
-        phaseId: phase.id,
+        phaseId: phase!.id,
         methodologyKey: input.methodologyKey,
         phaseKey: input.phaseKey,
         artifactKey: input.artifactKey,
@@ -189,10 +199,16 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
         knowledgeResourceId: input.knowledgeResourceId ?? null,
         startedAt: input.startedAt ?? null,
         completedAt: input.completedAt ?? null,
-      },
-      update: updateData,
-    });
-    return toArtifact(row);
+      })
+      .onConflictDoUpdate({
+        target: [
+          projectArtifactState.workspaceId,
+          projectArtifactState.artifactKey,
+        ],
+        set: updateData,
+      })
+      .returning();
+    return toArtifact(row!);
   }
 
   async seedForMethodology(
@@ -201,25 +217,25 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
     phases: Array<{ phaseKey: string }>
   ): Promise<void> {
     if (phases.length === 0) return;
-    await prisma.$transaction(
-      phases.map((p) =>
-        prisma.projectPhaseState.upsert({
-          where: {
-            workspaceId_methodologyKey_phaseKey: {
-              workspaceId,
-              methodologyKey,
-              phaseKey: p.phaseKey,
-            },
-          },
-          create: {
+    await db.transaction(async (tx) => {
+      for (const p of phases) {
+        await tx
+          .insert(projectPhaseState)
+          .values({
             workspaceId,
             methodologyKey,
             phaseKey: p.phaseKey,
             status: "not_started",
-          },
-          update: {},
-        })
-      )
-    );
+          })
+          .onConflictDoUpdate({
+            target: [
+              projectPhaseState.workspaceId,
+              projectPhaseState.methodologyKey,
+              projectPhaseState.phaseKey,
+            ],
+            set: {},
+          });
+      }
+    });
   }
 }

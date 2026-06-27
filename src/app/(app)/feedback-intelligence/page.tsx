@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  feedbackCampaign,
+  feedbackResponse,
+} from "@drizzle/schema";
+import { eq, desc, count, inArray } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import {
   aggregateMetrics,
@@ -15,9 +21,9 @@ export default async function FeedbackIntelligencePage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true, name: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true, name: true },
   });
   if (!user) redirect("/login");
 
@@ -27,18 +33,27 @@ export default async function FeedbackIntelligencePage() {
   }
 
   const [campaigns, responses] = await Promise.all([
-    prisma.feedbackCampaign.findMany({
-      where: { workspaceId: active.workspaceId },
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { responses: true } } },
+    db.query.feedbackCampaign.findMany({
+      where: eq(feedbackCampaign.workspaceId, active.workspaceId),
+      orderBy: [desc(feedbackCampaign.createdAt)],
     }),
-    prisma.feedbackResponse.findMany({
-      where: { workspaceId: active.workspaceId },
-      orderBy: { createdAt: "desc" },
-      select: { sentiment: true, emotion: true, scores: true, createdAt: true },
-      take: 500,
+    db.query.feedbackResponse.findMany({
+      where: eq(feedbackResponse.workspaceId, active.workspaceId),
+      orderBy: [desc(feedbackResponse.createdAt)],
+      columns: { sentiment: true, emotion: true, scores: true, createdAt: true },
+      limit: 500,
     }),
   ]);
+
+  const campaignIds = campaigns.map((c) => c.id);
+  const counts = campaignIds.length
+    ? await db
+        .select({ campaignId: feedbackResponse.campaignId, c: count() })
+        .from(feedbackResponse)
+        .where(inArray(feedbackResponse.campaignId, campaignIds))
+        .groupBy(feedbackResponse.campaignId)
+    : [];
+  const countMap = new Map(counts.map((r) => [r.campaignId, Number(r.c)]));
 
   const metrics = aggregateMetrics(
     responses as Array<{ sentiment: string | null; scores: unknown }>
@@ -53,7 +68,7 @@ export default async function FeedbackIntelligencePage() {
         kind: c.kind,
         cadence: c.cadence,
         status: c.status,
-        responses: c._count.responses,
+        responses: countMap.get(c.id) ?? 0,
         createdAt: c.createdAt.toISOString(),
       }))}
       metrics={metrics}

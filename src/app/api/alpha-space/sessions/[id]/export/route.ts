@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { alphaSession, user as userTable } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import {
   getFramework,
@@ -32,9 +34,9 @@ export async function POST(
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 });
     const { active } = await getActiveWorkspace(user.id);
@@ -43,8 +45,12 @@ export async function POST(
     }
 
     const { id } = await params;
-    const alpha = await prisma.alphaSession.findFirst({
-      where: { id, userId: user.id, workspaceId: active.workspaceId },
+    const alpha = await db.query.alphaSession.findFirst({
+      where: and(
+        eq(alphaSession.id, id),
+        eq(alphaSession.userId, user.id),
+        eq(alphaSession.workspaceId, active.workspaceId)
+      ),
     });
     if (!alpha) return NextResponse.json({ error: "Sesión no encontrada." }, { status: 404 });
 

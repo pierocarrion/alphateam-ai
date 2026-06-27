@@ -1,4 +1,6 @@
-import { prisma } from "@/server/lib/prisma";
+import { eq } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { user, userProfile } from "@drizzle/schema";
 import {
   CreateUserInput,
   IUserRepository,
@@ -8,7 +10,7 @@ import { User, UserProfile } from "../../domain/entities/User";
 
 export class PrismaUserRepository implements IUserRepository {
   async findByEmail(email: string): Promise<User | null> {
-    const row = await prisma.user.findUnique({ where: { email } });
+    const row = await db.query.user.findFirst({ where: eq(user.email, email) });
     if (!row) return null;
     return this.toUser(row);
   }
@@ -16,52 +18,77 @@ export class PrismaUserRepository implements IUserRepository {
   async findById(
     id: string
   ): Promise<(User & { profile: UserProfile | null }) | null> {
-    const row = await prisma.user.findUnique({
-      where: { id },
-      include: { profile: true },
-    });
-    if (!row) return null;
+    // Single joined query: user + its (optional) profile. Faster than two
+    // round-trips and avoids over-fetching unrelated columns.
+    const rows = await db
+      .select({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        createdAt: user.createdAt,
+        pId: userProfile.id,
+        pUserId: userProfile.userId,
+        pRole: userProfile.role,
+        pHardMoment: userProfile.hardMoment,
+        pProfileId: userProfile.profileId,
+        pOnboarded: userProfile.onboarded,
+        pTone: userProfile.tone,
+      })
+      .from(user)
+      .leftJoin(userProfile, eq(userProfile.userId, user.id))
+      .where(eq(user.id, id));
+    if (rows.length === 0) return null;
+    const r = rows[0]!;
     return {
-      ...this.toUser(row),
-      profile: row.profile ? this.toProfile(row.profile) : null,
+      ...this.toUser(r),
+      profile: r.pId ? this.toProfile(r) : null,
     };
   }
 
   async create(input: CreateUserInput): Promise<User> {
-    const row = await prisma.user.create({
-      data: {
-        email: input.email,
-        name: input.name,
-        passwordHash: input.passwordHash,
-        profile: { create: {} },
-      },
+    // Create user + empty profile atomically.
+    const created = await db.transaction(async (tx) => {
+      const [u] = await tx
+        .insert(user)
+        .values({
+          email: input.email,
+          name: input.name,
+          passwordHash: input.passwordHash,
+        })
+        .returning();
+      await tx.insert(userProfile).values({ userId: u!.id });
+      return u!;
     });
-    return this.toUser(row);
+    return this.toUser(created);
   }
 
   async updateProfile(
     userId: string,
     input: UpdateProfileInput
   ): Promise<UserProfile> {
-    const row = await prisma.userProfile.upsert({
-      where: { userId },
-      create: {
+    // Build the update set dynamically so undefined fields are skipped
+    // (matches Prisma's `?? undefined` semantics).
+    const set: Partial<typeof userProfile.$inferInsert> = {};
+    if (input.role !== undefined) set.role = input.role ?? null;
+    if (input.hardMoment !== undefined) set.hardMoment = input.hardMoment ?? null;
+    if (input.profileId !== undefined) set.profileId = input.profileId ?? null;
+    if (input.onboarded !== undefined) set.onboarded = input.onboarded;
+    if (input.tone !== undefined) set.tone = input.tone;
+
+    const [row] = await db
+      .insert(userProfile)
+      .values({
         userId,
         role: input.role ?? null,
         hardMoment: input.hardMoment ?? null,
         profileId: input.profileId ?? null,
         onboarded: input.onboarded ?? false,
         tone: input.tone ?? "warm",
-      },
-      update: {
-        role: input.role ?? undefined,
-        hardMoment: input.hardMoment ?? undefined,
-        profileId: input.profileId ?? undefined,
-        onboarded: input.onboarded ?? undefined,
-        tone: input.tone ?? undefined,
-      },
-    });
-    return this.toProfile(row);
+      })
+      .onConflictDoUpdate({ target: userProfile.userId, set })
+      .returning();
+    return this.toProfile(row!);
   }
 
   private toUser(row: {
@@ -81,22 +108,30 @@ export class PrismaUserRepository implements IUserRepository {
   }
 
   private toProfile(row: {
-    id: string;
-    userId: string;
-    role: string | null;
-    hardMoment: string | null;
-    profileId: string | null;
-    onboarded: boolean;
-    tone: string;
+    pId?: string | null;
+    id?: string;
+    pUserId?: string | null;
+    userId?: string;
+    pRole?: string | null;
+    role?: string | null;
+    pHardMoment?: string | null;
+    hardMoment?: string | null;
+    pProfileId?: string | null;
+    profileId?: string | null;
+    pOnboarded?: boolean | null;
+    onboarded?: boolean | null;
+    pTone?: string | null;
+    tone?: string | null;
   }): UserProfile {
     return {
-      id: row.id,
-      userId: row.userId,
-      role: row.role,
-      hardMoment: row.hardMoment,
-      profileId: row.profileId,
-      onboarded: row.onboarded,
-      tone: row.tone === "balanced" ? "balanced" : "warm",
+      id: (row.pId ?? row.id)!,
+      userId: (row.pUserId ?? row.userId)!,
+      role: row.pRole ?? row.role ?? null,
+      hardMoment: row.pHardMoment ?? row.hardMoment ?? null,
+      profileId: row.pProfileId ?? row.profileId ?? null,
+      onboarded: row.pOnboarded ?? row.onboarded ?? false,
+      tone:
+        (row.pTone ?? row.tone) === "balanced" ? "balanced" : "warm",
     };
   }
 }

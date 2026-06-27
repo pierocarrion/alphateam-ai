@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, feedbackCampaign } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 
@@ -20,9 +22,9 @@ export async function PATCH(
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 });
     const { active } = await getActiveWorkspace(user.id);
@@ -31,8 +33,8 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const existing = await prisma.feedbackCampaign.findFirst({
-      where: { id, workspaceId: active.workspaceId },
+    const existing = await db.query.feedbackCampaign.findFirst({
+      where: and(eq(feedbackCampaign.id, id), eq(feedbackCampaign.workspaceId, active.workspaceId)),
     });
     if (!existing) return NextResponse.json({ error: "Campaña no encontrada." }, { status: 404 });
 
@@ -41,10 +43,11 @@ export async function PATCH(
       return NextResponse.json({ error: toFriendlyMessage(parsed.error) }, { status: 400 });
     }
 
-    const updated = await prisma.feedbackCampaign.update({
-      where: { id },
-      data: { status: parsed.data.status, title: parsed.data.title },
-    });
+    const [updated] = await db
+      .update(feedbackCampaign)
+      .set({ status: parsed.data.status, title: parsed.data.title })
+      .where(eq(feedbackCampaign.id, id))
+      .returning();
     return NextResponse.json({ campaign: updated });
   } catch (error) {
     return jsonError(error);

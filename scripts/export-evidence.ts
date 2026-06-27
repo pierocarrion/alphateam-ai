@@ -1,6 +1,7 @@
 import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { eq, desc, sum, count } from "drizzle-orm";
+import * as schema from "@drizzle/schema";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -9,27 +10,42 @@ if (!connectionString) {
 }
 
 const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const db = drizzle(pool, { schema });
 
 async function main() {
   const [
-    waitlistCount,
-    userCount,
-    taskCount,
-    ritualCount,
-    recoveredMinutes,
+    waitlistRows,
+    userRows,
+    taskRows,
+    ritualRows,
+    recoveredRows,
     feedback,
   ] = await Promise.all([
-    prisma.waitlist.count(),
-    prisma.user.count(),
-    prisma.task.count(),
-    prisma.ritualSession.count(),
-    prisma.userMetric
-      .aggregate({ where: { type: "recovered_minutes" }, _sum: { value: true } })
-      .then((r) => r._sum.value ?? 0),
-    prisma.feedback.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    db.select({ c: count() }).from(schema.waitlist),
+    db.select({ c: count() }).from(schema.user),
+    db.select({ c: count() }).from(schema.task),
+    db.select({ c: count() }).from(schema.ritualSession),
+    db.select({ total: sum(schema.userMetric.value) })
+      .from(schema.userMetric)
+      .where(eq(schema.userMetric.type, "recovered_minutes")),
+    db.query.feedback.findMany({
+      orderBy: desc(schema.feedback.createdAt),
+      limit: 50,
+      columns: {
+        type: true,
+        content: true,
+        tags: true,
+        metricValue: true,
+        createdAt: true,
+      },
+    }),
   ]);
+
+  const waitlistCount = Number(waitlistRows[0]?.c ?? 0);
+  const userCount = Number(userRows[0]?.c ?? 0);
+  const taskCount = Number(taskRows[0]?.c ?? 0);
+  const ritualCount = Number(ritualRows[0]?.c ?? 0);
+  const recoveredMinutes = Number(recoveredRows[0]?.total ?? 0);
 
   const report = {
     generatedAt: new Date().toISOString(),
@@ -61,6 +77,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
     await pool.end();
   });

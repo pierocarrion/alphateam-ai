@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  membership as membershipTable,
+  workspace as workspaceTable,
+} from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { requireSuperAdmin } from "@/server/lib/requireSuperAdmin";
 import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
@@ -22,9 +27,9 @@ export async function PATCH(
     );
   }
 
-  const membership = await prisma.membership.findUnique({
-    where: { id: memberId },
-    select: { id: true, workspaceId: true, userId: true, role: true },
+  const membership = await db.query.membership.findFirst({
+    where: eq(membershipTable.id, memberId),
+    columns: { id: true, workspaceId: true, userId: true, role: true },
   });
 
   if (!membership || membership.workspaceId !== workspaceId) {
@@ -34,20 +39,19 @@ export async function PATCH(
     );
   }
 
-  const updated = await prisma.membership.update({
-    where: { id: memberId },
-    data: { role: body.role },
-    select: { id: true, role: true },
-  });
+  const [updated] = await db.update(membershipTable)
+    .set({ role: body.role })
+    .where(eq(membershipTable.id, memberId))
+    .returning({ id: membershipTable.id, role: membershipTable.role });
 
   // Notify the member their role changed (skip if unchanged).
   if (membership.userId && membership.role !== body.role) {
     const targetUserId = membership.userId;
     safeAfter(async () => {
       try {
-        const workspace = await prisma.workspace.findUnique({
-          where: { id: workspaceId },
-          select: { name: true },
+        const workspace = await db.query.workspace.findFirst({
+          where: eq(workspaceTable.id, workspaceId),
+          columns: { name: true },
         });
         await notifyUser({
           userId: targetUserId,
@@ -77,9 +81,9 @@ export async function DELETE(
 
   const { id: workspaceId, memberId } = await params;
 
-  const membership = await prisma.membership.findUnique({
-    where: { id: memberId },
-    select: { id: true, workspaceId: true, userId: true },
+  const membership = await db.query.membership.findFirst({
+    where: eq(membershipTable.id, memberId),
+    columns: { id: true, workspaceId: true, userId: true },
   });
 
   if (!membership || membership.workspaceId !== workspaceId) {
@@ -89,16 +93,16 @@ export async function DELETE(
     );
   }
 
-  await prisma.membership.delete({ where: { id: memberId } });
+  await db.delete(membershipTable).where(eq(membershipTable.id, memberId));
 
   // Notify the kicked member.
   if (membership.userId) {
     const targetUserId = membership.userId;
     safeAfter(async () => {
       try {
-        const workspace = await prisma.workspace.findUnique({
-          where: { id: workspaceId },
-          select: { name: true },
+        const workspace = await db.query.workspace.findFirst({
+          where: eq(workspaceTable.id, workspaceId),
+          columns: { name: true },
         });
         await notifyUser({
           userId: targetUserId,

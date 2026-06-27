@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, userProfile, userMetric } from "@drizzle/schema";
+import { eq, and, count } from "drizzle-orm";
 import { recoveredMinutesByDay } from "@/server/lib/metrics";
 import { Alpha, TopBar } from "@/shared/ui";
 
@@ -16,10 +18,17 @@ const FALLBACK_WEEK = [
 
 export default async function InsightsPage() {
   const session = await getServerSession(authOptions);
-  const user = await prisma.user.findUnique({
-    where: { email: session?.user?.email ?? "" },
-    include: { profile: true },
-  });
+  const user = session?.user?.email
+    ? await db.query.user.findFirst({
+        where: eq(userTable.email, session.user.email),
+      })
+    : null;
+  const profile =
+    user != null
+      ? await db.query.userProfile.findFirst({
+          where: eq(userProfile.userId, user.id),
+        })
+      : null;
 
   const week = user
     ? await recoveredMinutesByDay(user.id, 7)
@@ -38,11 +47,16 @@ export default async function InsightsPage() {
         })
       : FALLBACK_WEEK;
 
-  const starts = user
-    ? await prisma.userMetric.count({
-        where: { userId: user.id, type: "rituals_completed" },
-      })
-    : 0;
+  let starts = 0;
+  if (user) {
+    const [row] = await db
+      .select({ c: count() })
+      .from(userMetric)
+      .where(
+        and(eq(userMetric.userId, user.id), eq(userMetric.type, "rituals_completed"))
+      );
+    starts = Number(row?.c ?? 0);
+  }
 
   const dotCount = Math.max(1, starts);
   const max = Math.max(45, ...WEEK.map((w) => w.v));

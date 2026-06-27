@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { userMetric } from "@drizzle/schema";
+import { eq, and, gte, count } from "drizzle-orm";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
 import { weekAgo } from "@/server/lib/dates";
@@ -24,15 +26,16 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
-    const metric = await prisma.userMetric.create({
-      data: {
+    const [metric] = await db
+      .insert(userMetric)
+      .values({
         userId: user.id,
         date: now,
         type: "wind_down",
         value: 1,
         metadata: parsed.data.mood ?? null,
-      },
-    });
+      })
+      .returning();
 
     return NextResponse.json({ ok: true, metric });
   } catch (error) {
@@ -47,11 +50,19 @@ export async function GET() {
     const user = auth.user;
 
     const since = weekAgo();
-    const count = await prisma.userMetric.count({
-      where: { userId: user.id, type: "wind_down", date: { gte: since } },
-    });
+    const rows = await db
+      .select({ c: count() })
+      .from(userMetric)
+      .where(
+        and(
+          eq(userMetric.userId, user.id),
+          eq(userMetric.type, "wind_down"),
+          gte(userMetric.date, since)
+        )
+      );
+    const total = Number(rows[0]?.c ?? 0);
 
-    return NextResponse.json({ count });
+    return NextResponse.json({ count: total });
   } catch (error) {
     return jsonError(error);
   }

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { requireProjectLeader } from "@/server/lib/requireProjectLeader";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { getProjectSettingsDeps } from "@/features/project-settings/infrastructure/container";
 import { InviteMember } from "@/features/project-settings/application/use-cases/ManageMembers";
 import { inviteSchema } from "@/features/project-settings/application/schemas";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, workspace as workspaceTable } from "@drizzle/schema";
 import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,16 +49,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const email = parsed.data.email.trim().toLowerCase();
     safeAfter(async () => {
       try {
-        const invitee = await prisma.user.findUnique({
-          where: { email },
-          select: { id: true, name: true },
+        const invitee = await db.query.user.findFirst({
+          where: eq(userTable.email, email),
+          columns: { id: true, name: true },
         });
-        const workspace = await prisma.workspace.findUnique({
-          where: { id: workspaceId },
-          select: { name: true, emoji: true },
+        const ws = await db.query.workspace.findFirst({
+          where: eq(workspaceTable.id, workspaceId),
+          columns: { name: true, emoji: true },
         });
-        const wsName = workspace
-          ? `${workspace.emoji ?? "🚀"} ${workspace.name}`
+        const wsName = ws
+          ? `${ws.emoji ?? "🚀"} ${ws.name}`
           : "Proyecto";
         if (invitee) {
           await notifyUser({

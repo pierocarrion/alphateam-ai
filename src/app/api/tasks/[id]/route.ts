@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { task as taskTable } from "@drizzle/schema";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
 import { recordTaskCompletion } from "@/server/lib/metrics";
@@ -20,8 +22,8 @@ export async function GET(
     const user = auth.user;
 
     const { id } = await params;
-    const task = await prisma.task.findFirst({
-      where: { id, userId: user.id },
+    const task = await db.query.task.findFirst({
+      where: and(eq(taskTable.id, id), eq(taskTable.userId, user.id)),
     });
 
     if (!task) {
@@ -47,8 +49,8 @@ export async function DELETE(
     const user = auth.user;
 
     const { id } = await params;
-    const existing = await prisma.task.findFirst({
-      where: { id, userId: user.id },
+    const existing = await db.query.task.findFirst({
+      where: and(eq(taskTable.id, id), eq(taskTable.userId, user.id)),
     });
     if (!existing) {
       return NextResponse.json(
@@ -57,7 +59,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.task.delete({ where: { id } });
+    await db.delete(taskTable).where(eq(taskTable.id, id));
     return NextResponse.json({ ok: true });
   } catch (error) {
     return jsonError(error);
@@ -82,8 +84,8 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.task.findFirst({
-      where: { id, userId: user.id },
+    const existing = await db.query.task.findFirst({
+      where: and(eq(taskTable.id, id), eq(taskTable.userId, user.id)),
     });
     if (!existing) {
       return NextResponse.json(
@@ -93,13 +95,10 @@ export async function PATCH(
     }
 
     const nextStatus = parsed.data.status ?? existing.status;
-    const task = await prisma.task.update({
-      where: { id },
-      data: {
-        status: nextStatus,
-        completedAt: parsed.data.completedAt ? new Date(parsed.data.completedAt) : existing.completedAt,
-      },
-    });
+    const [task] = await db.update(taskTable).set({
+      status: nextStatus,
+      completedAt: parsed.data.completedAt ? new Date(parsed.data.completedAt) : existing.completedAt,
+    }).where(eq(taskTable.id, id)).returning();
 
     if (nextStatus === "done" && existing.status !== "done") {
       await recordTaskCompletion(user.id);

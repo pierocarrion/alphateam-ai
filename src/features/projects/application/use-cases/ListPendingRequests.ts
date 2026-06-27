@@ -36,15 +36,18 @@ export class ListPendingRequests {
     }
 
     // Fallback: first workspace where the user is leader/admin.
-    const { prisma } = await import("@/server/lib/prisma");
-    const membership = await prisma.membership.findFirst({
-      where: {
-        userId: input.leaderUserId,
-        role: { in: ["leader", "admin"] },
-      },
-      orderBy: { joinedAt: "asc" },
-      select: { workspaceId: true },
-    });
-    return membership?.workspaceId ?? null;
+    const { db } = await import("@/server/lib/db");
+    const { membership } = await import("@drizzle/schema");
+    const { eq, asc, inArray } = await import("drizzle-orm");
+    const m = await db
+      .select({ workspaceId: membership.workspaceId })
+      .from(membership)
+      .where(
+        eq(membership.userId, input.leaderUserId) &&
+          inArray(membership.role, ["leader", "admin"])
+      )
+      .orderBy(asc(membership.joinedAt))
+      .limit(1);
+    return m[0]?.workspaceId ?? null;
   }
 }

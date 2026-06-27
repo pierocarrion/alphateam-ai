@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 import { SignUpUser, signUpUserSchema } from "./SignUpUser";
 import { PrismaUserRepository } from "../../infrastructure/repositories/PrismaUserRepository";
-import { getTestPrisma } from "@/tests/helpers/db";
+import { getTestDb } from "@/tests/helpers/db";
 import { UserFacingError } from "@/server/lib/errors";
+import { eq } from "drizzle-orm";
+import { user as userTable } from "@drizzle/schema";
 
 const createUseCase = () => new SignUpUser(new PrismaUserRepository());
 
@@ -19,8 +21,8 @@ describe("SignUpUser", () => {
     expect(user.email).toBe("new@example.com");
     expect(user.name).toBe("New User");
 
-    const prisma = await getTestPrisma();
-    const row = await prisma.user.findUnique({ where: { email: "new@example.com" } });
+    const db = await getTestDb();
+    const row = await db.query.user.findFirst({ where: eq(userTable.email, "new@example.com") });
     expect(row).not.toBeNull();
     expect(await bcrypt.compare("secure-password", row!.passwordHash!)).toBe(true);
   });

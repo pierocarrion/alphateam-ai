@@ -1,4 +1,4 @@
-﻿# Cloud Build job that runs Prisma migrations against Cloud SQL.
+﻿# Cloud Build job that runs Drizzle migrations against Cloud SQL.
 #
 # Usage:
 #   export PROJECT_ID=your-project-id
@@ -11,12 +11,12 @@
 
 steps:
   # Run migrations using a single step that starts the Cloud SQL Auth Proxy
-  # in the background, waits for it to be ready, then deploys Prisma migrations.
+  # in the background, waits for it to be ready, then deploys Drizzle migrations.
   #
   # The DATABASE_URL secret is stored in Cloud Run socket format
   # (postgresql://user:pass@/db?host=/cloudsql/project:region:instance).
   # The Cloud SQL proxy exposes the instance on 127.0.0.1:5432, so we
-  # rewrite the URL to point at localhost before running Prisma.
+  # rewrite the URL to point at localhost before running Drizzle.
   - name: "node:20-alpine"
     entrypoint: sh
     args:
@@ -32,7 +32,7 @@ steps:
         export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||; s|$$|?schema=public|')"
         echo "DATABASE_URL host: $$(echo "$$DATABASE_URL" | sed -E 's|.*@([^/:]+).*|\1|')"
         npm ci --ignore-scripts
-        npx prisma migrate deploy
+        npx drizzle-kit migrate
         MIGRATE_STATUS=$?
         kill $$PROXY_PID || true
         exit $$MIGRATE_STATUS

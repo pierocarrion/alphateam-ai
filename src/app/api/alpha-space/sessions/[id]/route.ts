@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  alphaMessage,
+  alphaSession,
+  user as userTable,
+} from "@drizzle/schema";
+import { eq, and, asc } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import {
   generateCoachTurn,
@@ -27,9 +33,9 @@ export async function POST(
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, name: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true, name: true },
     });
     if (!user) {
       return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 });
@@ -40,28 +46,35 @@ export async function POST(
     }
 
     const { id } = await params;
-    const alpha = await prisma.alphaSession.findFirst({
-      where: { id, userId: user.id, workspaceId: active.workspaceId },
-      include: {
-        messages: { orderBy: { createdAt: "asc" }, take: 40 },
-      },
+    const alpha = await db.query.alphaSession.findFirst({
+      where: and(
+        eq(alphaSession.id, id),
+        eq(alphaSession.userId, user.id),
+        eq(alphaSession.workspaceId, active.workspaceId)
+      ),
     });
     if (!alpha) {
       return NextResponse.json({ error: "Sesión no encontrada." }, { status: 404 });
     }
+    const messages = await db.query.alphaMessage.findMany({
+      where: eq(alphaMessage.sessionId, alpha.id),
+      orderBy: asc(alphaMessage.createdAt),
+      limit: 40,
+    });
 
     const parsed = messageSchema.safeParse(await parseRequestBody(request));
     if (!parsed.success) {
       return NextResponse.json({ error: toFriendlyMessage(parsed.error) }, { status: 400 });
     }
 
-    // Persist user message
-    await prisma.alphaMessage.create({
-      data: { sessionId: alpha.id, role: "user", content: parsed.data.message },
+    await db.insert(alphaMessage).values({
+      sessionId: alpha.id,
+      role: "user",
+      content: parsed.data.message,
     });
 
     const framework = getFramework(alpha.framework);
-    const history = alpha.messages
+    const history = messages
       .filter((m) => m.role === "user" || m.role === "coach")
       .map((m) => ({
         role: m.role as "user" | "coach",
@@ -92,24 +105,20 @@ export async function POST(
       fieldValue = turn.data.fieldValue;
       suggestion = turn.data.suggestion ?? null;
     } else {
-      // Fallback coach: gentle nudge without answering
       const step = framework.steps[alpha.step];
       replyText = step
         ? `Gracias por compartirlo. Para profundizar en "${step.label}": ${step.goal}. ¿Qué más puedes observar sobre esto?`
         : "¿Qué más quieres explorar aquí?";
     }
 
-    // Advance step when complete
     if (stepComplete && newStep < framework.steps.length - 1) {
       newStep = newStep + 1;
     }
 
-    // Capture challenge on first step
     if (alpha.step === 0 && fieldKey === "challenge" && fieldValue && !newChallenge) {
       newChallenge = fieldValue.slice(0, 280);
     }
 
-    // Update documentJson in place
     const doc =
       (alpha.documentJson as {
         sections: { id: string; label: string; content: string }[];
@@ -132,24 +141,22 @@ export async function POST(
 
     const isComplete = newStep >= framework.steps.length - 1 && stepComplete;
 
-    await prisma.alphaSession.update({
-      where: { id: alpha.id },
-      data: {
+    await db
+      .update(alphaSession)
+      .set({
         step: newStep,
         challenge: newChallenge,
         documentJson: doc as object,
         status: isComplete ? "completed" : alpha.status,
         completedAt: isComplete ? new Date() : null,
-      },
-    });
+      })
+      .where(eq(alphaSession.id, alpha.id));
 
-    await prisma.alphaMessage.create({
-      data: {
-        sessionId: alpha.id,
-        role: "coach",
-        content: replyText,
-        meta: { step: newStep, fieldKey, suggestion },
-      },
+    await db.insert(alphaMessage).values({
+      sessionId: alpha.id,
+      role: "coach",
+      content: replyText,
+      meta: { step: newStep, fieldKey, suggestion },
     });
 
     return NextResponse.json({
@@ -177,23 +184,31 @@ export async function GET(
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 });
     const { active } = await getActiveWorkspace(user.id);
     if (!active) return NextResponse.json({ error: "Workspace no encontrado." }, { status: 404 });
 
     const { id } = await params;
-    const alpha = await prisma.alphaSession.findFirst({
-      where: { id, userId: user.id, workspaceId: active.workspaceId },
-      include: { messages: { orderBy: { createdAt: "asc" } } },
+    const alpha = await db.query.alphaSession.findFirst({
+      where: and(
+        eq(alphaSession.id, id),
+        eq(alphaSession.userId, user.id),
+        eq(alphaSession.workspaceId, active.workspaceId)
+      ),
     });
     if (!alpha) return NextResponse.json({ error: "Sesión no encontrada." }, { status: 404 });
 
+    const messages = await db.query.alphaMessage.findMany({
+      where: eq(alphaMessage.sessionId, alpha.id),
+      orderBy: asc(alphaMessage.createdAt),
+    });
+
     return NextResponse.json({
-      session: alpha,
+      session: { ...alpha, messages },
       framework: getFramework(alpha.framework),
     });
   } catch (error) {
@@ -226,9 +241,9 @@ export async function PATCH(
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 });
     const { active } = await getActiveWorkspace(user.id);
@@ -242,19 +257,24 @@ export async function PATCH(
       return NextResponse.json({ error: toFriendlyMessage(parsed.error) }, { status: 400 });
     }
 
-    const existing = await prisma.alphaSession.findFirst({
-      where: { id, userId: user.id, workspaceId: active.workspaceId },
+    const existing = await db.query.alphaSession.findFirst({
+      where: and(
+        eq(alphaSession.id, id),
+        eq(alphaSession.userId, user.id),
+        eq(alphaSession.workspaceId, active.workspaceId)
+      ),
     });
     if (!existing) return NextResponse.json({ error: "Sesión no encontrada." }, { status: 404 });
 
-    const updated = await prisma.alphaSession.update({
-      where: { id },
-      data: {
+    const [updated] = await db
+      .update(alphaSession)
+      .set({
         title: parsed.data.title,
         status: parsed.data.status,
         documentJson: parsed.data.document as object,
-      },
-    });
+      })
+      .where(eq(alphaSession.id, id))
+      .returning();
 
     return NextResponse.json({ session: updated });
   } catch (error) {

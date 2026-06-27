@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, workspaceSubscription } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { jsonError } from "@/server/lib/apiErrors";
 
@@ -15,9 +17,9 @@ export async function GET() {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) {
       return NextResponse.json(
@@ -28,8 +30,8 @@ export async function GET() {
 
     const { active } = await getActiveWorkspace(user.id);
     const subscription = active
-      ? ((await prisma.workspaceSubscription.findUnique({
-          where: { workspaceId: active.workspaceId },
+      ? ((await db.query.workspaceSubscription.findFirst({
+          where: eq(workspaceSubscription.workspaceId, active.workspaceId),
         })) ?? { plan: "free", status: "active" })
       : { plan: "free", status: "active" };
 

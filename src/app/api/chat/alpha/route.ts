@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task, user as userTable } from "@drizzle/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { generateAlphaResponse } from "@/server/lib/gemini";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { createLogger } from "@/shared/lib/logger";
@@ -24,9 +26,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, name: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true, name: true },
     });
 
     if (!user) {
@@ -46,12 +48,11 @@ export async function POST(request: Request) {
 
     const { message, mood } = parseResult.data;
 
-    // Fetch recent open tasks for context
-    const recentTasks = await prisma.task.findMany({
-      where: { userId: user.id, status: "open" },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { title: true },
+    const recentTasks = await db.query.task.findMany({
+      where: and(eq(task.userId, user.id), eq(task.status, "open")),
+      orderBy: desc(task.createdAt),
+      limit: 5,
+      columns: { title: true },
     });
 
     const gemini = await generateAlphaResponse({

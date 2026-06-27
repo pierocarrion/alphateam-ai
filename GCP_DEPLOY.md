@@ -9,7 +9,7 @@ This guide walks through deploying AlphaLead AI to Google Cloud Platform (GCP) u
 | **Cloud Run** | Runs the Next.js container (HTTP requests, auto-scaling, scale-to-zero) |
 | **Cloud Build** | Builds the Docker image and deploys to Cloud Run |
 | **Artifact Registry** | Stores Docker images |
-| **Cloud SQL (PostgreSQL)** | Managed relational database for Prisma |
+| **Cloud SQL (PostgreSQL)** | Managed relational database for Drizzle ORM |
 | **Secret Manager** | Stores sensitive env vars (DB URL, auth, Stripe keys) |
 | **Cloud Logging** | Centralized logs from Cloud Build and Cloud Run |
 | **Cloud Monitoring** | Uptime checks, alerts, and dashboards |
@@ -229,7 +229,7 @@ gcloud sql connect $DB_INSTANCE --user=$DB_USER
 
 # Manual migration (from a machine with DB access)
 export DATABASE_URL="postgresql://..."
-npm run db:deploy
+npm run db:migrate
 ```
 
 ## Troubleshooting
@@ -241,4 +241,4 @@ npm run db:deploy
 | Build fails with module errors | Run `npm install` locally and commit `package-lock.json` |
 | `Gemini is not enabled` | Verify `GEMINI_ENABLED=true` env var and service account has `roles/aiplatform.user` |
 | `Permission denied on Vertex AI` | Ensure `aiplatform.googleapis.com` is enabled and Cloud Run service account has `roles/aiplatform.user` |
-| Prisma migration fails | Run `cloudbuild-migrate.yaml` before deploying |
+| Drizzle migration fails | Run `cloudbuild-migrate.yaml` (executes `drizzle-kit migrate`) before deploying |

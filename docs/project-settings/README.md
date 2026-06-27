@@ -5,7 +5,7 @@ estratégicos y operativos (objetivo SMART, metodología, equipo, KPIs) que el
 motor de IA usa para generar recomendaciones, métricas y seguimiento.
 
 > **Stack real usado** (adaptado al repo `alphalead-ai`): Next.js 16 (Route
-> Handlers) + React 19 + Prisma 7 (PostgreSQL/PGlite) + Zod 4 + React Query 5
+> Handlers) + React 19 + Drizzle ORM (PostgreSQL/PGlite) + Zod 4 + React Query 5
 > + Zustand + TailwindCSS 4 (dark mode corporativo) + Vertex AI (Gemini) +
 > NextAuth. Arquitectura feature-based por capas (`domain / application /
 > infrastructure / presentation`). El prompt original mencionaba .NET 9/CQRS,
@@ -121,9 +121,9 @@ Implementados como clases en `application/use-cases/`:
 │  ISmartGoalRepository · IMethodologyRepository · IMemberRepository     │
 │  IKpiRepository · IAiInsightRepository · IAuditRepository              │
 └───────────────┬────────────────────────────────────────────────────────┘
-┌───────────────▼ Infrastructure (Prisma) ──────────────────────────────┐
+┌───────────────▼ Infrastructure (Drizzle) ──────────────────────────────┐
 │  PrismaSmartGoalRepository ... PrismaAuditRepository                   │
-│  → prisma (PostgreSQL / PGlite) + AuditLog                             │
+│  → drizzle (PostgreSQL / PGlite) + AuditLog                             │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -143,8 +143,8 @@ UI → POST /ai-insights
 
 ## 4. Modelo de base de datos
 
-Tablas (Prisma, ver `prisma/schema.prisma` + migración
-`20260624000000_project_settings_module/migration.sql`):
+Tablas (Drizzle, ver `drizzle/schema/project.ts` + migración
+`drizzle/0000_init.sql`):
 
 | Tabla | PK | FK / Índices | Auditoría | Soft-delete |
 |---|---|---|---|---|
@@ -282,7 +282,7 @@ src/features/project-settings/
 │       ├── ConfigureKpis.ts
 │       └── GenerateAiInsights.ts
 ├── infrastructure/
-│   ├── repositories.ts       # implementaciones Prisma
+│   ├── repositories.ts       # implementaciones Drizzle
 │   └── container.ts          # DI del módulo
 └── presentation/
     ├── services.ts           # cliente HTTP (fetchJson)
@@ -311,11 +311,11 @@ src/app/
 src/server/lib/
 ├── requireProjectLeader.ts   # RBAC para este módulo
 ├── projectSettingsAi.ts      # prompts Vertex (SMART + insights)
-└── (apiErrors.ts, errors.ts, prisma.ts reutilizadas)
+└── (apiErrors.ts, errors.ts, db.ts reutilizadas)
 
-prisma/
-├── schema.prisma                       # modelos + relaciones
-└── migrations/20260624000000_project_settings_module/migration.sql
+drizzle/
+├── schema/project.ts                    # modelos + relaciones
+└── 0000_init.sql                        # migración inicial
 ```
 
 ## 11. Código base frontend
@@ -329,11 +329,11 @@ otros módulos, no se requiere aquí).
 
 ## 12. Código base backend
 
-Route Handlers Next.js (App Router) + casos de uso + repositorios Prisma.
+Route Handlers Next.js (App Router) + casos de uso + repositorios Drizzle.
 - **DI**: `getProjectSettingsDeps()` (singleton cacheado, reseteable en tests).
 - **Validación**: Zod en el borde de cada route + dentro del caso de uso.
 - **RBAC**: `requireProjectLeader` (NextAuth session → membership role).
-- **Auditoría**: `PrismaAuditRepository.record` invocada en cada mutación.
+- **Auditoría**: `PrismaAuditRepository.record` (sobre Drizzle) invocada en cada mutación.
 - **IA**: reutiliza `generateJSON` de `gemini.ts` (Vertex AI); fallback
   friendly a 503 si la IA no responde (`toFriendlyGeminiError`).
 
@@ -346,7 +346,7 @@ Route Handlers Next.js (App Router) + casos de uso + repositorios Prisma.
 
 ## 14. Pruebas de integración
 
-`application/integration.test.ts` (6 tests, PGlite vía `getTestPrisma`):
+`application/integration.test.ts` (6 tests, PGlite vía `getTestDb`):
 - SMART: crea v1 y versiona a v2; historial ordenado.
 - Metodología: 1 primary + 2 secondary; rechaza primary=null.
 - Equipo: bloquea demover/eliminar último líder; bloquea email duplicado.
@@ -357,9 +357,8 @@ Resultado: **15/15 pasando** (`npx vitest run src/features/project-settings`).
 
 ## 15. Estrategia de despliegue
 
-- **DB**: `prisma migrate deploy` aplica
-  `20260624000000_project_settings_module` (incluye seed de catálogos
-  `KpiDefinition` y `ProjectRole`).
+- **DB**: `drizzle-kit migrate` aplica la migración inicial
+  (incluye seed de catálogos `KpiDefinition` y `ProjectRole`).
 - **Build**: `next build` (Dockerfile existente, Cloud Build via
   `cloudbuild.yaml`). El módulo no añade dependencias nuevas.
 - **IA**: requiere `GEMINI_ENABLED=true`, `GOOGLE_CLOUD_PROJECT_ID`,
@@ -394,7 +393,7 @@ Resultado: **15/15 pasando** (`npx vitest run src/features/project-settings`).
 | Alucinación de la IA en draft SMART | Medio | Media | Score heurístico determinista + IA como sugerencia no bloqueante |
 | Eliminación accidental del último líder | Alto | Baja | Guarda `countActiveLeaders` en use case + DB |
 | Migración en DBs con datos | Medio | Baja | Columnas nullable + defaults; rollback seguro |
-| Concurrencia en versionado SMART | Bajo | Baja | Transacción Prisma en `upsert` |
+| Concurrencia en versionado SMART | Bajo | Baja | Transacción Drizzle en `upsert` |
 | Privacidad de emails en invitaciones | Medio | Baja | No exponer lista a no-líderes (RBAC) |
 | Catálogo desincronizado DB↔código | Bajo | Media | Catálogo en código como fuente de verdad UI |
 
@@ -404,7 +403,7 @@ Resultado: **15/15 pasando** (`npx vitest run src/features/project-settings`).
 |---|---|
 | Schema + migración + catálogos | 4 h |
 | Dominio (entidades, repos, catálogo) | 4 h |
-| Infraestructura Prisma + audit | 6 h |
+| Infraestructura Drizzle + audit | 6 h |
 | Casos de uso + schemas + heurística | 8 h |
 | Prompts IA (SMART + insights) | 5 h |
 | Route handlers (8 endpoints) | 6 h |
@@ -445,7 +444,8 @@ Resultado: **15/15 pasando** (`npx vitest run src/features/project-settings`).
 
 ```bash
 # 1. Aplicar migración (incluye seed de catálogos)
-npm run db:deploy            # o: npm run db:migrate (dev)
+npm run db:migrate        # producción / CI
+# o: npm run db:push      # desarrollo local rápido
 
 # 2. Tests
 npx vitest run src/features/project-settings

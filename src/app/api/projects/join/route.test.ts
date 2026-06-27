@@ -1,10 +1,12 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { POST } from "./route";
-import { seedUser, resetDatabase, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, resetDatabase, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest } from "@/tests/helpers/fetch";
 import { CreateProject } from "@/features/projects/application/use-cases/CreateProject";
 import { PrismaProjectRepository } from "@/features/projects/infrastructure/repositories/PrismaProjectRepository";
+import { joinRequest as joinRequestTable } from "@drizzle/schema";
+import { count } from "drizzle-orm";
 
 const createProject = new CreateProject(new PrismaProjectRepository());
 
@@ -91,8 +93,8 @@ describe("POST /api/projects/join", () => {
     const response = await POST(request);
     expect(response.status).toBe(404);
 
-    const prisma = await getTestPrisma();
-    const count = await prisma.joinRequest.count();
-    expect(count).toBe(0);
+    const db = await getTestDb();
+    const [{ c }] = await db.select({ c: count() }).from(joinRequestTable);
+    expect(Number(c)).toBe(0);
   });
 });

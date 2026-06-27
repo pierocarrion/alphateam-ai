@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { POST } from "./route";
-import { getTestPrisma } from "@/tests/helpers/db";
+import { getTestDb } from "@/tests/helpers/db";
 import { createJsonRequest } from "@/tests/helpers/fetch";
+import { user as userTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 describe("POST /api/auth/signup", () => {
   it("creates a new user", async () => {
@@ -18,8 +20,8 @@ describe("POST /api/auth/signup", () => {
     expect(data.user.email).toBe("signup@example.com");
     expect(data.user.name).toBe("Signup User");
 
-    const prisma = await getTestPrisma();
-    const row = await prisma.user.findUnique({ where: { email: "signup@example.com" } });
+    const db = await getTestDb();
+    const row = await db.query.user.findFirst({ where: eq(userTable.email, "signup@example.com") });
     expect(row).not.toBeNull();
   });
 
@@ -38,10 +40,8 @@ describe("POST /api/auth/signup", () => {
   });
 
   it("rejects duplicate emails", async () => {
-    const prisma = await getTestPrisma();
-    await prisma.user.create({
-      data: { email: "exists@example.com", name: "Existing", passwordHash: "hash" },
-    });
+    const db = await getTestDb();
+    await db.insert(userTable).values({ email: "exists@example.com", name: "Existing", passwordHash: "hash" });
 
     const request = createJsonRequest("http://localhost:3000/api/auth/signup", "POST", {
       email: "exists@example.com",

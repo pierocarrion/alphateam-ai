@@ -1,4 +1,6 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { account } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const EXPIRY_SKEW_SEC = 60;
@@ -26,9 +28,9 @@ export interface GoogleAccountRow {
 export async function getGoogleAccount(
   userId: string
 ): Promise<GoogleAccountRow | null> {
-  const account = await prisma.account.findFirst({
-    where: { userId, provider: "google" },
-    select: {
+  const accountRow = await db.query.account.findFirst({
+    where: and(eq(account.userId, userId), eq(account.provider, "google")),
+    columns: {
       userId: true,
       providerAccountId: true,
       access_token: true,
@@ -37,7 +39,7 @@ export async function getGoogleAccount(
       scope: true,
     },
   });
-  return account ?? null;
+  return accountRow ?? null;
 }
 
 export async function isGoogleConnected(userId: string): Promise<boolean> {
@@ -49,10 +51,11 @@ export async function isGoogleConnected(userId: string): Promise<boolean> {
  * Removes the Google link for a user. Returns true if something was deleted.
  */
 export async function disconnectGoogle(userId: string): Promise<boolean> {
-  const deleted = await prisma.account.deleteMany({
-    where: { userId, provider: "google" },
-  });
-  return deleted.count > 0;
+  const deleted = await db
+    .delete(account)
+    .where(and(eq(account.userId, userId), eq(account.provider, "google")))
+    .returning({ id: account.id });
+  return deleted.length > 0;
 }
 
 interface RefreshResult {
@@ -100,42 +103,42 @@ export async function getValidAccessToken(userId: string): Promise<string> {
     throw new Error("Google OAuth credentials are not configured.");
   }
 
-  const account = await getGoogleAccount(userId);
-  if (!account || !account.refresh_token) {
+  const acct = await getGoogleAccount(userId);
+  if (!acct || !acct.refresh_token) {
     throw new Error("Google Calendar is not connected.");
   }
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const expiresAt = account.expires_at ?? 0;
+  const expiresAt = acct.expires_at ?? 0;
 
-  if (account.access_token && expiresAt - nowSec > EXPIRY_SKEW_SEC) {
-    return account.access_token;
+  if (acct.access_token && expiresAt - nowSec > EXPIRY_SKEW_SEC) {
+    return acct.access_token;
   }
 
   const refreshed = await refreshWithRefreshToken(
     clientId,
     clientSecret,
-    account.refresh_token
+    acct.refresh_token
   );
 
   const newExpiresAt = nowSec + (refreshed.expires_in ?? 3600);
 
-  await prisma.account.update({
-    where: {
-      provider_providerAccountId: {
-        provider: "google",
-        providerAccountId: account.providerAccountId,
-      },
-    },
-    data: {
+  await db
+    .update(account)
+    .set({
       access_token: refreshed.access_token,
       expires_at: newExpiresAt,
       ...(refreshed.refresh_token
         ? { refresh_token: refreshed.refresh_token }
         : {}),
       ...(refreshed.scope ? { scope: refreshed.scope } : {}),
-    },
-  });
+    })
+    .where(
+      and(
+        eq(account.provider, "google"),
+        eq(account.providerAccountId, acct.providerAccountId)
+      )
+    );
 
   return refreshed.access_token;
 }

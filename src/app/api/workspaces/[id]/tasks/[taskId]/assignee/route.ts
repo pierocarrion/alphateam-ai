@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { projectTask, membership, user, workspace as workspaceTable } from "@drizzle/schema";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireProjectMember, isLeaderOrAdmin } from "@/server/lib/requireProjectMember";
 import { publishRealtime } from "@/server/lib/realtime";
@@ -28,9 +30,9 @@ export async function POST(
       );
     }
 
-    const existing = await prisma.projectTask.findUnique({
-      where: { id: taskId },
-      select: { workspaceId: true, assigneeId: true },
+    const existing = await db.query.projectTask.findFirst({
+      where: eq(projectTask.id, taskId),
+      columns: { workspaceId: true, assigneeId: true },
     });
     if (!existing || existing.workspaceId !== auth.workspaceId) {
       return NextResponse.json({ error: "No encontramos esa tarea." }, { status: 404 });
@@ -47,11 +49,12 @@ export async function POST(
           { status: 403 }
         );
       }
-      const member = await prisma.membership.findUnique({
-        where: {
-          userId_workspaceId: { userId: requestedAssignee, workspaceId: auth.workspaceId },
-        },
-        select: { status: true },
+      const member = await db.query.membership.findFirst({
+        where: and(
+          eq(membership.userId, requestedAssignee),
+          eq(membership.workspaceId, auth.workspaceId)
+        ),
+        columns: { status: true },
       });
       if (!member || member.status !== "active") {
         return NextResponse.json(
@@ -67,14 +70,22 @@ export async function POST(
       );
     }
 
-    const task = await prisma.projectTask.update({
-      where: { id: taskId },
-      data: { assigneeId: requestedAssignee },
-      include: {
-        assignee: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-    });
+    const [updated] = await db.update(projectTask).set({ assigneeId: requestedAssignee }).where(eq(projectTask.id, taskId)).returning();
+
+    const [assigneeUser, creatorUser] = await Promise.all([
+      updated.assigneeId
+        ? db.query.user.findFirst({
+            where: eq(user.id, updated.assigneeId),
+            columns: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+      db.query.user.findFirst({
+        where: eq(user.id, updated.createdById),
+        columns: { id: true, name: true },
+      }),
+    ]);
+
+    const task = { ...updated, assignee: assigneeUser, createdBy: creatorUser };
 
     // Realtime: let connected Kanban clients refresh instantly.
     publishRealtime("task_updated", {
@@ -88,16 +99,16 @@ export async function POST(
     if (newAssigneeId && newAssigneeId !== auth.user.id) {
       safeAfter(async () => {
         try {
-          const workspace = await prisma.workspace.findUnique({
-            where: { id: auth.workspaceId },
-            select: { name: true },
+          const ws = await db.query.workspace.findFirst({
+            where: eq(workspaceTable.id, auth.workspaceId),
+            columns: { name: true },
           });
           await notifyUser({
             userId: newAssigneeId,
             type: "task_assigned",
             title: "Te asignaron una tarea",
             body: `“${task.title}”${
-              workspace ? ` · ${workspace.name}` : ""
+              ws ? ` · ${ws.name}` : ""
             }`,
             data: {
               workspaceId: auth.workspaceId,

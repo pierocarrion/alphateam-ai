@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { PrismaClientKnownRequestError } from "@prisma/client";
 
 const { mockFindByEmail, mockCreate } = vi.hoisted(() => ({
   mockFindByEmail: vi.fn(),
@@ -26,10 +25,9 @@ describe("POST /api/auth/signup — database errors (P2021)", () => {
 
   it("returns a friendly message when the User table is missing", async () => {
     mockFindByEmail.mockRejectedValueOnce(
-      new PrismaClientKnownRequestError(
-        "\nInvalid `prisma.user.findUnique()` invocation:\n\n\nThe table `public.User` does not exist in the current database.",
-        { code: "P2021", clientVersion: "7.8.0" }
-      )
+      Object.assign(new Error("The table public.User does not exist"), {
+        code: "P2021",
+      })
     );
 
     const request = createJsonRequest(
@@ -55,10 +53,9 @@ describe("POST /api/auth/signup — database errors (P2021)", () => {
   it("returns a friendly message when the create fails with P2021", async () => {
     mockFindByEmail.mockResolvedValueOnce(null);
     mockCreate.mockRejectedValueOnce(
-      new PrismaClientKnownRequestError(
-        "\nInvalid `prisma.user.create()` invocation:\n\n\nThe table `public.User` does not exist in the current database.",
-        { code: "P2021", clientVersion: "7.8.0" }
-      )
+      Object.assign(new Error("The table public.User does not exist"), {
+        code: "P2021",
+      })
     );
 
     const request = createJsonRequest(
@@ -80,9 +77,8 @@ describe("POST /api/auth/signup — database errors (P2021)", () => {
 
   it("returns a friendly message when the database is unreachable (P1001)", async () => {
     mockFindByEmail.mockRejectedValueOnce(
-      new PrismaClientKnownRequestError("Can't reach database server", {
+      Object.assign(new Error("Can't reach database server"), {
         code: "P1001",
-        clientVersion: "7.8.0",
       })
     );
 

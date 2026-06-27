@@ -1,4 +1,20 @@
-import { prisma } from "@/server/lib/prisma";
+import { eq, and, or, asc, desc, inArray, gte, count } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import {
+  workspace,
+  membership,
+  user,
+  task,
+  message,
+  channel,
+  goal,
+  feedback,
+  survey,
+  dailyCheckIn,
+  learningActivity,
+  employeeSkill,
+  meeting,
+} from "@drizzle/schema";
 import type {
   ITeamInsightsRepository,
   RawCheckInRow,
@@ -27,45 +43,59 @@ function toSentiment(score: number): EmotionalState {
 
 export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
   async getTeamName(workspaceId: string): Promise<string> {
-    const ws = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { name: true },
-    });
-    return ws?.name ?? "Equipo";
+    const rows = await db
+      .select({ name: workspace.name })
+      .from(workspace)
+      .where(eq(workspace.id, workspaceId))
+      .limit(1);
+    return rows[0]?.name ?? "Equipo";
   }
 
   async listMembers(
     workspaceId: string,
     filters?: TeamInsightsFilters
   ): Promise<EmployeeWithMetrics[]> {
-    const where: Record<string, unknown> = {
-      workspaceId,
-      status: "active",
-    };
-    if (filters?.seniority) where.seniority = filters.seniority;
-    if (filters?.position) where.projectRole = filters.position;
+    const conditions = [
+      eq(membership.workspaceId, workspaceId),
+      eq(membership.status, "active"),
+    ];
+    if (filters?.seniority) {
+      conditions.push(eq(membership.seniority, filters.seniority));
+    }
+    if (filters?.position) {
+      conditions.push(eq(membership.projectRole, filters.position));
+    }
 
-    const memberships = await prisma.membership.findMany({
-      where,
-      include: {
-        user: { select: { id: true, name: true, image: true } },
-      },
-      orderBy: { joinedAt: "asc" },
-    });
+    const rows = await db
+      .select({
+        userId: membership.userId,
+        role: membership.role,
+        projectRole: membership.projectRole,
+        seniority: membership.seniority,
+        hireDate: membership.hireDate,
+        joinedAt: membership.joinedAt,
+        photoUrl: membership.photoUrl,
+        userName: user.name,
+        userImage: user.image,
+      })
+      .from(membership)
+      .leftJoin(user, eq(user.id, membership.userId))
+      .where(and(...conditions))
+      .orderBy(asc(membership.joinedAt));
 
     const since = filters?.since ? new Date(filters.since) : undefined;
 
-    const [tasks, surveys, feedback, learning] = await Promise.all([
+    const [tasks, surveys, feedbackRows, learning] = await Promise.all([
       this.listTasks(workspaceId, since),
       this.listSurveys(workspaceId, since),
       this.listFeedback(workspaceId, since),
       this.listLearning(workspaceId, since),
     ]);
 
-    const members = memberships.map((m) => {
+    const members = rows.map((m) => {
       const memberTasks = tasks.filter((t) => t.userId === m.userId);
       const memberSurveys = surveys.filter((s) => s.userId === m.userId);
-      const memberFeedback = feedback.filter((f) => f.userId === m.userId);
+      const memberFeedback = feedbackRows.filter((f) => f.userId === m.userId);
       const memberLearning = learning.filter((l) => l.employeeId === m.userId);
 
       const completedTasks = memberTasks.filter(
@@ -104,8 +134,8 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
 
       const employee: EmployeeWithMetrics = {
         id: m.userId,
-        name: m.user.name ?? "Colaborador",
-        photo: m.photoUrl ?? m.user.image ?? null,
+        name: m.userName ?? "Colaborador",
+        photo: m.photoUrl ?? m.userImage ?? null,
         position: m.projectRole ?? null,
         team: workspaceId,
         role: m.role,
@@ -140,41 +170,48 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
   }
 
   async listTasks(workspaceId: string, since?: Date): Promise<RawTaskRow[]> {
-    const rows = await prisma.task.findMany({
-      where: {
-        OR: [
-          { message: { channel: { workspaceId } } },
-          { goal: { workspaceId } },
-        ],
-        ...(since ? { createdAt: { gte: since } } : {}),
-      },
-      select: {
-        id: true,
-        userId: true,
-        status: true,
-        estimatedMinutes: true,
-        workedMinutes: true,
-        createdAt: true,
-        completedAt: true,
-        deadline: true,
-      },
-    });
+    const conditions = [
+      or(
+        eq(channel.workspaceId, workspaceId),
+        eq(goal.workspaceId, workspaceId)
+      ),
+    ];
+    if (since) {
+      conditions.push(gte(task.createdAt, since));
+    }
+    const rows = await db
+      .select({
+        id: task.id,
+        userId: task.userId,
+        status: task.status,
+        estimatedMinutes: task.estimatedMinutes,
+        workedMinutes: task.workedMinutes,
+        createdAt: task.createdAt,
+        completedAt: task.completedAt,
+        deadline: task.deadline,
+      })
+      .from(task)
+      .leftJoin(message, eq(message.id, task.messageId))
+      .leftJoin(channel, eq(channel.id, message.channelId))
+      .leftJoin(goal, eq(goal.id, task.smartGoalId))
+      .where(and(...conditions));
     return rows as RawTaskRow[];
   }
 
   async listFeedback(workspaceId: string, since?: Date): Promise<RawFeedbackRow[]> {
-    const rows = await prisma.feedback.findMany({
-      where: {
-        workspaceId,
-        ...(since ? { createdAt: { gte: since } } : {}),
-      },
-      select: {
-        userId: true,
-        type: true,
-        metricValue: true,
-        createdAt: true,
-      },
-    });
+    const conditions = [eq(feedback.workspaceId, workspaceId)];
+    if (since) {
+      conditions.push(gte(feedback.createdAt, since));
+    }
+    const rows = await db
+      .select({
+        userId: feedback.userId,
+        type: feedback.type,
+        metricValue: feedback.metricValue,
+        createdAt: feedback.createdAt,
+      })
+      .from(feedback)
+      .where(and(...conditions));
     return rows.map((r) => ({
       userId: r.userId,
       score: r.metricValue,
@@ -185,36 +222,43 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
   }
 
   async listSurveys(workspaceId: string, since?: Date): Promise<RawSurveyRow[]> {
-    const rows = await prisma.survey.findMany({
-      where: {
-        workspaceId,
-        ...(since ? { createdAt: { gte: since } } : {}),
-      },
-      select: {
-        userId: true,
-        psychologicalSafety: true,
-        sentiment: true,
-        createdAt: true,
-      },
-    });
+    const conditions = [eq(survey.workspaceId, workspaceId)];
+    if (since) {
+      conditions.push(gte(survey.createdAt, since));
+    }
+    const rows = await db
+      .select({
+        userId: survey.userId,
+        psychologicalSafety: survey.psychologicalSafety,
+        sentiment: survey.sentiment,
+        createdAt: survey.createdAt,
+      })
+      .from(survey)
+      .where(and(...conditions));
     return rows as RawSurveyRow[];
   }
 
   async listCheckIns(workspaceId: string, since?: Date): Promise<RawCheckInRow[]> {
-    const rows = await prisma.dailyCheckIn.findMany({
-      where: {
-        user: {
-          memberships: { some: { workspaceId } },
-        },
-        ...(since ? { date: { gte: since } } : {}),
-      },
-      select: {
-        userId: true,
-        date: true,
-        mood: true,
-        energy: true,
-      },
-    });
+    const memberRows = await db
+      .select({ userId: membership.userId })
+      .from(membership)
+      .where(eq(membership.workspaceId, workspaceId));
+    const memberIds = memberRows.map((r) => r.userId);
+    if (memberIds.length === 0) return [];
+
+    const conditions = [inArray(dailyCheckIn.userId, memberIds)];
+    if (since) {
+      conditions.push(gte(dailyCheckIn.date, since));
+    }
+    const rows = await db
+      .select({
+        userId: dailyCheckIn.userId,
+        date: dailyCheckIn.date,
+        mood: dailyCheckIn.mood,
+        energy: dailyCheckIn.energy,
+      })
+      .from(dailyCheckIn)
+      .where(and(...conditions));
     return rows as RawCheckInRow[];
   }
 
@@ -222,13 +266,25 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
     workspaceId: string,
     since?: Date
   ): Promise<LearningActivity[]> {
-    const rows = await prisma.learningActivity.findMany({
-      where: {
-        workspaceId,
-        ...(since ? { createdAt: { gte: since } } : {}),
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const conditions = [eq(learningActivity.workspaceId, workspaceId)];
+    if (since) {
+      conditions.push(gte(learningActivity.createdAt, since));
+    }
+    const rows = await db
+      .select({
+        id: learningActivity.id,
+        userId: learningActivity.userId,
+        type: learningActivity.type,
+        title: learningActivity.title,
+        skill: learningActivity.skill,
+        level: learningActivity.level,
+        hours: learningActivity.hours,
+        completedAt: learningActivity.completedAt,
+        createdAt: learningActivity.createdAt,
+      })
+      .from(learningActivity)
+      .where(and(...conditions))
+      .orderBy(asc(learningActivity.createdAt));
     return rows.map((r) => ({
       id: r.id,
       employeeId: r.userId,
@@ -243,13 +299,19 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
   }
 
   async listSkills(workspaceId: string): Promise<SkillCell[]> {
-    const rows = await prisma.employeeSkill.findMany({
-      where: { workspaceId },
-      include: { user: { select: { name: true } } },
-    });
+    const rows = await db
+      .select({
+        userId: employeeSkill.userId,
+        skill: employeeSkill.skill,
+        level: employeeSkill.level,
+        userName: user.name,
+      })
+      .from(employeeSkill)
+      .leftJoin(user, eq(user.id, employeeSkill.userId))
+      .where(eq(employeeSkill.workspaceId, workspaceId));
     return rows.map((r) => ({
       employeeId: r.userId,
-      employeeName: r.user.name ?? "Colaborador",
+      employeeName: r.userName ?? "Colaborador",
       skill: r.skill,
       level: toSkillLevel(r.level),
     }));
@@ -263,13 +325,15 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
   }
 
   async countMeetingsTotal(workspaceId: string, since?: Date): Promise<number> {
-    const count = await prisma.meeting.count({
-      where: {
-        workspaceId,
-        ...(since ? { createdAt: { gte: since } } : {}),
-      },
-    });
-    return count;
+    const conditions = [eq(meeting.workspaceId, workspaceId)];
+    if (since) {
+      conditions.push(gte(meeting.createdAt, since));
+    }
+    const rows = await db
+      .select({ c: count() })
+      .from(meeting)
+      .where(and(...conditions));
+    return Number(rows[0]?.c ?? 0);
   }
 
   async listEmployeeActivity(
@@ -277,34 +341,81 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
     employeeId: string,
     limit = 30
   ): Promise<EmployeeActivityRow[]> {
-    const [learning, tasks, feedback, meetings] = await Promise.all([
-      prisma.learningActivity.findMany({
-        where: { workspaceId, userId: employeeId },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      }),
-      prisma.task.findMany({
-        where: {
-          userId: employeeId,
-          status: { in: ["done", "completed"] },
-          OR: [
-            { message: { channel: { workspaceId } } },
-            { goal: { workspaceId } },
-          ],
-        },
-        orderBy: { completedAt: "desc" },
-        take: limit,
-      }),
-      prisma.feedback.findMany({
-        where: { workspaceId, userId: employeeId },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      }),
-      prisma.meeting.findMany({
-        where: { workspaceId, ownerId: employeeId },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      }),
+    const [learning, tasks, feedbackRows, meetings] = await Promise.all([
+      db
+        .select({
+          id: learningActivity.id,
+          type: learningActivity.type,
+          title: learningActivity.title,
+          completedAt: learningActivity.completedAt,
+          createdAt: learningActivity.createdAt,
+        })
+        .from(learningActivity)
+        .where(
+          and(
+            eq(learningActivity.workspaceId, workspaceId),
+            eq(learningActivity.userId, employeeId)
+          )
+        )
+        .orderBy(desc(learningActivity.createdAt))
+        .limit(limit),
+      db
+        .select({
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          createdAt: task.createdAt,
+          completedAt: task.completedAt,
+        })
+        .from(task)
+        .leftJoin(message, eq(message.id, task.messageId))
+        .leftJoin(channel, eq(channel.id, message.channelId))
+        .leftJoin(goal, eq(goal.id, task.smartGoalId))
+        .where(
+          and(
+            eq(task.userId, employeeId),
+            inArray(task.status, ["done", "completed"]),
+            or(
+              eq(channel.workspaceId, workspaceId),
+              eq(goal.workspaceId, workspaceId)
+            )
+          )
+        )
+        .orderBy(desc(task.completedAt))
+        .limit(limit),
+      db
+        .select({
+          id: feedback.id,
+          type: feedback.type,
+          content: feedback.content,
+          createdAt: feedback.createdAt,
+        })
+        .from(feedback)
+        .where(
+          and(
+            eq(feedback.workspaceId, workspaceId),
+            eq(feedback.userId, employeeId)
+          )
+        )
+        .orderBy(desc(feedback.createdAt))
+        .limit(limit),
+      db
+        .select({
+          id: meeting.id,
+          title: meeting.title,
+          status: meeting.status,
+          scheduledAt: meeting.scheduledAt,
+          createdAt: meeting.createdAt,
+        })
+        .from(meeting)
+        .where(
+          and(
+            eq(meeting.workspaceId, workspaceId),
+            eq(meeting.ownerId, employeeId)
+          )
+        )
+        .orderBy(desc(meeting.createdAt))
+        .limit(limit),
     ]);
 
     const activity: EmployeeActivityRow[] = [];
@@ -326,7 +437,7 @@ export class PrismaTeamInsightsRepository implements ITeamInsightsRepository {
         occurredAt: t.completedAt ?? t.createdAt,
       });
     }
-    for (const f of feedback) {
+    for (const f of feedbackRows) {
       activity.push({
         id: f.id,
         type: "feedback",

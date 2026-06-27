@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, feedbackCampaign, feedbackResponse } from "@drizzle/schema";
+import { eq, and, desc, asc, gte, count } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import {
   CAMPAIGN_PRESETS,
@@ -18,9 +20,9 @@ async function requireLeader() {
   if (!session?.user?.email) {
     return { error: NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 }) };
   }
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true, name: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true, name: true },
   });
   if (!user) return { error: NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 }) };
   const { active } = await getActiveWorkspace(user.id);
@@ -42,16 +44,23 @@ export async function GET(request: Request) {
     const since = new Date();
     since.setDate(since.getDate() - windowDays);
 
-    const [campaigns, responses] = await Promise.all([
-      prisma.feedbackCampaign.findMany({
-        where: { workspaceId: active.workspaceId },
-        orderBy: { createdAt: "desc" },
-        include: { _count: { select: { responses: true } } },
+    const [campaigns, counts, responses] = await Promise.all([
+      db.query.feedbackCampaign.findMany({
+        where: eq(feedbackCampaign.workspaceId, active.workspaceId),
+        orderBy: desc(feedbackCampaign.createdAt),
       }),
-      prisma.feedbackResponse.findMany({
-        where: { workspaceId: active.workspaceId, createdAt: { gte: since } },
-        orderBy: { createdAt: "asc" },
-        select: {
+      db
+        .select({ campaignId: feedbackResponse.campaignId, c: count() })
+        .from(feedbackResponse)
+        .where(eq(feedbackResponse.workspaceId, active.workspaceId))
+        .groupBy(feedbackResponse.campaignId),
+      db.query.feedbackResponse.findMany({
+        where: and(
+          eq(feedbackResponse.workspaceId, active.workspaceId),
+          gte(feedbackResponse.createdAt, since)
+        ),
+        orderBy: asc(feedbackResponse.createdAt),
+        columns: {
           id: true,
           sentiment: true,
           emotion: true,
@@ -61,6 +70,8 @@ export async function GET(request: Request) {
         },
       }),
     ]);
+
+    const countByCampaign = new Map(counts.map((r) => [r.campaignId, Number(r.c)]));
 
     const metrics = aggregateMetrics(responses as Array<{ sentiment: string | null; scores: unknown }>);
 
@@ -105,7 +116,7 @@ export async function GET(request: Request) {
         kind: c.kind,
         cadence: c.cadence,
         status: c.status,
-        responses: c._count.responses,
+        responses: countByCampaign.get(c.id) ?? 0,
         createdAt: c.createdAt,
       })),
       metrics,
@@ -138,16 +149,17 @@ export async function POST(request: Request) {
     }
 
     const preset = CAMPAIGN_PRESETS.find((p) => p.kind === parsed.data.kind) ?? CAMPAIGN_PRESETS[0];
-    const campaign = await prisma.feedbackCampaign.create({
-      data: {
+    const [campaign] = await db
+      .insert(feedbackCampaign)
+      .values({
         workspaceId: active.workspaceId,
         title: parsed.data.title,
         kind: parsed.data.kind,
         cadence: parsed.data.cadence,
-        questions: preset.questions as object,
+        questions: preset.questions as unknown[],
         status: "active",
-      },
-    });
+      })
+      .returning();
 
     return NextResponse.json({ campaign });
   } catch (error) {
@@ -169,13 +181,16 @@ export async function PATCH(request: Request) {
     }
 
     const where = parsed.data.campaignId
-      ? { workspaceId: active.workspaceId, campaignId: parsed.data.campaignId }
-      : { workspaceId: active.workspaceId };
-    const responses = await prisma.feedbackResponse.findMany({
+      ? and(
+          eq(feedbackResponse.workspaceId, active.workspaceId),
+          eq(feedbackResponse.campaignId, parsed.data.campaignId)
+        )
+      : eq(feedbackResponse.workspaceId, active.workspaceId);
+    const responses = await db.query.feedbackResponse.findMany({
       where,
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: { sentiment: true, emotion: true, scores: true, payload: true, createdAt: true },
+      orderBy: desc(feedbackResponse.createdAt),
+      limit: 200,
+      columns: { sentiment: true, emotion: true, scores: true, payload: true, createdAt: true },
     });
 
     if (responses.length < MIN_RESPONSES_FOR_INSIGHT) {

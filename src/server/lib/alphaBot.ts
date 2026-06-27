@@ -1,4 +1,5 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user } from "@drizzle/schema";
 
 export const ALPHA_BOT_EMAIL = "alpha@alphalead.bot";
 export const ALPHA_BOT_NAME = "Alpha";
@@ -12,12 +13,14 @@ let cachedBot: { id: string; name: string } | null = null;
  */
 export async function ensureAlphaBotUser(): Promise<{ id: string; name: string }> {
   if (cachedBot) return cachedBot;
-  const user = await prisma.user.upsert({
-    where: { email: ALPHA_BOT_EMAIL },
-    update: {},
-    create: { email: ALPHA_BOT_EMAIL, name: ALPHA_BOT_NAME },
-    select: { id: true, name: true },
-  });
-  cachedBot = { id: user.id, name: user.name ?? ALPHA_BOT_NAME };
+  const [row] = await db
+    .insert(user)
+    .values({ email: ALPHA_BOT_EMAIL, name: ALPHA_BOT_NAME })
+    .onConflictDoUpdate({
+      target: user.email,
+      set: {},
+    })
+    .returning({ id: user.id, name: user.name });
+  cachedBot = { id: row.id, name: row.name ?? ALPHA_BOT_NAME };
   return cachedBot;
 }

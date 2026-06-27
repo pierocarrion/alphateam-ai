@@ -2,14 +2,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  channel,
+  channelParticipant,
+  membership,
+  message,
+  user as userTable,
+} from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { ensureAlphaBotUser } from "@/server/lib/alphaBot";
 import { runAlphaInChannel } from "@/server/lib/alphaCommandsService";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(4000),
-  /** When true, persists Alpha's reply as a bot Message in the channel. */
   postReply: z.boolean().optional(),
 });
 
@@ -28,28 +35,36 @@ export async function POST(
       return NextResponse.json({ error: toFriendlyMessage(parsed.error) }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, name: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true, name: true },
     });
     if (!user) {
       return NextResponse.json({ error: "Account not found." }, { status: 404 });
     }
 
-    const channel = await prisma.channel.findUnique({
-      where: { id },
-      include: {
-        workspace: { include: { memberships: true } },
-        participants: true,
-      },
+    const channelRow = await db.query.channel.findFirst({
+      where: eq(channel.id, id),
     });
-    if (!channel) {
+    if (!channelRow) {
       return NextResponse.json({ error: "Channel not found." }, { status: 404 });
     }
+
+    const [memberships, participants] = await Promise.all([
+      db
+        .select({ userId: membership.userId })
+        .from(membership)
+        .where(eq(membership.workspaceId, channelRow.workspaceId)),
+      db
+        .select({ userId: channelParticipant.userId })
+        .from(channelParticipant)
+        .where(eq(channelParticipant.channelId, id)),
+    ]);
+
     const isMember =
-      channel.type === "dm"
-        ? channel.participants.some((p) => p.userId === user.id)
-        : channel.workspace.memberships.some((m) => m.userId === user.id);
+      channelRow.type === "dm"
+        ? participants.some((p) => p.userId === user.id)
+        : memberships.some((m) => m.userId === user.id);
     if (!isMember) {
       return NextResponse.json({ error: "You don't have access to that channel." }, { status: 403 });
     }
@@ -59,10 +74,10 @@ export async function POST(
     let postedMessage: { id: string; text: string } | null = null;
     if (parsed.data.postReply) {
       const bot = await ensureAlphaBotUser();
-      const msg = await prisma.message.create({
-        data: { channelId: id, userId: bot.id, content: result.reply },
-        select: { id: true, content: true },
-      });
+      const [msg] = await db
+        .insert(message)
+        .values({ channelId: id, userId: bot.id, content: result.reply })
+        .returning({ id: message.id, content: message.content });
       postedMessage = { id: msg.id, text: msg.content };
     }
 

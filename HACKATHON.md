@@ -13,7 +13,7 @@ For teams, AlphaLead adds a quiet layer of care: a Crew space that spots load im
 | Module | Status |
 |--------|--------|
 | Landing page + waitlist | ✅ Live, tested |
-| Extended Prisma schema (B2B, Stripe, Waitlist) | ✅ Validated via `prisma generate` |
+| Extended Drizzle schema (B2B, Stripe, Waitlist) | ✅ Validated via `drizzle-kit generate` (59 tables) |
 | 7 coming-soon screens (Crew, Insights, Day, Settings, Night, Capture, Me) | ✅ Migrated to Next.js |
 | GCP staging setup | ✅ Dockerfile + Cloud Build + Cloud Run docs |
 | AI agents (detector, coordinator, check engine) | ✅ Code + tests |
@@ -59,7 +59,7 @@ npx tsx scripts/export-evidence.ts
 
 - Next.js 16 App Router + React 19
 - TypeScript + Tailwind CSS v4
-- Prisma + PostgreSQL (Cloud SQL on GCP)
+- Drizzle ORM + PostgreSQL (Cloud SQL on GCP)
 - NextAuth.js
 - Stripe
 - GCP: Cloud Run, Cloud Build, Artifact Registry, Cloud SQL, Secret Manager, Cloud Logging, Cloud Monitoring, Vertex AI (Gemini)

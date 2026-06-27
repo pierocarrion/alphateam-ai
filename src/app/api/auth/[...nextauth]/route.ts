@@ -6,7 +6,9 @@ import bcrypt from "bcryptjs";
 import { SignUpUser, signUpUserSchema } from "@/features/auth/application/use-cases/SignUpUser";
 import { container } from "@/server/lib/container";
 import { isPrismaConnectionError } from "@/server/lib/auth";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { account, user as userTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { createLogger } from "@/shared/lib/logger";
 
 const log = createLogger("auth");
@@ -99,7 +101,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
  */
 async function persistGoogleAccount(
   userId: string,
-  account: {
+  accountArg: {
     type: string;
     provider: string;
     providerAccountId: string;
@@ -112,50 +114,54 @@ async function persistGoogleAccount(
   },
   email: string
 ): Promise<void> {
-  await prisma.account.upsert({
-    where: {
-      provider_providerAccountId: {
-        provider: "google",
-        providerAccountId: account.providerAccountId,
-      },
-    },
-    create: {
+  await db
+    .insert(account)
+    .values({
       userId,
-      type: account.type,
+      type: accountArg.type,
       provider: "google",
-      providerAccountId: account.providerAccountId,
-      refresh_token: account.refresh_token,
-      access_token: account.access_token,
-      expires_at: account.expires_at,
-      token_type: account.token_type,
-      scope: account.scope,
-      id_token: account.id_token,
-    },
-    update: {
-      userId,
-      access_token: account.access_token ?? undefined,
-      ...(account.refresh_token ? { refresh_token: account.refresh_token } : {}),
-      expires_at: account.expires_at ?? undefined,
-      token_type: account.token_type ?? undefined,
-      scope: account.scope ?? undefined,
-      id_token: account.id_token ?? undefined,
-    },
-  });
+      providerAccountId: accountArg.providerAccountId,
+      refresh_token: accountArg.refresh_token,
+      access_token: accountArg.access_token,
+      expires_at: accountArg.expires_at,
+      token_type: accountArg.token_type,
+      scope: accountArg.scope,
+      id_token: accountArg.id_token,
+    })
+    .onConflictDoUpdate({
+      target: [account.provider, account.providerAccountId],
+      set: {
+        userId,
+        ...(accountArg.access_token !== undefined
+          ? { access_token: accountArg.access_token }
+          : {}),
+        ...(accountArg.refresh_token
+          ? { refresh_token: accountArg.refresh_token }
+          : {}),
+        ...(accountArg.expires_at !== undefined
+          ? { expires_at: accountArg.expires_at }
+          : {}),
+        ...(accountArg.token_type !== undefined
+          ? { token_type: accountArg.token_type }
+          : {}),
+        ...(accountArg.scope !== undefined ? { scope: accountArg.scope } : {}),
+        ...(accountArg.id_token !== undefined
+          ? { id_token: accountArg.id_token }
+          : {}),
+      },
+    });
 
   // Keep the user email in sync with Google in case it differs.
   // Skip silently only when the email already belongs to another user
   // (unique constraint) — the link by id still holds.
   if (email) {
     try {
-      const owner = await prisma.user.findUnique({
-        where: { email },
-        select: { id: true },
+      const owner = await db.query.user.findFirst({
+        where: eq(userTable.email, email),
+        columns: { id: true },
       });
       if (!owner || owner.id === userId) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { email },
-        });
+        await db.update(userTable).set({ email }).where(eq(userTable.id, userId));
       } else {
         log.warn("skipping email sync: google email belongs to another user", {
           userId,
@@ -194,9 +200,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!targetUserId) {
-          const byEmail = await prisma.user.findUnique({
-            where: { email },
-            select: { id: true },
+          const byEmail = await db.query.user.findFirst({
+            where: eq(userTable.email, email),
+            columns: { id: true },
           });
           targetUserId = byEmail?.id;
         }
@@ -251,9 +257,9 @@ export const authOptions: NextAuthOptions = {
 };
 
 async function prismaUserWithPassword(email: string) {
-  return prisma.user.findUnique({
-    where: { email },
-    select: { passwordHash: true, globalRole: true, blocked: true },
+  return db.query.user.findFirst({
+    where: eq(userTable.email, email),
+    columns: { passwordHash: true, globalRole: true, blocked: true },
   });
 }
 

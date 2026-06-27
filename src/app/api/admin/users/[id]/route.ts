@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, membership, workspace } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { requireSuperAdmin } from "@/server/lib/requireSuperAdmin";
 import { notifyUser, safeAfter } from "@/server/lib/notifications";
 
@@ -14,30 +16,53 @@ export async function GET(
 
   const { id } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      globalRole: true,
-      blocked: true,
-      createdAt: true,
-      memberships: {
-        select: {
-          id: true,
-          role: true,
-          status: true,
-          workspace: { select: { id: true, name: true, emoji: true } },
-        },
-      },
-    },
-  });
+  const rows = await db.select({
+    id: userTable.id,
+    name: userTable.name,
+    email: userTable.email,
+    image: userTable.image,
+    globalRole: userTable.globalRole,
+    blocked: userTable.blocked,
+    createdAt: userTable.createdAt,
+    membershipId: membership.id,
+    membershipRole: membership.role,
+    membershipStatus: membership.status,
+    workspaceId: workspace.id,
+    workspaceName: workspace.name,
+    workspaceEmoji: workspace.emoji,
+  })
+    .from(userTable)
+    .leftJoin(membership, eq(membership.userId, userTable.id))
+    .leftJoin(workspace, eq(workspace.id, membership.workspaceId))
+    .where(eq(userTable.id, id));
 
-  if (!user) {
+  if (rows.length === 0) {
     return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
   }
+
+  const first = rows[0];
+  const user = {
+    id: first.id,
+    name: first.name,
+    email: first.email,
+    image: first.image,
+    globalRole: first.globalRole,
+    blocked: first.blocked,
+    createdAt: first.createdAt,
+    memberships: rows
+      .filter((r) => r.membershipId !== null)
+      .map((r) => ({
+        id: r.membershipId,
+        role: r.membershipRole,
+        status: r.membershipStatus,
+        workspace: {
+          id: r.workspaceId,
+          name: r.workspaceName,
+          emoji: r.workspaceEmoji,
+        },
+      })),
+  };
+
   return NextResponse.json({ user });
 }
 
@@ -55,9 +80,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     );
   }
 
-  const target = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true, email: true, globalRole: true },
+  const target = await db.query.user.findFirst({
+    where: eq(userTable.id, id),
+    columns: { id: true, email: true, globalRole: true },
   });
   if (!target) {
     return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
@@ -87,11 +112,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       break;
   }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data,
-    select: { id: true, blocked: true, globalRole: true },
-  });
+  const [updated] = await db.update(userTable)
+    .set(data)
+    .where(eq(userTable.id, id))
+    .returning({ id: userTable.id, blocked: userTable.blocked, globalRole: userTable.globalRole });
 
   // Notify the affected user of the admin action (in-app + push).
   const action = body.action;
@@ -149,6 +173,6 @@ export async function DELETE(
     );
   }
 
-  await prisma.user.delete({ where: { id } });
+  await db.delete(userTable).where(eq(userTable.id, id));
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task as taskTable } from "@drizzle/schema";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
@@ -53,27 +54,25 @@ export async function POST(request: Request) {
       deadline: draft.deadline ? new Date(draft.deadline) : null,
     };
 
-    const task = await prisma.task.create({
-      data: {
-        userId: user.id,
-        messageId: messageId ?? null,
-        title: taskDraft.title,
-        fromQuote: taskDraft.fromQuote,
-        category: taskDraft.category,
-        app: taskDraft.app,
-        due: taskDraft.due,
-        deadline: taskDraft.deadline,
-        load: taskDraft.load,
-        micro: taskDraft.micro,
-        action: taskDraft.action,
-        resource: taskDraft.resource,
-        selfMade: taskDraft.selfMade,
-        status: "open",
-        quadrant: guessQuadrant(taskDraft),
-        priority: taskDraft.load === "Heavy" ? 5 : taskDraft.load === "Medium" ? 3 : 1,
-        tags: [taskDraft.category.toLowerCase()],
-      },
-    });
+    const [task] = await db.insert(taskTable).values({
+      userId: user.id,
+      messageId: messageId ?? null,
+      title: taskDraft.title,
+      fromQuote: taskDraft.fromQuote,
+      category: taskDraft.category,
+      app: taskDraft.app,
+      due: taskDraft.due,
+      deadline: taskDraft.deadline,
+      load: taskDraft.load,
+      micro: taskDraft.micro,
+      action: taskDraft.action,
+      resource: taskDraft.resource,
+      selfMade: taskDraft.selfMade,
+      status: "open",
+      quadrant: guessQuadrant(taskDraft),
+      priority: taskDraft.load === "Heavy" ? 5 : taskDraft.load === "Medium" ? 3 : 1,
+      tags: [taskDraft.category.toLowerCase()],
+    }).returning();
 
     return NextResponse.json({ task });
   } catch (error) {

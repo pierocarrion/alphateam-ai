@@ -1,7 +1,15 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  channel as channelTable,
+  membership,
+  user as userTable,
+  channelParticipant,
+  joinRequest,
+} from "@drizzle/schema";
+import { eq, and, ne, asc, count, inArray } from "drizzle-orm";
 import { resolveAppSessionByEmail } from "@/server/lib/activeWorkspace";
 import { MobileNav } from "@/features/auth/presentation/components/MobileNav";
 import {
@@ -48,45 +56,77 @@ export default async function AppLayout({
   const userRole = active.role;
   const userId = appSession.userId;
 
-  const [workspaceChannels, workspaceMembers, dmChannels, pending] =
-    await Promise.all([
-      prisma.channel.findMany({
-        where: { workspaceId, type: "channel" },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-      prisma.membership.findMany({
-        where: {
-          workspaceId,
-          userId: { not: userId },
-        },
-        include: { user: { select: { id: true, name: true } } },
-      }),
-      prisma.channel.findMany({
-        where: {
-          workspaceId,
-          type: "dm",
-          participants: { some: { userId } },
-        },
-        include: {
-          participants: { select: { userId: true } },
-        },
-      }),
-      (userRole === "leader" || userRole === "admin")
-        ? prisma.joinRequest.count({
-            where: { workspaceId, status: "pending" },
-          })
-        : Promise.resolve(0),
-    ]);
+  const [workspaceChannels, memberRows, dmRows, pending] = await Promise.all([
+    db.query.channel.findMany({
+      where: and(
+        eq(channelTable.workspaceId, workspaceId),
+        eq(channelTable.type, "channel")
+      ),
+      columns: { id: true, name: true },
+      orderBy: asc(channelTable.name),
+    }),
+    db
+      .select({
+        userId: membership.userId,
+        userName: userTable.name,
+      })
+      .from(membership)
+      .leftJoin(userTable, eq(userTable.id, membership.userId))
+      .where(
+        and(
+          eq(membership.workspaceId, workspaceId),
+          ne(membership.userId, userId)
+        )
+      ),
+    db
+      .select({ id: channelTable.id })
+      .from(channelTable)
+      .innerJoin(
+        channelParticipant,
+        eq(channelParticipant.channelId, channelTable.id)
+      )
+      .where(
+        and(
+          eq(channelTable.workspaceId, workspaceId),
+          eq(channelTable.type, "dm"),
+          eq(channelParticipant.userId, userId)
+        )
+      ),
+    (userRole === "leader" || userRole === "admin")
+      ? db
+          .select({ c: count() })
+          .from(joinRequest)
+          .where(
+            and(
+              eq(joinRequest.workspaceId, workspaceId),
+              eq(joinRequest.status, "pending")
+            )
+          )
+          .then((r) => r[0]?.c ?? 0)
+      : Promise.resolve(0),
+  ]);
+
+  const dmIds = dmRows.map((r) => r.id);
+  const dmParticipants = dmIds.length
+    ? await db
+        .select({
+          channelId: channelParticipant.channelId,
+          userId: channelParticipant.userId,
+        })
+        .from(channelParticipant)
+        .where(inArray(channelParticipant.channelId, dmIds))
+    : [];
 
   const channels: SidebarChannel[] = workspaceChannels;
-  const members: SidebarMember[] = workspaceMembers.map((m) => ({
-    id: m.user.id,
-    name: m.user.name ?? "Someone",
+  const members: SidebarMember[] = memberRows.map((m) => ({
+    id: m.userId,
+    name: m.userName ?? "Someone",
   }));
   const dmByPeer: Record<string, string> = {};
-  for (const c of dmChannels) {
-    const peerId = c.participants.find((p) => p.userId !== userId)?.userId;
+  for (const c of dmRows) {
+    const peerId = dmParticipants.find(
+      (p) => p.channelId === c.id && p.userId !== userId
+    )?.userId;
     if (peerId) dmByPeer[peerId] = c.id;
   }
 

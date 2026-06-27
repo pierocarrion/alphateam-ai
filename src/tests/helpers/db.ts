@@ -1,12 +1,17 @@
-﻿import { execSync } from "node:child_process";
-import { PGlite } from "@electric-sql/pglite";
-import { PrismaPGlite } from "pglite-prisma-adapter";
-import { PrismaClient } from "@prisma/client";
+﻿import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
+import { inArray, eq } from "drizzle-orm";
+import type { Db } from "@/server/lib/db";
+import * as schema from "@drizzle/schema";
 
 let pglite: PGlite | undefined;
-let prisma: PrismaClient | undefined;
+let db: Db | undefined;
 let schemaApplied = false;
-let cachedSchemaSql: string | undefined;
+
+// Drizzle migrations live at <repo>/drizzle. CWD-relative is robust across
+// vitest workers (the drizzle-kit migrator resolves migration files from here).
+const migrationsFolder = `${process.cwd()}/drizzle`;
 
 export async function getPglite(): Promise<PGlite> {
   if (!pglite) {
@@ -15,108 +20,85 @@ export async function getPglite(): Promise<PGlite> {
   return pglite;
 }
 
-function getSchemaSql(): string {
-  if (!cachedSchemaSql) {
-    cachedSchemaSql = execSync(
-      "npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script",
-      {
-        cwd: process.cwd(),
-        encoding: "utf-8",
-        env: {
-          ...process.env,
-          DATABASE_URL:
-            process.env.DATABASE_URL ?? "postgresql://localhost:5432/alphalead-ai",
-        },
-      }
-    );
-  }
-  return cachedSchemaSql;
-}
-
-export async function setupTestDatabase() {
+/**
+ * Bring up the in-memory PGlite database, apply the Drizzle schema, and inject
+ * the Drizzle instance into the production singleton (`global.__testDb`) so
+ * every Server Component / Route Handler resolves to PGlite at runtime.
+ */
+export async function setupTestDatabase(): Promise<Db> {
   const client = await getPglite();
 
   if (!schemaApplied) {
-    const sql = getSchemaSql();
-    await client.exec(sql);
+    db = drizzle(client, { schema }) as unknown as Db;
+    await migrate(db, { migrationsFolder });
     schemaApplied = true;
+  } else {
+    db = drizzle(client, { schema }) as unknown as Db;
   }
 
-  const adapter = new PrismaPGlite(client);
-
-  // Inject adapter into the production prisma singleton so API routes use PGlite.
-  const g = global as unknown as {
-    __testPrismaAdapter?: unknown;
-    prisma?: PrismaClient;
-  };
-  g.__testPrismaAdapter = adapter;
-  delete g.prisma;
-
-  prisma = new PrismaClient({ adapter });
-  g.prisma = prisma;
-
-  return prisma;
+  const g = globalThis as unknown as { __testDb?: Db };
+  g.__testDb = db;
+  return db;
 }
 
-export async function getTestPrisma(): Promise<PrismaClient> {
-  if (!prisma) {
+export async function getTestDb(): Promise<Db> {
+  if (!db) {
     await setupTestDatabase();
   }
-  return prisma!;
+  return db!;
 }
 
-export async function resetDatabase() {
-  const client = await getTestPrisma();
-  await client.$transaction([
-    client.projectKpiSnapshot.deleteMany(),
-    client.projectKpi.deleteMany(),
-    client.kpiDefinition.deleteMany(),
-    client.projectAiInsight.deleteMany(),
-    client.projectInvitation.deleteMany(),
-    client.projectMethodology.deleteMany(),
-    client.smartGoalVersion.deleteMany(),
-    client.projectSmartGoal.deleteMany(),
-    client.projectRole.deleteMany(),
-    client.auditLog.deleteMany(),
-    client.userMetric.deleteMany(),
-    client.teamMetric.deleteMany(),
-    client.ritualSession.deleteMany(),
-    client.task.deleteMany(),
-    client.message.deleteMany(),
-    client.milestone.deleteMany(),
-    client.goal.deleteMany(),
-    client.knowledgeBaseItem.deleteMany(),
-    client.channelParticipant.deleteMany(),
-    client.channel.deleteMany(),
-    client.joinRequest.deleteMany(),
-    client.membership.deleteMany(),
-    client.workspaceSubscription.deleteMany(),
-    client.workspace.deleteMany(),
-    client.userProfile.deleteMany(),
-    client.session.deleteMany(),
-    client.account.deleteMany(),
-    client.verificationToken.deleteMany(),
-    client.user.deleteMany(),
-  ]);
+/**
+ * Wipes every table in an FK-safe order. Tables are deleted in a single
+ * transaction so a reset is atomic even if a test runs midway.
+ */
+export async function resetDatabase(): Promise<void> {
+  const client = await getTestDb();
+  await client.transaction(async (tx) => {
+    await tx.delete(schema.projectKpiSnapshot);
+    await tx.delete(schema.projectKpi);
+    await tx.delete(schema.kpiDefinition);
+    await tx.delete(schema.projectAiInsight);
+    await tx.delete(schema.projectInvitation);
+    await tx.delete(schema.projectMethodology);
+    await tx.delete(schema.smartGoalVersion);
+    await tx.delete(schema.projectSmartGoal);
+    await tx.delete(schema.projectRole);
+    await tx.delete(schema.auditLog);
+    await tx.delete(schema.userMetric);
+    await tx.delete(schema.teamMetric);
+    await tx.delete(schema.ritualSession);
+    await tx.delete(schema.task);
+    await tx.delete(schema.message);
+    await tx.delete(schema.milestone);
+    await tx.delete(schema.goal);
+    await tx.delete(schema.knowledgeBaseItem);
+    await tx.delete(schema.channelParticipant);
+    await tx.delete(schema.channel);
+    await tx.delete(schema.joinRequest);
+    await tx.delete(schema.membership);
+    await tx.delete(schema.workspaceSubscription);
+    await tx.delete(schema.workspace);
+    await tx.delete(schema.userProfile);
+    await tx.delete(schema.session);
+    await tx.delete(schema.account);
+    await tx.delete(schema.verificationToken);
+    await tx.delete(schema.user);
+  });
 }
 
 export async function seedWorkspace() {
-  const client = await getTestPrisma();
+  const client = await getTestDb();
   const slug = `acme-${crypto.randomUUID().slice(0, 8)}`;
-  const workspace = await client.workspace.create({
-    data: {
-      name: "Acme",
-      slug,
-      hashtag: `#${slug}`,
-    },
-  });
-  const channel = await client.channel.create({
-    data: {
-      workspaceId: workspace.id,
-      name: "q3-launch",
-    },
-  });
-  return { workspace, channel };
+  const [workspace] = await client
+    .insert(schema.workspace)
+    .values({ name: "Acme", slug, hashtag: `#${slug}` })
+    .returning();
+  const [channel] = await client
+    .insert(schema.channel)
+    .values({ workspaceId: workspace!.id, name: "q3-launch" })
+    .returning();
+  return { workspace: workspace!, channel: channel! };
 }
 
 export async function seedUser(input?: {
@@ -125,24 +107,23 @@ export async function seedUser(input?: {
   password?: string;
   onboarded?: boolean;
 }) {
-  const client = await getTestPrisma();
+  const client = await getTestDb();
   const name = input?.name ?? "Test User";
   const email =
     input?.email?.toLowerCase() ??
     `test-${crypto.randomUUID()}@example.com`;
   const passwordHash = input?.password ?? "password123";
 
-  const user = await client.user.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      profile: {
-        create: {
-          onboarded: input?.onboarded ?? false,
-        },
-      },
-    },
+  const [user] = await client.transaction(async (tx) => {
+    const [u] = await tx
+      .insert(schema.user)
+      .values({ name, email, passwordHash })
+      .returning();
+    await tx.insert(schema.userProfile).values({
+      userId: u!.id,
+      onboarded: input?.onboarded ?? false,
+    });
+    return [u!] as const;
   });
 
   return { user, email, password: passwordHash };
@@ -155,27 +136,44 @@ export async function seedMember(input?: {
   onboarded?: boolean;
   workspaceId?: string;
 }) {
-  const client = await getTestPrisma();
+  const client = await getTestDb();
   const { user, email, password } = await seedUser(input);
-  const { workspace, channel } = input?.workspaceId
-    ? await (async () => {
-        const workspace = await client.workspace.findUniqueOrThrow({
-          where: { id: input.workspaceId },
-        });
-        const channel = await client.channel.findFirstOrThrow({
-          where: { workspaceId: workspace.id },
-        });
-        return { workspace, channel };
-      })()
-    : await seedWorkspace();
 
-  await client.membership.create({
-    data: {
-      userId: user.id,
-      workspaceId: workspace.id,
-      role: "member",
-    },
+  let workspace: { id: string };
+  let channel: { id: string };
+  if (input?.workspaceId) {
+    const ws = await client.query.workspace.findFirst({
+      where: eq(schema.workspace.id, input.workspaceId),
+    });
+    if (!ws) throw new Error(`workspace ${input.workspaceId} not found`);
+    const ch = await client.query.channel.findFirst({
+      where: eq(schema.channel.workspaceId, ws.id),
+    });
+    if (!ch) throw new Error(`channel for workspace ${ws.id} not found`);
+    workspace = ws;
+    channel = ch;
+  } else {
+    const seeded = await seedWorkspace();
+    workspace = seeded.workspace;
+    channel = seeded.channel;
+  }
+
+  await client.insert(schema.membership).values({
+    userId: user.id,
+    workspaceId: workspace.id,
+    role: "member",
   });
 
-  return { user, email, password, workspaceId: workspace.id, workspace, channel };
+  return {
+    user,
+    email,
+    password,
+    workspaceId: workspace.id,
+    workspace,
+    channel,
+  };
 }
+
+// Re-exported so tests can build typed IN-lists against array columns without
+// importing drizzle-orm directly.
+export { inArray };

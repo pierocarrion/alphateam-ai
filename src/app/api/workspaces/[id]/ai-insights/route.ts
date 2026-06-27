@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/lib/prisma";
+import { eq } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { workspace as workspaceTable } from "@drizzle/schema";
 import { requireProjectLeader } from "@/server/lib/requireProjectLeader";
 import { jsonError } from "@/server/lib/apiErrors";
 import { getProjectSettingsDeps } from "@/features/project-settings/infrastructure/container";
@@ -23,9 +25,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const auth = await requireProjectLeader((await params).id);
     if (auth.response) return auth.response;
 
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: auth.workspaceId! },
-      select: { name: true },
+    const workspace = await db.query.workspace.findFirst({
+      where: eq(workspaceTable.id, auth.workspaceId!),
+      columns: { name: true },
     });
 
     const deps = getProjectSettingsDeps();

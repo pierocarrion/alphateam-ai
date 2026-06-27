@@ -13,6 +13,7 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     alias: [
+      { find: "@drizzle", replacement: path.resolve(__dirname, "./drizzle") },
       { find: "@", replacement: path.resolve(__dirname, "./src") },
     ],
     env: {

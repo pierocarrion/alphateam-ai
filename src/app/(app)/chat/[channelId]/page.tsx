@@ -1,7 +1,14 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  channel as channelTable,
+  membership,
+  channelParticipant,
+} from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { computeLoadBalance, computeWorkspaceMood } from "@/server/lib/metrics";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { personIdFromName } from "@/shared/lib/person";
@@ -15,28 +22,37 @@ export default async function ChatChannelPage({
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true },
   });
   if (!user) redirect("/login");
 
   const { channelId } = await params;
 
-  const channel = await prisma.channel.findUnique({
-    where: { id: channelId },
-    include: {
-      workspace: { include: { memberships: true } },
-      participants: { include: { user: { select: { id: true, name: true } } } },
-    },
+  const channel = await db.query.channel.findFirst({
+    where: eq(channelTable.id, channelId),
   });
 
   if (!channel) redirect("/home");
 
   const isDm = channel.type === "dm";
+
+  const [workspaceMemberships, participantRows] = await Promise.all([
+    db
+      .select({ userId: membership.userId })
+      .from(membership)
+      .where(eq(membership.workspaceId, channel.workspaceId)),
+    db
+      .select({ userId: channelParticipant.userId, userName: userTable.name })
+      .from(channelParticipant)
+      .leftJoin(userTable, eq(userTable.id, channelParticipant.userId))
+      .where(eq(channelParticipant.channelId, channelId)),
+  ]);
+
   const isMember = isDm
-    ? channel.participants.some((p) => p.userId === user.id)
-    : channel.workspace.memberships.some((m) => m.userId === user.id);
+    ? participantRows.some((p) => p.userId === user.id)
+    : workspaceMemberships.some((m) => m.userId === user.id);
 
   if (!isMember) redirect("/home");
 
@@ -49,7 +65,7 @@ export default async function ChatChannelPage({
   }
 
   const peer = isDm
-    ? channel.participants.find((p) => p.userId !== user.id)?.user ?? null
+    ? participantRows.find((p) => p.userId !== user.id) ?? null
     : null;
 
   const mood = isDm
@@ -68,9 +84,9 @@ export default async function ChatChannelPage({
   return (
     <ChatClient
       channelId={channel.id}
-      channelName={isDm ? (peer?.name ?? "Direct message") : channel.name}
+      channelName={isDm ? (peer?.userName ?? "Direct message") : channel.name}
       channelType={isDm ? "dm" : "channel"}
-      peerName={peer?.name ?? null}
+      peerName={peer?.userName ?? null}
       mood={mood}
       loadGuardian={loadGuardian}
     />

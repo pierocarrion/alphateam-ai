@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task, user as userTable, membership } from "@drizzle/schema";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { computeLoadBalance } from "@/server/lib/metrics";
 import { jsonError } from "@/server/lib/apiErrors";
@@ -16,9 +18,9 @@ async function requireLeader() {
       ),
     };
   }
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true, name: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true, name: true },
   });
   if (!user) {
     return {
@@ -44,28 +46,48 @@ export async function GET() {
     if ("error" in auth) return auth.error;
     const { active } = auth;
 
-    const [tasks, load, members] = await Promise.all([
-      prisma.task.findMany({
-        where: {
-          status: "open",
-          user: { memberships: { some: { workspaceId: active.workspaceId } } },
-        },
-        include: { user: { select: { id: true, name: true } } },
-        orderBy: { createdAt: "desc" },
-      }),
+    const wsMembers = await db
+      .select({ userId: membership.userId })
+      .from(membership)
+      .where(eq(membership.workspaceId, active.workspaceId));
+    const memberIds = wsMembers.map((m) => m.userId);
+
+    const [taskRows, load, members] = await Promise.all([
+      memberIds.length
+        ? db
+            .select({
+              id: task.id,
+              title: task.title,
+              category: task.category,
+              app: task.app,
+              load: task.load,
+              status: task.status,
+              createdAt: task.createdAt,
+              userId: task.userId,
+              userName: userTable.name,
+            })
+            .from(task)
+            .leftJoin(userTable, eq(userTable.id, task.userId))
+            .where(
+              and(eq(task.status, "open"), inArray(task.userId, memberIds))
+            )
+            .orderBy(desc(task.createdAt))
+        : Promise.resolve([]),
       computeLoadBalance(active.workspaceId),
-      prisma.membership.findMany({
-        where: { workspaceId: active.workspaceId },
-        select: {
-          user: { select: { id: true, name: true } },
-          role: true,
-        },
-        orderBy: { joinedAt: "asc" },
-      }),
+      db
+        .select({
+          userId: membership.userId,
+          userName: userTable.name,
+          role: membership.role,
+        })
+        .from(membership)
+        .leftJoin(userTable, eq(userTable.id, membership.userId))
+        .where(eq(membership.workspaceId, active.workspaceId))
+        .orderBy(asc(membership.joinedAt)),
     ]);
 
     return NextResponse.json({
-      tasks: tasks.map((t) => ({
+      tasks: taskRows.map((t) => ({
         id: t.id,
         title: t.title,
         category: t.category,
@@ -74,12 +96,12 @@ export async function GET() {
         status: t.status,
         createdAt: t.createdAt.toISOString(),
         ownerId: t.userId,
-        ownerName: t.user.name ?? "Someone",
+        ownerName: t.userName ?? "Someone",
       })),
       loadBalance: load,
       members: members.map((m) => ({
-        id: m.user.id,
-        name: m.user.name ?? "Someone",
+        id: m.userId,
+        name: m.userName ?? "Someone",
         role: m.role,
       })),
     });

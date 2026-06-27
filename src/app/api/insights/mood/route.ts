@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, membership, channel, message } from "@drizzle/schema";
+import { eq, gte, desc, and, inArray } from "drizzle-orm";
 import { analyzeCrewMood } from "@/server/lib/gemini";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { createLogger } from "@/shared/lib/logger";
@@ -24,9 +26,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
 
     if (!user) {
@@ -46,11 +48,15 @@ export async function POST(request: Request) {
 
     const { workspaceId, days } = parseResult.data;
 
-    const membership = await prisma.membership.findUnique({
-      where: { userId_workspaceId: { userId: user.id, workspaceId } },
+    const membershipRow = await db.query.membership.findFirst({
+      where: and(
+        eq(membership.userId, user.id),
+        eq(membership.workspaceId, workspaceId)
+      ),
+      columns: { id: true },
     });
 
-    if (!membership) {
+    if (!membershipRow) {
       return NextResponse.json(
         { error: "You don't have access to that workspace." },
         { status: 403 }
@@ -60,15 +66,30 @@ export async function POST(request: Request) {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const messages = await prisma.message.findMany({
-      where: {
-        channel: { workspaceId },
-        createdAt: { gte: since },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      select: { userId: true, content: true, createdAt: true },
-    });
+    const channelRows = await db
+      .select({ id: channel.id })
+      .from(channel)
+      .where(eq(channel.workspaceId, workspaceId));
+    const channelIds = channelRows.map((r) => r.id);
+
+    const messages =
+      channelIds.length > 0
+        ? await db
+            .select({
+              userId: message.userId,
+              content: message.content,
+              createdAt: message.createdAt,
+            })
+            .from(message)
+            .where(
+              and(
+                inArray(message.channelId, channelIds),
+                gte(message.createdAt, since)
+              )
+            )
+            .orderBy(desc(message.createdAt))
+            .limit(100)
+        : [];
 
     if (messages.length === 0) {
       return NextResponse.json({

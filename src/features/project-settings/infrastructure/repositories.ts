@@ -1,4 +1,17 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  projectSmartGoal,
+  smartGoalVersion,
+  projectMethodology,
+  membership,
+  user,
+  projectInvitation,
+  projectKpi,
+  projectKpiSnapshot,
+  projectAiInsight,
+  auditLog,
+} from "@drizzle/schema";
+import { eq, and, or, desc, asc, inArray, ne, sql, count } from "drizzle-orm";
 import type {
   ProjectAiInsight,
   ProjectInvitation,
@@ -37,7 +50,9 @@ function tier(v: string): "primary" | "secondary" {
 
 export class PrismaSmartGoalRepository implements ISmartGoalRepository {
   async get(workspaceId: string): Promise<SmartGoal | null> {
-    const row = await prisma.projectSmartGoal.findUnique({ where: { workspaceId } });
+    const row = await db.query.projectSmartGoal.findFirst({
+      where: eq(projectSmartGoal.workspaceId, workspaceId),
+    });
     if (!row) return null;
     return {
       id: row.id,
@@ -58,13 +73,14 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
 
   async upsert(input: SaveSmartGoalInput): Promise<SmartGoal> {
     const deadline = input.deadline ? new Date(input.deadline) : null;
-    const existing = await prisma.projectSmartGoal.findUnique({
-      where: { workspaceId: input.workspaceId },
+    const existing = await db.query.projectSmartGoal.findFirst({
+      where: eq(projectSmartGoal.workspaceId, input.workspaceId),
     });
 
     if (!existing) {
-      const created = await prisma.projectSmartGoal.create({
-        data: {
+      const [created] = await db
+        .insert(projectSmartGoal)
+        .values({
           workspaceId: input.workspaceId,
           title: input.title,
           specific: input.specific,
@@ -75,32 +91,30 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
           deadline,
           version: 1,
           smartScore: input.smartScore,
-        },
-      });
-      await prisma.smartGoalVersion.create({
-        data: {
-          smartGoalId: created.id,
-          version: 1,
-          title: created.title,
-          specific: created.specific,
-          measurable: created.measurable,
-          achievable: created.achievable,
-          relevant: created.relevant,
-          timeBound: created.timeBound,
-          deadline: created.deadline,
-          smartScore: created.smartScore,
-          changedById: input.changedById,
-          changeNote: "Initial version",
-        },
+        })
+        .returning();
+      await db.insert(smartGoalVersion).values({
+        smartGoalId: created!.id,
+        version: 1,
+        title: created!.title,
+        specific: created!.specific,
+        measurable: created!.measurable,
+        achievable: created!.achievable,
+        relevant: created!.relevant,
+        timeBound: created!.timeBound,
+        deadline: created!.deadline,
+        smartScore: created!.smartScore,
+        changedById: input.changedById,
+        changeNote: "Initial version",
       });
       return this.get(input.workspaceId) as Promise<SmartGoal>;
     }
 
     const nextVersion = existing.version + 1;
-    const updated = await prisma.$transaction(async (tx) => {
-      const row = await tx.projectSmartGoal.update({
-        where: { workspaceId: input.workspaceId },
-        data: {
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(projectSmartGoal)
+        .set({
           title: input.title,
           specific: input.specific,
           measurable: input.measurable,
@@ -110,24 +124,23 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
           deadline,
           smartScore: input.smartScore,
           version: nextVersion,
-        },
+        })
+        .where(eq(projectSmartGoal.workspaceId, input.workspaceId))
+        .returning();
+      await tx.insert(smartGoalVersion).values({
+        smartGoalId: row!.id,
+        version: nextVersion,
+        title: row!.title,
+        specific: row!.specific,
+        measurable: row!.measurable,
+        achievable: row!.achievable,
+        relevant: row!.relevant,
+        timeBound: row!.timeBound,
+        deadline: row!.deadline,
+        smartScore: row!.smartScore,
+        changedById: input.changedById,
       });
-      await tx.smartGoalVersion.create({
-        data: {
-          smartGoalId: row.id,
-          version: nextVersion,
-          title: row.title,
-          specific: row.specific,
-          measurable: row.measurable,
-          achievable: row.achievable,
-          relevant: row.relevant,
-          timeBound: row.timeBound,
-          deadline: row.deadline,
-          smartScore: row.smartScore,
-          changedById: input.changedById,
-        },
-      });
-      return row;
+      return row!;
     });
     return {
       id: updated.id,
@@ -147,11 +160,13 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
   }
 
   async listVersions(workspaceId: string): Promise<SmartGoalVersion[]> {
-    const goal = await prisma.projectSmartGoal.findUnique({ where: { workspaceId } });
+    const goal = await db.query.projectSmartGoal.findFirst({
+      where: eq(projectSmartGoal.workspaceId, workspaceId),
+    });
     if (!goal) return [];
-    const rows = await prisma.smartGoalVersion.findMany({
-      where: { smartGoalId: goal.id },
-      orderBy: { version: "desc" },
+    const rows = await db.query.smartGoalVersion.findMany({
+      where: eq(smartGoalVersion.smartGoalId, goal.id),
+      orderBy: [desc(smartGoalVersion.version)],
     });
     return rows.map((r) => ({
       id: r.id,
@@ -171,10 +186,12 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
   }
 
   async restoreVersion(workspaceId: string, version: number, changedById: string): Promise<SmartGoal> {
-    const goal = await prisma.projectSmartGoal.findUnique({ where: { workspaceId } });
+    const goal = await db.query.projectSmartGoal.findFirst({
+      where: eq(projectSmartGoal.workspaceId, workspaceId),
+    });
     if (!goal) throw new Error("Smart goal not found");
-    const v = await prisma.smartGoalVersion.findFirst({
-      where: { smartGoalId: goal.id, version },
+    const v = await db.query.smartGoalVersion.findFirst({
+      where: and(eq(smartGoalVersion.smartGoalId, goal.id), eq(smartGoalVersion.version, version)),
     });
     if (!v) throw new Error(`Version ${version} not found`);
 
@@ -199,22 +216,26 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
 
 export class PrismaMethodologyRepository implements IMethodologyRepository {
   async list(workspaceId: string): Promise<ProjectMethodologySelection[]> {
-    const rows = await prisma.projectMethodology.findMany({ where: { workspaceId } });
+    const rows = await db.query.projectMethodology.findMany({
+      where: eq(projectMethodology.workspaceId, workspaceId),
+    });
     return rows.map((r) => ({ id: r.id, methodologyKey: r.methodologyKey, tier: tier(r.tier) }));
   }
 
   async set(input: SetMethodologyInput): Promise<ProjectMethodologySelection[]> {
-    await prisma.$transaction(async (tx) => {
-      await tx.projectMethodology.deleteMany({ where: { workspaceId: input.workspaceId } });
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(projectMethodology)
+        .where(eq(projectMethodology.workspaceId, input.workspaceId));
       const rows: { methodologyKey: string; tier: string }[] = [];
       if (input.primary) rows.push({ methodologyKey: input.primary, tier: "primary" });
       for (const s of input.secondary) {
         if (s !== input.primary) rows.push({ methodologyKey: s, tier: "secondary" });
       }
       if (rows.length > 0) {
-        await tx.projectMethodology.createMany({
-          data: rows.map((r) => ({ workspaceId: input.workspaceId, ...r })),
-        });
+        await tx.insert(projectMethodology).values(
+          rows.map((r) => ({ workspaceId: input.workspaceId, ...r }))
+        );
       }
     });
     return this.list(input.workspaceId);
@@ -234,13 +255,14 @@ function toMember(row: {
   photoUrl: string | null;
   invitedEmail: string | null;
   joinedAt: Date;
-  user: { name: string | null; email: string | null };
+  userName: string | null;
+  userEmail: string | null;
 }): ProjectMember {
   return {
     id: row.id,
     userId: row.userId,
-    name: row.user.name,
-    email: row.user.email ?? row.invitedEmail,
+    name: row.userName,
+    email: row.userEmail ?? row.invitedEmail,
     photoUrl: row.photoUrl,
     projectRole: row.projectRole,
     permissionRole: row.role,
@@ -252,20 +274,47 @@ function toMember(row: {
   };
 }
 
+const memberSelect = {
+  id: membership.id,
+  userId: membership.userId,
+  projectRole: membership.projectRole,
+  role: membership.role,
+  status: membership.status,
+  photoUrl: membership.photoUrl,
+  invitedEmail: membership.invitedEmail,
+  joinedAt: membership.joinedAt,
+  userName: user.name,
+  userEmail: user.email,
+} as const;
+
+async function fetchMember(id: string) {
+  const rows = await db
+    .select(memberSelect)
+    .from(membership)
+    .leftJoin(user, eq(user.id, membership.userId))
+    .where(eq(membership.id, id))
+    .limit(1);
+  return rows[0];
+}
+
 export class PrismaMemberRepository implements IMemberRepository {
   async list(workspaceId: string): Promise<ProjectMember[]> {
-    const rows = await prisma.membership.findMany({
-      where: { workspaceId },
-      orderBy: { joinedAt: "asc" },
-      include: { user: { select: { name: true, email: true } } },
-    });
+    const rows = await db
+      .select(memberSelect)
+      .from(membership)
+      .leftJoin(user, eq(user.id, membership.userId))
+      .where(eq(membership.workspaceId, workspaceId))
+      .orderBy(asc(membership.joinedAt));
     return rows.map(toMember);
   }
 
   async listInvitations(workspaceId: string): Promise<ProjectInvitation[]> {
-    const rows = await prisma.projectInvitation.findMany({
-      where: { workspaceId, status: "pending" },
-      orderBy: { createdAt: "desc" },
+    const rows = await db.query.projectInvitation.findMany({
+      where: and(
+        eq(projectInvitation.workspaceId, workspaceId),
+        eq(projectInvitation.status, "pending")
+      ),
+      orderBy: [desc(projectInvitation.createdAt)],
     });
     return rows.map((r) => ({
       id: r.id,
@@ -278,18 +327,19 @@ export class PrismaMemberRepository implements IMemberRepository {
 
   async add(input: AddMemberInput): Promise<ProjectMember> {
     if (!input.userId) throw new Error("userId is required to add a member");
-    const created = await prisma.membership.create({
-      data: {
+    const [created] = await db
+      .insert(membership)
+      .values({
         workspaceId: input.workspaceId,
         userId: input.userId,
         role: input.permissionRole ?? "member",
         projectRole: input.projectRole ?? null,
         photoUrl: input.photoUrl ?? null,
         status: "active",
-      },
-      include: { user: { select: { name: true, email: true } } },
-    });
-    return toMember(created);
+      })
+      .returning();
+    const row = await fetchMember(created!.id);
+    return toMember(row!);
   }
 
   async update(memberId: string, input: UpdateMemberInput): Promise<ProjectMember> {
@@ -297,46 +347,52 @@ export class PrismaMemberRepository implements IMemberRepository {
     if (input.projectRole !== undefined) data.projectRole = input.projectRole;
     if (input.permissionRole) data.role = input.permissionRole;
     if (input.status) data.status = input.status;
-    const updated = await prisma.membership.update({
-      where: { id: memberId },
-      data,
-      include: { user: { select: { name: true, email: true } } },
-    });
-    return toMember(updated);
+    await db.update(membership).set(data).where(eq(membership.id, memberId));
+    const row = await fetchMember(memberId);
+    return toMember(row!);
   }
 
   async remove(memberId: string): Promise<void> {
-    await prisma.membership.delete({ where: { id: memberId } });
+    await db.delete(membership).where(eq(membership.id, memberId));
   }
 
   async countActiveLeaders(workspaceId: string): Promise<number> {
-    const count = await prisma.membership.count({
-      where: {
-        workspaceId,
-        status: "active",
-        role: { in: ["leader", "admin"] },
-      },
-    });
-    return count;
+    const [row] = await db
+      .select({ c: count() })
+      .from(membership)
+      .where(
+        and(
+          eq(membership.workspaceId, workspaceId),
+          eq(membership.status, "active"),
+          inArray(membership.role, ["leader", "admin"])
+        )
+      );
+    return Number(row?.c ?? 0);
   }
 
   async emailExists(workspaceId: string, email: string, exceptMemberId?: string): Promise<boolean> {
     const normalized = email.trim().toLowerCase();
-    const member = await prisma.membership.findFirst({
-      where: {
-        workspaceId,
-        ...(exceptMemberId ? { id: { not: exceptMemberId } } : {}),
-        OR: [
-          { invitedEmail: { equals: normalized, mode: "insensitive" } },
-          { user: { email: { equals: normalized, mode: "insensitive" } } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (member) return true;
-    const inv = await prisma.projectInvitation.findUnique({
-      where: { workspaceId_email: { workspaceId, email: normalized } },
-      select: { id: true },
+    const filters = [
+      eq(membership.workspaceId, workspaceId),
+      or(
+        sql`lower(${membership.invitedEmail}) = ${normalized}`,
+        sql`lower(${user.email}) = ${normalized}`
+      ),
+    ];
+    if (exceptMemberId) filters.push(ne(membership.id, exceptMemberId));
+    const member = await db
+      .select({ id: membership.id })
+      .from(membership)
+      .leftJoin(user, eq(user.id, membership.userId))
+      .where(and(...filters))
+      .limit(1);
+    if (member.length > 0) return true;
+    const inv = await db.query.projectInvitation.findFirst({
+      where: and(
+        eq(projectInvitation.workspaceId, workspaceId),
+        eq(projectInvitation.email, normalized)
+      ),
+      columns: { id: true },
     });
     return !!inv;
   }
@@ -348,28 +404,31 @@ export class PrismaMemberRepository implements IMemberRepository {
     invitedById: string
   ): Promise<ProjectInvitation> {
     const normalized = email.trim().toLowerCase();
-    const created = await prisma.projectInvitation.upsert({
-      where: { workspaceId_email: { workspaceId, email: normalized } },
-      create: {
+    const [created] = await db
+      .insert(projectInvitation)
+      .values({
         workspaceId,
         email: normalized,
         projectRole,
         status: "pending",
         invitedById,
-      },
-      update: { projectRole, status: "pending", invitedById },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [projectInvitation.workspaceId, projectInvitation.email],
+        set: { projectRole, status: "pending", invitedById },
+      })
+      .returning();
     return {
-      id: created.id,
-      email: created.email,
-      projectRole: created.projectRole,
-      status: created.status as ProjectInvitation["status"],
-      createdAt: created.createdAt.toISOString(),
+      id: created!.id,
+      email: created!.email,
+      projectRole: created!.projectRole,
+      status: created!.status as ProjectInvitation["status"],
+      createdAt: created!.createdAt.toISOString(),
     };
   }
 
   async revokeInvitation(invitationId: string): Promise<void> {
-    await prisma.projectInvitation.delete({ where: { id: invitationId } });
+    await db.delete(projectInvitation).where(eq(projectInvitation.id, invitationId));
   }
 }
 
@@ -379,20 +438,26 @@ export class PrismaMemberRepository implements IMemberRepository {
 
 export class PrismaKpiRepository implements IKpiRepository {
   async list(workspaceId: string): Promise<ProjectKpi[]> {
-    const rows = await prisma.projectKpi.findMany({
-      where: { workspaceId },
-      orderBy: { kpiKey: "asc" },
-      include: {
-        snapshots: { orderBy: { capturedAt: "asc" }, take: 90 },
-      },
+    const rows = await db.query.projectKpi.findMany({
+      where: eq(projectKpi.workspaceId, workspaceId),
+      orderBy: [asc(projectKpi.kpiKey)],
     });
-    return rows.map((r) => ({
+    const withSnapshots = await Promise.all(
+      rows.map((r) =>
+        db.query.projectKpiSnapshot.findMany({
+          where: eq(projectKpiSnapshot.projectKpiId, r.id),
+          orderBy: [asc(projectKpiSnapshot.capturedAt)],
+          limit: 90,
+        })
+      )
+    );
+    return rows.map((r, i) => ({
       id: r.id,
       kpiKey: r.kpiKey,
       enabled: r.enabled,
       target: r.target,
       alertThreshold: r.alertThreshold,
-      snapshots: r.snapshots.map((s) => ({
+      snapshots: withSnapshots[i].map((s) => ({
         value: s.value,
         capturedAt: s.capturedAt.toISOString(),
       })),
@@ -400,9 +465,11 @@ export class PrismaKpiRepository implements IKpiRepository {
   }
 
   async set(workspaceId: string, entries: KpiConfigEntry[]): Promise<ProjectKpi[]> {
-    await prisma.$transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       const keys = entries.map((e) => e.kpiKey);
-      const existing = await tx.projectKpi.findMany({ where: { workspaceId } });
+      const existing = await tx.query.projectKpi.findMany({
+        where: eq(projectKpi.workspaceId, workspaceId),
+      });
       const existingKeys = new Set(existing.map((e) => e.kpiKey));
 
       for (const entry of entries) {
@@ -412,24 +479,31 @@ export class PrismaKpiRepository implements IKpiRepository {
           alertThreshold: entry.alertThreshold ?? null,
         };
         if (existingKeys.has(entry.kpiKey)) {
-          await tx.projectKpi.update({
-            where: { workspaceId_kpiKey: { workspaceId, kpiKey: entry.kpiKey } },
-            data: payload,
-          });
+          await tx
+            .update(projectKpi)
+            .set(payload)
+            .where(
+              and(
+                eq(projectKpi.workspaceId, workspaceId),
+                eq(projectKpi.kpiKey, entry.kpiKey)
+              )
+            );
         } else {
-          await tx.projectKpi.create({
-            data: { workspaceId, kpiKey: entry.kpiKey, ...payload },
-          });
+          await tx.insert(projectKpi).values({ workspaceId, kpiKey: entry.kpiKey, ...payload });
         }
       }
-      // Disable KPIs no longer present (catalog shrink) but keep their snapshots.
       if (existingKeys.size > 0) {
         const toDisable = [...existingKeys].filter((k) => !keys.includes(k));
         if (toDisable.length) {
-          await tx.projectKpi.updateMany({
-            where: { workspaceId, kpiKey: { in: toDisable } },
-            data: { enabled: false },
-          });
+          await tx
+            .update(projectKpi)
+            .set({ enabled: false })
+            .where(
+              and(
+                eq(projectKpi.workspaceId, workspaceId),
+                inArray(projectKpi.kpiKey, toDisable)
+              )
+            );
         }
       }
     });
@@ -437,13 +511,11 @@ export class PrismaKpiRepository implements IKpiRepository {
   }
 
   async recordSnapshot(workspaceId: string, kpiKey: string, value: number): Promise<void> {
-    const kpi = await prisma.projectKpi.findUnique({
-      where: { workspaceId_kpiKey: { workspaceId, kpiKey } },
+    const kpi = await db.query.projectKpi.findFirst({
+      where: and(eq(projectKpi.workspaceId, workspaceId), eq(projectKpi.kpiKey, kpiKey)),
     });
     if (!kpi) return;
-    await prisma.projectKpiSnapshot.create({
-      data: { projectKpiId: kpi.id, value },
-    });
+    await db.insert(projectKpiSnapshot).values({ projectKpiId: kpi.id, value });
   }
 }
 
@@ -453,10 +525,10 @@ export class PrismaKpiRepository implements IKpiRepository {
 
 export class PrismaAiInsightRepository implements IAiInsightRepository {
   async list(workspaceId: string): Promise<ProjectAiInsight[]> {
-    const rows = await prisma.projectAiInsight.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "desc" },
-      take: 60,
+    const rows = await db.query.projectAiInsight.findMany({
+      where: eq(projectAiInsight.workspaceId, workspaceId),
+      orderBy: [desc(projectAiInsight.createdAt)],
+      limit: 60,
     });
     return rows.map((r) => ({
       id: r.id,
@@ -477,18 +549,18 @@ export class PrismaAiInsightRepository implements IAiInsightRepository {
       detail: string;
     }>
   ): Promise<ProjectAiInsight[]> {
-    await prisma.$transaction(async (tx) => {
-      await tx.projectAiInsight.deleteMany({ where: { workspaceId } });
+    await db.transaction(async (tx) => {
+      await tx.delete(projectAiInsight).where(eq(projectAiInsight.workspaceId, workspaceId));
       if (insights.length > 0) {
-        await tx.projectAiInsight.createMany({
-          data: insights.map((i) => ({
+        await tx.insert(projectAiInsight).values(
+          insights.map((i) => ({
             workspaceId,
             type: i.type,
             severity: i.severity,
             title: i.title,
             detail: i.detail,
-          })),
-        });
+          }))
+        );
       }
     });
     return this.list(workspaceId);
@@ -501,16 +573,14 @@ export class PrismaAiInsightRepository implements IAiInsightRepository {
 
 export class PrismaAuditRepository implements IAuditRepository {
   async record(entry: AuditEntry): Promise<void> {
-    await prisma.auditLog.create({
-      data: {
-        workspaceId: entry.workspaceId,
-        actorId: entry.actorId,
-        action: entry.action,
-        entity: entry.entity,
-        entityId: entry.entityId ?? null,
-        before: entry.before === undefined ? null : JSON.stringify(entry.before),
-        after: entry.after === undefined ? null : JSON.stringify(entry.after),
-      },
+    await db.insert(auditLog).values({
+      workspaceId: entry.workspaceId,
+      actorId: entry.actorId,
+      action: entry.action,
+      entity: entry.entity,
+      entityId: entry.entityId ?? null,
+      before: entry.before === undefined ? null : JSON.stringify(entry.before),
+      after: entry.after === undefined ? null : JSON.stringify(entry.after),
     });
   }
 }

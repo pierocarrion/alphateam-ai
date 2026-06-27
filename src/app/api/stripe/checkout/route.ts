@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { workspaceSubscription } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { getStripe, getPriceId } from "@/server/lib/stripe";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
@@ -39,11 +41,11 @@ export async function POST(request: Request) {
     const returnUrl = parsed.data.returnUrl ?? `${process.env.NEXTAUTH_URL}/settings`;
 
     // Upsert Stripe customer for the workspace.
-    const subscription = await prisma.workspaceSubscription.findUnique({
-      where: { workspaceId },
+    const subscription = await db.query.workspaceSubscription.findFirst({
+      where: eq(workspaceSubscription.workspaceId, workspaceId),
     });
 
-    let customerId = subscription?.stripeCustomerId;
+    let customerId = subscription?.stripeCustomerId ?? null;
     if (!customerId) {
       const customer = await getStripe().customers.create({
         email: user.email ?? undefined,
@@ -51,16 +53,18 @@ export async function POST(request: Request) {
       });
       customerId = customer.id;
 
-      await prisma.workspaceSubscription.upsert({
-        where: { workspaceId },
-        create: {
+      await db
+        .insert(workspaceSubscription)
+        .values({
           workspaceId,
           stripeCustomerId: customerId,
           plan: "free",
           status: "active",
-        },
-        update: { stripeCustomerId: customerId },
-      });
+        })
+        .onConflictDoUpdate({
+          target: workspaceSubscription.workspaceId,
+          set: { stripeCustomerId: customerId },
+        });
     }
 
     const checkoutSession = await getStripe().checkout.sessions.create({

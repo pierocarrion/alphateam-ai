@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { GET, POST } from "./route";
-import { seedMember, getTestPrisma } from "@/tests/helpers/db";
+import { seedMember, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import {
+  channel as channelTable,
+  channelParticipant as channelParticipantTable,
+  message as messageTable,
+} from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 async function seedMemberAndMock() {
   const { user, channel } = await seedMember();
@@ -21,9 +27,11 @@ describe("GET /api/channels/[id]/messages", () => {
   it("returns channel messages for a member", async () => {
     const { user, channel } = await seedMemberAndMock();
 
-    const prisma = await getTestPrisma();
-    await prisma.message.create({
-      data: { channelId: channel.id, userId: user.id, content: "Hello team" },
+    const db = await getTestDb();
+    await db.insert(messageTable).values({
+      channelId: channel.id,
+      userId: user.id,
+      content: "Hello team",
     });
 
     const request = new Request(`http://localhost:3000/api/channels/${channel.id}/messages`);
@@ -61,8 +69,8 @@ describe("POST /api/channels/[id]/messages", () => {
     expect(data.message.text).toBe("I need to finish the report by Friday");
     expect(data.detected).not.toBeNull();
 
-    const prisma = await getTestPrisma();
-    const messages = await prisma.message.findMany({ where: { channelId: channel.id } });
+    const db = await getTestDb();
+    const messages = await db.query.message.findMany({ where: eq(messageTable.channelId, channel.id) });
     expect(messages).toHaveLength(1);
   });
 
@@ -96,16 +104,16 @@ describe("DM channel access", () => {
   async function seedDm() {
     const { user, workspaceId } = await seedMember({ name: "Alice" });
     const partner = await seedMember({ name: "Bob", workspaceId });
-    const prisma = await getTestPrisma();
-    const dm = await prisma.channel.create({
-      data: {
+    const db = await getTestDb();
+    const [dm] = await db.transaction(async (tx) => {
+      const [c] = await tx.insert(channelTable).values({
         workspaceId,
         name: `dm:${[user.id, partner.user.id].sort().join(":")}`,
         type: "dm",
-        participants: {
-          create: [{ userId: user.id }, { userId: partner.user.id }],
-        },
-      },
+      }).returning();
+      await tx.insert(channelParticipantTable).values({ channelId: c!.id, userId: user.id });
+      await tx.insert(channelParticipantTable).values({ channelId: c!.id, userId: partner.user.id });
+      return [c!] as const;
     });
     return { user, partner, dm, workspaceId };
   }

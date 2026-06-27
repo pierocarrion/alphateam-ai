@@ -1,4 +1,6 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { goal, milestone, task, projectTask, membership, user } from "@drizzle/schema";
+import { eq, and, desc, asc } from "drizzle-orm";
 import type { SmartGoalSnapshot } from "../../domain/entities/SmartGoal";
 import {
   CreateSmartGoalInput,
@@ -15,58 +17,62 @@ import {
  */
 export class PrismaGoalProgressRepository implements IGoalProgressRepository {
   async listForWorkspace(workspaceId: string): Promise<GoalSummary[]> {
-    const goals = await prisma.goal.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "desc" },
+    const goals = await db.query.goal.findMany({
+      where: eq(goal.workspaceId, workspaceId),
+      orderBy: [desc(goal.createdAt)],
     });
     return goals.map(toSummary);
   }
 
   async findById(id: string): Promise<GoalSummary | null> {
-    const goal = await prisma.goal.findUnique({ where: { id } });
-    return goal ? toSummary(goal) : null;
+    const goalRow = await db.query.goal.findFirst({ where: eq(goal.id, id) });
+    return goalRow ? toSummary(goalRow) : null;
   }
 
   async loadSnapshot(goalId: string): Promise<SmartGoalSnapshot | null> {
-    const goal = await prisma.goal.findUnique({
-      where: { id: goalId },
-      include: {
-        milestones: { orderBy: { dueDate: "asc" } },
-        tasks: { orderBy: { createdAt: "desc" } },
-        workspace: {
-          select: {
-            memberships: {
-              include: { user: { select: { id: true, name: true } } },
-            },
-          },
-        },
-      },
+    const goalRow = await db.query.goal.findFirst({
+      where: eq(goal.id, goalId),
     });
-    if (!goal) return null;
+    if (!goalRow) return null;
 
-    // ProjectTask (Kanban board) is the table where users actually mark tasks
-    // as done. It has no FK to Goal, so we pull it by workspace and merge it
-    // into the snapshot so the progress engine reflects real work.
-    const projectTasks = await prisma.projectTask.findMany({
-      where: { workspaceId: goal.workspaceId },
-      orderBy: { createdAt: "desc" },
-    });
+    const [milestones, tasks, projectTasks, memberRows] = await Promise.all([
+      db.query.milestone.findMany({
+        where: eq(milestone.goalId, goalId),
+        orderBy: [asc(milestone.dueDate)],
+      }),
+      db.query.task.findMany({
+        where: eq(task.smartGoalId, goalId),
+        orderBy: [desc(task.createdAt)],
+      }),
+      db.query.projectTask.findMany({
+        where: eq(projectTask.workspaceId, goalRow.workspaceId),
+        orderBy: [desc(projectTask.createdAt)],
+      }),
+      db
+        .select({
+          userId: membership.userId,
+          name: user.name,
+        })
+        .from(membership)
+        .leftJoin(user, eq(user.id, membership.userId))
+        .where(eq(membership.workspaceId, goalRow.workspaceId)),
+    ]);
 
     return {
       goal: {
-        id: goal.id,
-        workspaceId: goal.workspaceId,
-        ownerId: goal.ownerId,
-        title: goal.title,
-        specific: goal.specific,
-        measurable: goal.measurable,
-        achievable: goal.achievable,
-        relevant: goal.relevant,
-        deadline: goal.deadline,
-        status: goal.status,
-        createdAt: goal.createdAt,
+        id: goalRow.id,
+        workspaceId: goalRow.workspaceId,
+        ownerId: goalRow.ownerId,
+        title: goalRow.title,
+        specific: goalRow.specific,
+        measurable: goalRow.measurable,
+        achievable: goalRow.achievable,
+        relevant: goalRow.relevant,
+        deadline: goalRow.deadline,
+        status: goalRow.status,
+        createdAt: goalRow.createdAt,
       },
-      milestones: goal.milestones.map((m) => ({
+      milestones: milestones.map((m) => ({
         id: m.id,
         title: m.title,
         status: m.status,
@@ -74,7 +80,7 @@ export class PrismaGoalProgressRepository implements IGoalProgressRepository {
         createdAt: m.createdAt,
       })),
       tasks: [
-        ...goal.tasks.map((t) => ({
+        ...tasks.map((t) => ({
           id: t.id,
           title: t.title,
           status: t.status === "done" ? "done" : "open",
@@ -97,16 +103,17 @@ export class PrismaGoalProgressRepository implements IGoalProgressRepository {
           completedAt: pt.completedAt,
         })),
       ],
-      members: goal.workspace.memberships.map((m) => ({
+      members: memberRows.map((m) => ({
         userId: m.userId,
-        name: m.user.name ?? "Someone",
+        name: m.name ?? "Someone",
       })),
     };
   }
 
   async create(input: CreateSmartGoalInput): Promise<GoalSummary> {
-    const goal = await prisma.goal.create({
-      data: {
+    const [goalRow] = await db
+      .insert(goal)
+      .values({
         workspaceId: input.workspaceId,
         ownerId: input.ownerId,
         title: input.title,
@@ -116,14 +123,18 @@ export class PrismaGoalProgressRepository implements IGoalProgressRepository {
         relevant: input.relevant ?? null,
         deadline: input.deadline ?? null,
         status: "active",
-      },
-    });
-    return toSummary(goal);
+      })
+      .returning();
+    return toSummary(goalRow!);
   }
 
   async update(id: string, patch: UpdateSmartGoalInput): Promise<GoalSummary> {
-    const goal = await prisma.goal.update({ where: { id }, data: patch });
-    return toSummary(goal);
+    const [goalRow] = await db
+      .update(goal)
+      .set({ ...patch })
+      .where(eq(goal.id, id))
+      .returning();
+    return toSummary(goalRow!);
   }
 
   async upsertActiveGoal(
@@ -138,28 +149,30 @@ export class PrismaGoalProgressRepository implements IGoalProgressRepository {
       deadline?: Date | null;
     }
   ): Promise<GoalSummary> {
-    const existing = await prisma.goal.findFirst({
-      where: { workspaceId, status: "active" },
-      orderBy: { createdAt: "desc" },
+    const existing = await db.query.goal.findFirst({
+      where: and(eq(goal.workspaceId, workspaceId), eq(goal.status, "active")),
+      orderBy: [desc(goal.createdAt)],
     });
 
     if (existing) {
-      const updated = await prisma.goal.update({
-        where: { id: existing.id },
-        data: {
+      const [updated] = await db
+        .update(goal)
+        .set({
           title: data.title,
           specific: data.specific ?? null,
           measurable: data.measurable ?? null,
           achievable: data.achievable ?? null,
           relevant: data.relevant ?? null,
           deadline: data.deadline ?? null,
-        },
-      });
-      return toSummary(updated);
+        })
+        .where(eq(goal.id, existing.id))
+        .returning();
+      return toSummary(updated!);
     }
 
-    const created = await prisma.goal.create({
-      data: {
+    const [created] = await db
+      .insert(goal)
+      .values({
         workspaceId,
         ownerId,
         title: data.title,
@@ -169,16 +182,23 @@ export class PrismaGoalProgressRepository implements IGoalProgressRepository {
         relevant: data.relevant ?? null,
         deadline: data.deadline ?? null,
         status: "active",
-      },
-    });
-    return toSummary(created);
+      })
+      .returning();
+    return toSummary(created!);
   }
 }
 
-type PrismaGoalRow = Awaited<ReturnType<typeof prisma.goal.findUnique>> & {};
-type PrismaGoalListRow = Awaited<ReturnType<typeof prisma.goal.findFirst>> & {};
+type GoalRow = {
+  id: string;
+  workspaceId: string;
+  title: string;
+  status: string;
+  ownerId: string;
+  deadline: Date | null;
+  createdAt: Date;
+};
 
-function toSummary(goal: PrismaGoalRow | PrismaGoalListRow): GoalSummary {
+function toSummary(goal: GoalRow): GoalSummary {
   return {
     id: goal.id,
     workspaceId: goal.workspaceId,

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { task, ritualSession } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { requireUser } from "@/server/lib/auth";
 
@@ -26,25 +28,27 @@ export async function POST(request: Request) {
 
     const { taskId, feeling, durationSec } = parsed.data;
 
-    const task = await prisma.task.findFirst({
-      where: { id: taskId, userId: user.id },
+    const taskRow = await db.query.task.findFirst({
+      where: and(eq(task.id, taskId), eq(task.userId, user.id)),
+      columns: { id: true },
     });
-    if (!task) {
+    if (!taskRow) {
       return NextResponse.json(
         { error: "We couldn't find that task." },
         { status: 404 }
       );
     }
 
-    const ritual = await prisma.ritualSession.create({
-      data: {
+    const [ritual] = await db
+      .insert(ritualSession)
+      .values({
         userId: user.id,
-        taskId: task.id,
+        taskId: taskRow.id,
         feeling: feeling ?? null,
         durationSec: durationSec ?? 120,
         startedAt: new Date(),
-      },
-    });
+      })
+      .returning();
 
     return NextResponse.json({ ritual });
   } catch (error) {

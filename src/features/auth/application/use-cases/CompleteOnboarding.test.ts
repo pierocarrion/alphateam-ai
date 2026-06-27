@@ -4,7 +4,9 @@ import {
   completeOnboardingSchema,
 } from "./CompleteOnboarding";
 import { PrismaUserRepository } from "../../infrastructure/repositories/PrismaUserRepository";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
+import { userProfile } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 const createUseCase = () => new CompleteOnboarding(new PrismaUserRepository());
 
@@ -27,8 +29,10 @@ describe("CompleteOnboarding", () => {
     expect(profile.profileId).toBe("multi");
     expect(profile.tone).toBe("balanced");
 
-    const prisma = await getTestPrisma();
-    const row = await prisma.userProfile.findUnique({ where: { userId: user.id } });
+    const db = await getTestDb();
+    const row = await db.query.userProfile.findFirst({
+      where: eq(userProfile.userId, user.id),
+    });
     expect(row?.onboarded).toBe(true);
   });
 

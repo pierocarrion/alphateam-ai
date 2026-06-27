@@ -1,4 +1,18 @@
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  workspace,
+  membership,
+  channel,
+  workspaceSubscription,
+  projectMethodology,
+  projectPhaseState,
+  knowledgeBaseItem,
+  joinRequest,
+  goal,
+  milestone,
+  user,
+} from "@drizzle/schema";
+import { eq, and, or, desc, asc, inArray, ilike, count } from "drizzle-orm";
 import {
   CreateProjectInput,
   IProjectRepository,
@@ -93,84 +107,135 @@ function toJoinRequest(row: {
   };
 }
 
+async function buildSummaries(
+  wsRows: {
+    id: string;
+    name: string;
+    hashtag: string;
+    emoji: string | null;
+    description: string | null;
+    industry: string | null;
+    category: string | null;
+  }[]
+): Promise<ProjectSummary[]> {
+  const ids = wsRows.map((w) => w.id);
+  if (ids.length === 0) return [];
+
+  const [countRows, leaderRows] = await Promise.all([
+    db
+      .select({
+        workspaceId: membership.workspaceId,
+        memberCount: count(),
+      })
+      .from(membership)
+      .where(inArray(membership.workspaceId, ids))
+      .groupBy(membership.workspaceId),
+    db
+      .select({
+        workspaceId: membership.workspaceId,
+        name: user.name,
+      })
+      .from(membership)
+      .leftJoin(user, eq(user.id, membership.userId))
+      .where(
+        and(
+          inArray(membership.workspaceId, ids),
+          inArray(membership.role, ["leader", "admin"])
+        )
+      ),
+  ]);
+
+  const countMap = new Map<string, number>();
+  for (const c of countRows) countMap.set(c.workspaceId, Number(c.memberCount));
+
+  const leaderMap = new Map<string, string | null>();
+  for (const l of leaderRows) {
+    if (!leaderMap.has(l.workspaceId)) {
+      leaderMap.set(l.workspaceId, l.name ?? null);
+    }
+  }
+
+  return wsRows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    hashtag: r.hashtag,
+    emoji: r.emoji,
+    description: r.description,
+    industry: r.industry,
+    category: r.category,
+    memberCount: countMap.get(r.id) ?? 0,
+    leaderName: leaderMap.get(r.id) ?? null,
+  }));
+}
+
 export class PrismaProjectRepository implements IProjectRepository {
   async findByHashtag(hashtag: string): Promise<Project | null> {
-    const row = await prisma.workspace.findUnique({
-      where: { hashtag },
+    const row = await db.query.workspace.findFirst({
+      where: eq(workspace.hashtag, hashtag),
     });
     return row ? toProject(row) : null;
   }
 
   async findById(id: string): Promise<Project | null> {
-    const row = await prisma.workspace.findUnique({ where: { id } });
+    const row = await db.query.workspace.findFirst({
+      where: eq(workspace.id, id),
+    });
     return row ? toProject(row) : null;
   }
 
   async search(query: string): Promise<ProjectSummary[]> {
     const q = query.trim().toLowerCase();
     const where = q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { hashtag: { contains: q, mode: "insensitive" as const } },
-            { description: { contains: q, mode: "insensitive" as const } },
-            { industry: { contains: q, mode: "insensitive" as const } },
-          ],
-        }
-      : {};
+      ? or(
+          ilike(workspace.name, `%${q}%`),
+          ilike(workspace.hashtag, `%${q}%`),
+          ilike(workspace.description, `%${q}%`),
+          ilike(workspace.industry, `%${q}%`)
+        )
+      : undefined;
 
-    const rows = await prisma.workspace.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 25,
-      include: {
-        memberships: {
-          where: { role: { in: ["leader", "admin"] } },
-          include: { user: { select: { name: true } } },
-          take: 1,
-        },
-        _count: { select: { memberships: true } },
-      },
-    });
+    const wsRows = await db
+      .select({
+        id: workspace.id,
+        name: workspace.name,
+        hashtag: workspace.hashtag,
+        emoji: workspace.emoji,
+        description: workspace.description,
+        industry: workspace.industry,
+        category: workspace.category,
+      })
+      .from(workspace)
+      .where(where)
+      .orderBy(desc(workspace.createdAt))
+      .limit(25);
 
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      hashtag: r.hashtag,
-      emoji: r.emoji,
-      description: r.description,
-      industry: r.industry,
-      category: r.category,
-      memberCount: r._count.memberships,
-      leaderName: r.memberships[0]?.user.name ?? null,
-    }));
+    return buildSummaries(wsRows);
   }
 
   async listForUser(userId: string): Promise<ProjectSummary[]> {
-    const rows = await prisma.workspace.findMany({
-      where: { memberships: { some: { userId } } },
-      orderBy: { createdAt: "asc" },
-      include: {
-        memberships: {
-          where: { role: { in: ["leader", "admin"] } },
-          include: { user: { select: { name: true } } },
-          take: 1,
-        },
-        _count: { select: { memberships: true } },
-      },
+    const wsRows = await db
+      .select({
+        id: workspace.id,
+        name: workspace.name,
+        hashtag: workspace.hashtag,
+        emoji: workspace.emoji,
+        description: workspace.description,
+        industry: workspace.industry,
+        category: workspace.category,
+      })
+      .from(membership)
+      .innerJoin(workspace, eq(workspace.id, membership.workspaceId))
+      .where(eq(membership.userId, userId))
+      .orderBy(asc(workspace.createdAt));
+
+    const seen = new Set<string>();
+    const deduped = wsRows.filter((r) => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
     });
 
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      hashtag: r.hashtag,
-      emoji: r.emoji,
-      description: r.description,
-      industry: r.industry,
-      category: r.category,
-      memberCount: r._count.memberships,
-      leaderName: r.memberships[0]?.user.name ?? null,
-    }));
+    return buildSummaries(deduped);
   }
 
   async update(id: string, input: UpdateProjectInput): Promise<Project> {
@@ -183,38 +248,58 @@ export class PrismaProjectRepository implements IProjectRepository {
     if (input.teamSize !== undefined) data.teamSize = input.teamSize || null;
     if (typeof input.emoji === "string") data.emoji = input.emoji;
 
-    const updated = await prisma.workspace.update({
-      where: { id },
-      data,
-    });
-    return toProject(updated);
+    const [updated] = await db
+      .update(workspace)
+      .set(data)
+      .where(eq(workspace.id, id))
+      .returning();
+    return toProject(updated!);
   }
 
   async isMember(userId: string, workspaceId: string): Promise<boolean> {
-    const m = await prisma.membership.findUnique({
-      where: { userId_workspaceId: { userId, workspaceId } },
-      select: { id: true },
-    });
-    return !!m;
+    const rows = await db
+      .select({ id: membership.id })
+      .from(membership)
+      .where(
+        and(
+          eq(membership.userId, userId),
+          eq(membership.workspaceId, workspaceId)
+        )
+      )
+      .limit(1);
+    return rows.length > 0;
   }
 
   async isLeader(userId: string, workspaceId: string): Promise<boolean> {
-    const m = await prisma.membership.findUnique({
-      where: { userId_workspaceId: { userId, workspaceId } },
-      select: { role: true },
-    });
-    return m?.role === "leader" || m?.role === "admin";
+    const rows = await db
+      .select({ role: membership.role })
+      .from(membership)
+      .where(
+        and(
+          eq(membership.userId, userId),
+          eq(membership.workspaceId, workspaceId)
+        )
+      )
+      .limit(1);
+    const role = rows[0]?.role;
+    return role === "leader" || role === "admin";
   }
 
   async hasOpenRequest(
     userId: string,
     workspaceId: string
   ): Promise<boolean> {
-    const r = await prisma.joinRequest.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId } },
-      select: { status: true },
-    });
-    return r?.status === "pending";
+    const rows = await db
+      .select({ status: joinRequest.status })
+      .from(joinRequest)
+      .where(
+        and(
+          eq(joinRequest.workspaceId, workspaceId),
+          eq(joinRequest.userId, userId)
+        )
+      )
+      .limit(1);
+    return rows[0]?.status === "pending";
   }
 
   async create(input: CreateProjectInput): Promise<Project> {
@@ -222,9 +307,10 @@ export class PrismaProjectRepository implements IProjectRepository {
       (k) => k.title.trim().length > 0
     );
 
-    const created = await prisma.$transaction(async (tx) => {
-      const workspace = await tx.workspace.create({
-        data: {
+    const created = await db.transaction(async (tx) => {
+      const [workspaceRow] = await tx
+        .insert(workspace)
+        .values({
           name: input.name,
           slug: input.slug,
           hashtag: input.hashtag,
@@ -233,136 +319,170 @@ export class PrismaProjectRepository implements IProjectRepository {
           category: input.category ?? null,
           emoji: input.emoji ?? "🚀",
           teamSize: input.teamSize ?? null,
-        },
+        })
+        .returning();
+
+      await tx.insert(membership).values({
+        userId: input.leaderUserId,
+        workspaceId: workspaceRow!.id,
+        role: "leader",
       });
 
-      await tx.membership.create({
-        data: {
-          userId: input.leaderUserId,
-          workspaceId: workspace.id,
-          role: "leader",
-        },
+      await tx.insert(workspaceSubscription).values({
+        workspaceId: workspaceRow!.id,
+        plan: "free",
+        status: "active",
       });
 
-      await tx.workspaceSubscription.create({
-        data: { workspaceId: workspace.id, plan: "free", status: "active" },
+      await tx.insert(projectMethodology).values({
+        workspaceId: workspaceRow!.id,
+        methodologyKey: input.methodology,
+        tier: "primary",
       });
 
-      await tx.projectMethodology.create({
-        data: {
-          workspaceId: workspace.id,
-          methodologyKey: input.methodology,
-          tier: "primary",
-        },
-      });
-
-      // Siembra las fases/estaciones de la metodología (estado "not_started")
-      // para que el proyecto nazca con su base visual, sin obligar al usuario.
       const phases = getMethodologyPhases(input.methodology);
       if (phases.length > 0) {
-        await tx.projectPhaseState.createMany({
-          data: phases.map((p) => ({
-            workspaceId: workspace.id,
-            methodologyKey: input.methodology,
-            phaseKey: p.phaseKey,
-            status: "not_started" as const,
-          })),
-          skipDuplicates: true,
-        });
+        await tx
+          .insert(projectPhaseState)
+          .values(
+            phases.map((p) => ({
+              workspaceId: workspaceRow!.id,
+              methodologyKey: input.methodology,
+              phaseKey: p.phaseKey,
+              status: "not_started" as const,
+            }))
+          )
+          .onConflictDoNothing();
       }
 
-      await tx.channel.create({
-        data: {
-          workspaceId: workspace.id,
-          name: "general",
-          type: "channel",
-        },
+      await tx.insert(channel).values({
+        workspaceId: workspaceRow!.id,
+        name: "general",
+        type: "channel",
       });
 
       if (kb.length > 0) {
-        await tx.knowledgeBaseItem.createMany({
-          data: kb.map((k) => ({
-            workspaceId: workspace.id,
+        await tx.insert(knowledgeBaseItem).values(
+          kb.map((k) => ({
+            workspaceId: workspaceRow!.id,
             title: k.title.trim(),
             content: k.content.trim(),
             sourceUrl: k.sourceUrl?.trim() || null,
-          })),
-        });
+          }))
+        );
       }
 
       if (input.goal?.title?.trim()) {
-        const goal = await tx.goal.create({
-          data: {
-            workspaceId: workspace.id,
+        const [goalRow] = await tx
+          .insert(goal)
+          .values({
+            workspaceId: workspaceRow!.id,
             ownerId: input.leaderUserId,
             title: input.goal.title.trim(),
             status: "active",
-          },
-        });
+          })
+          .returning();
         if (input.goal.milestone?.trim()) {
-          await tx.milestone.create({
-            data: {
-              goalId: goal.id,
-              title: input.goal.milestone.trim(),
-              status: "pending",
-            },
+          await tx.insert(milestone).values({
+            goalId: goalRow!.id,
+            title: input.goal.milestone.trim(),
+            status: "pending",
           });
         }
       }
 
-      return workspace;
+      return workspaceRow!;
     });
 
     return toProject(created);
   }
 
   async createJoinRequest(input: RequestToJoinInput): Promise<JoinRequest> {
-    const row = await prisma.joinRequest.create({
-      data: {
+    const [row] = await db
+      .insert(joinRequest)
+      .values({
         workspaceId: input.workspaceId,
         userId: input.userId,
         message: input.message?.trim() || null,
         status: "pending",
-      },
-    });
-    return toJoinRequest(row);
+      })
+      .returning();
+    return toJoinRequest(row!);
   }
 
   async findRequestByUser(
     userId: string,
     workspaceId: string
   ): Promise<JoinRequest | null> {
-    const row = await prisma.joinRequest.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId } },
-    });
-    return row ? toJoinRequest(row) : null;
+    const rows = await db
+      .select()
+      .from(joinRequest)
+      .where(
+        and(
+          eq(joinRequest.workspaceId, workspaceId),
+          eq(joinRequest.userId, userId)
+        )
+      )
+      .limit(1);
+    return rows[0] ? toJoinRequest(rows[0]) : null;
   }
 
   async listPendingRequests(
     workspaceId: string
   ): Promise<PendingRequestWithUser[]> {
-    const rows = await prisma.joinRequest.findMany({
-      where: { workspaceId, status: "pending" },
-      orderBy: { createdAt: "asc" },
-      include: { user: { select: { name: true, email: true } } },
-    });
+    const rows = await db
+      .select({
+        id: joinRequest.id,
+        workspaceId: joinRequest.workspaceId,
+        userId: joinRequest.userId,
+        message: joinRequest.message,
+        status: joinRequest.status,
+        decidedById: joinRequest.decidedById,
+        decidedAt: joinRequest.decidedAt,
+        createdAt: joinRequest.createdAt,
+        userName: user.name,
+        userEmail: user.email,
+      })
+      .from(joinRequest)
+      .leftJoin(user, eq(user.id, joinRequest.userId))
+      .where(
+        and(
+          eq(joinRequest.workspaceId, workspaceId),
+          eq(joinRequest.status, "pending")
+        )
+      )
+      .orderBy(asc(joinRequest.createdAt));
     return rows.map((r) => ({
       ...toJoinRequest(r),
-      userName: r.user.name,
-      userEmail: r.user.email,
+      userName: r.userName,
+      userEmail: r.userEmail,
     }));
   }
 
   async findRequest(id: string): Promise<JoinRequestWithUser | null> {
-    const row = await prisma.joinRequest.findUnique({
-      where: { id },
-      include: { user: { select: { name: true, email: true } } },
-    });
+    const rows = await db
+      .select({
+        id: joinRequest.id,
+        workspaceId: joinRequest.workspaceId,
+        userId: joinRequest.userId,
+        message: joinRequest.message,
+        status: joinRequest.status,
+        decidedById: joinRequest.decidedById,
+        decidedAt: joinRequest.decidedAt,
+        createdAt: joinRequest.createdAt,
+        userName: user.name,
+        userEmail: user.email,
+      })
+      .from(joinRequest)
+      .leftJoin(user, eq(user.id, joinRequest.userId))
+      .where(eq(joinRequest.id, id))
+      .limit(1);
+    const row = rows[0];
     if (!row) return null;
     return {
       ...toJoinRequest(row),
-      userName: row.user.name,
-      userEmail: row.user.email,
+      userName: row.userName,
+      userEmail: row.userEmail,
     };
   }
 
@@ -371,48 +491,44 @@ export class PrismaProjectRepository implements IProjectRepository {
     decision: JoinRequestStatus,
     decidedById: string
   ): Promise<JoinRequest> {
-    const updated = await prisma.$transaction(async (tx) => {
-      const row = await tx.joinRequest.update({
-        data: {
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(joinRequest)
+        .set({
           status: decision,
           decidedById,
           decidedAt: new Date(),
-        },
-        where: { id },
-      });
+        })
+        .where(eq(joinRequest.id, id))
+        .returning();
 
-      if (decision === "approved") {
-        await tx.membership.upsert({
-          where: {
-            userId_workspaceId: {
-              userId: row.userId,
-              workspaceId: row.workspaceId,
-            },
-          },
-          create: {
+      if (decision === "approved" && row) {
+        await tx
+          .insert(membership)
+          .values({
             userId: row.userId,
             workspaceId: row.workspaceId,
             role: "member",
-          },
-          update: {},
-        });
+          })
+          .onConflictDoNothing();
       }
 
-      return row;
+      return row!;
     });
 
     return toJoinRequest(updated);
   }
 
   async findOrCreateCommunity(): Promise<Project> {
-    const existing = await prisma.workspace.findUnique({
-      where: { hashtag: COMMUNITY_HASHTAG },
+    const existing = await db.query.workspace.findFirst({
+      where: eq(workspace.hashtag, COMMUNITY_HASHTAG),
     });
     if (existing) return toProject(existing);
 
-    const created = await prisma.$transaction(async (tx) => {
-      const workspace = await tx.workspace.create({
-        data: {
+    const created = await db.transaction(async (tx) => {
+      const [workspaceRow] = await tx
+        .insert(workspace)
+        .values({
           name: COMMUNITY_PROJECT.name,
           slug: COMMUNITY_PROJECT.slug,
           hashtag: COMMUNITY_PROJECT.hashtag,
@@ -420,33 +536,37 @@ export class PrismaProjectRepository implements IProjectRepository {
           industry: COMMUNITY_PROJECT.industry,
           category: COMMUNITY_PROJECT.category,
           emoji: COMMUNITY_PROJECT.emoji,
-        },
+        })
+        .returning();
+      await tx.insert(workspaceSubscription).values({
+        workspaceId: workspaceRow!.id,
+        plan: "free",
+        status: "active",
       });
-      await tx.workspaceSubscription.create({
-        data: { workspaceId: workspace.id, plan: "free", status: "active" },
+      await tx.insert(channel).values({
+        workspaceId: workspaceRow!.id,
+        name: "general",
+        type: "channel",
       });
-      await tx.channel.create({
-        data: { workspaceId: workspace.id, name: "general", type: "channel" },
-      });
-      return workspace;
+      return workspaceRow!;
     });
 
     return toProject(created);
   }
 
   async addMember(workspaceId: string, userId: string): Promise<void> {
-    await prisma.membership.upsert({
-      where: { userId_workspaceId: { userId, workspaceId } },
-      create: { workspaceId, userId, role: "member" },
-      update: {},
-    });
+    await db
+      .insert(membership)
+      .values({ workspaceId, userId, role: "member" })
+      .onConflictDoNothing();
   }
 
   async listKnowledge(workspaceId: string): Promise<KnowledgeBaseItem[]> {
-    const rows = await prisma.knowledgeBaseItem.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "asc" },
-    });
+    const rows = await db
+      .select()
+      .from(knowledgeBaseItem)
+      .where(eq(knowledgeBaseItem.workspaceId, workspaceId))
+      .orderBy(asc(knowledgeBaseItem.createdAt));
     return rows.map(toKnowledgeBaseItem);
   }
 
@@ -454,15 +574,16 @@ export class PrismaProjectRepository implements IProjectRepository {
     workspaceId: string,
     item: { title: string; content: string; sourceUrl?: string }
   ): Promise<KnowledgeBaseItem> {
-    const row = await prisma.knowledgeBaseItem.create({
-      data: {
+    const [row] = await db
+      .insert(knowledgeBaseItem)
+      .values({
         workspaceId,
         title: item.title.trim(),
         content: item.content.trim(),
         sourceUrl: item.sourceUrl?.trim() || null,
-      },
-    });
-    return toKnowledgeBaseItem(row);
+      })
+      .returning();
+    return toKnowledgeBaseItem(row!);
   }
 
   async updateKnowledge(
@@ -479,14 +600,15 @@ export class PrismaProjectRepository implements IProjectRepository {
     if (patch.sourceUrl !== undefined) {
       data.sourceUrl = patch.sourceUrl?.trim() || null;
     }
-    const row = await prisma.knowledgeBaseItem.update({
-      where: { id },
-      data,
-    });
-    return toKnowledgeBaseItem(row);
+    const [row] = await db
+      .update(knowledgeBaseItem)
+      .set(data)
+      .where(eq(knowledgeBaseItem.id, id))
+      .returning();
+    return toKnowledgeBaseItem(row!);
   }
 
   async deleteKnowledge(id: string): Promise<void> {
-    await prisma.knowledgeBaseItem.delete({ where: { id } });
+    await db.delete(knowledgeBaseItem).where(eq(knowledgeBaseItem.id, id));
   }
 }

@@ -17,7 +17,15 @@ import {
   generateAlphaChannelReply,
   maybeCaptureLeaderAnswer,
 } from "./chatKnowledge";
-import { getTestPrisma, seedWorkspace } from "@/tests/helpers/db";
+import { getTestDb, seedWorkspace } from "@/tests/helpers/db";
+import { eq } from "drizzle-orm";
+import {
+  user as userTable,
+  userProfile,
+  membership,
+  message as messageTable,
+  knowledgeBaseItem,
+} from "@drizzle/schema";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -51,10 +59,12 @@ describe("isMentionedAlpha", () => {
 
 describe("generateAlphaChannelReply", () => {
   it("grounds the reply in the project knowledge base", async () => {
-    const prisma = await getTestPrisma();
+    const db = await getTestDb();
     const { workspace } = await seedWorkspace();
-    await prisma.knowledgeBaseItem.create({
-      data: { workspaceId: workspace.id, title: "Refunds", content: "Refunds within 30 days." },
+    await db.insert(knowledgeBaseItem).values({
+      workspaceId: workspace.id,
+      title: "Refunds",
+      content: "Refunds within 30 days.",
     });
 
     mocks.generateAlphaResponse.mockResolvedValue({
@@ -103,35 +113,61 @@ describe("generateAlphaChannelReply", () => {
 
 describe("maybeCaptureLeaderAnswer", () => {
   async function seedConversation() {
-    const prisma = await getTestPrisma();
+    const db = await getTestDb();
     const { workspace, channel } = await seedWorkspace();
 
-    const leader = await prisma.user.create({
-      data: { name: "Lead", email: `lead-${crypto.randomUUID()}@example.com`, passwordHash: "x", profile: { create: {} } },
+    const [leader] = await db.transaction(async (tx) => {
+      const [u] = await tx
+        .insert(userTable)
+        .values({
+          name: "Lead",
+          email: `lead-${crypto.randomUUID()}@example.com`,
+          passwordHash: "x",
+        })
+        .returning();
+      await tx.insert(userProfile).values({ userId: u!.id });
+      return [u!] as const;
     });
-    await prisma.membership.create({
-      data: { userId: leader.id, workspaceId: workspace.id, role: "leader" },
-    });
+    await db
+      .insert(membership)
+      .values({ userId: leader.id, workspaceId: workspace.id, role: "leader" });
 
-    const member = await prisma.user.create({
-      data: { name: "Mem", email: `mem-${crypto.randomUUID()}@example.com`, passwordHash: "x", profile: { create: {} } },
+    const [member] = await db.transaction(async (tx) => {
+      const [u] = await tx
+        .insert(userTable)
+        .values({
+          name: "Mem",
+          email: `mem-${crypto.randomUUID()}@example.com`,
+          passwordHash: "x",
+        })
+        .returning();
+      await tx.insert(userProfile).values({ userId: u!.id });
+      return [u!] as const;
     });
-    await prisma.membership.create({
-      data: { userId: member.id, workspaceId: workspace.id, role: "member" },
-    });
+    await db
+      .insert(membership)
+      .values({ userId: member.id, workspaceId: workspace.id, role: "member" });
 
-    await prisma.message.create({
-      data: { channelId: channel.id, userId: member.id, content: "How do I reset my password?" },
-    });
-    await prisma.message.create({
-      data: { channelId: channel.id, userId: leader.id, content: "Go to settings and click Reset password." },
-    });
+    await db
+      .insert(messageTable)
+      .values({
+        channelId: channel.id,
+        userId: member.id,
+        content: "How do I reset my password?",
+      });
+    await db
+      .insert(messageTable)
+      .values({
+        channelId: channel.id,
+        userId: leader.id,
+        content: "Go to settings and click Reset password.",
+      });
 
-    return { workspace, channel, leader, member, prisma };
+    return { workspace, channel, leader, member, db };
   }
 
   it("captures a leader's substantive answer to a member question", async () => {
-    const { workspace, channel, leader, prisma } = await seedConversation();
+    const { workspace, channel, leader, db } = await seedConversation();
 
     mocks.extractLeaderAnswerToKnowledge.mockResolvedValue({
       ok: true,
@@ -155,7 +191,9 @@ describe("maybeCaptureLeaderAnswer", () => {
     expect(item).not.toBeNull();
     expect(item?.title).toBe("Reset password");
 
-    const kb = await prisma.knowledgeBaseItem.findMany({ where: { workspaceId: workspace.id } });
+    const kb = await db.query.knowledgeBaseItem.findMany({
+      where: eq(knowledgeBaseItem.workspaceId, workspace.id),
+    });
     expect(kb).toHaveLength(1);
     expect(kb[0].title).toBe("Reset password");
     expect(mocks.extractLeaderAnswerToKnowledge).toHaveBeenCalledOnce();
@@ -208,12 +246,15 @@ describe("maybeCaptureLeaderAnswer", () => {
 
   it("returns null when there is no prior member question", async () => {
     const { workspace, channel, leader, member } = await seedConversation();
-    const prisma = await getTestPrisma();
-    // Remove the member's question, leaving only a non-question member message.
-    await prisma.message.deleteMany({ where: { userId: member.id } });
-    await prisma.message.create({
-      data: { channelId: channel.id, userId: member.id, content: "Good morning team" },
-    });
+    const db = await getTestDb();
+    await db.delete(messageTable).where(eq(messageTable.userId, member.id));
+    await db
+      .insert(messageTable)
+      .values({
+        channelId: channel.id,
+        userId: member.id,
+        content: "Good morning team",
+      });
 
     const item = await maybeCaptureLeaderAnswer({
       workspaceId: workspace.id,

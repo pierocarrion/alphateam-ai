@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/server/lib/stripe";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { workspaceSubscription, membership } from "@drizzle/schema";
+import { eq, and, inArray, asc } from "drizzle-orm";
 import Stripe from "stripe";
 import { jsonError, toFriendlyMessage } from "@/server/lib/apiErrors";
 import { notifyUser } from "@/server/lib/notifications";
@@ -14,19 +16,19 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 async function findOwnerUserIdBySubscription(
   subscriptionId: string
 ): Promise<{ userId: string; workspaceId: string } | null> {
-  const sub = await prisma.workspaceSubscription.findFirst({
-    where: { stripeSubscriptionId: subscriptionId },
-    select: { workspaceId: true },
+  const sub = await db.query.workspaceSubscription.findFirst({
+    where: eq(workspaceSubscription.stripeSubscriptionId, subscriptionId),
+    columns: { workspaceId: true },
   });
   if (!sub) return null;
-  const leader = await prisma.membership.findFirst({
-    where: {
-      workspaceId: sub.workspaceId,
-      role: { in: ["leader", "admin"] },
-      status: "active",
-    },
-    orderBy: { joinedAt: "asc" },
-    select: { userId: true },
+  const leader = await db.query.membership.findFirst({
+    where: and(
+      eq(membership.workspaceId, sub.workspaceId),
+      inArray(membership.role, ["leader", "admin"]),
+      eq(membership.status, "active")
+    ),
+    orderBy: asc(membership.joinedAt),
+    columns: { userId: true },
   });
   return leader ? { userId: leader.userId, workspaceId: sub.workspaceId } : null;
 }
@@ -59,21 +61,23 @@ export async function POST(request: Request) {
         const workspaceId = session.metadata?.workspaceId;
         const plan = (session.metadata?.plan as "team" | "business") ?? "team";
         if (workspaceId && session.subscription) {
-          await prisma.workspaceSubscription.upsert({
-            where: { workspaceId },
-            create: {
+          await db
+            .insert(workspaceSubscription)
+            .values({
               workspaceId,
               stripeCustomerId: session.customer as string,
               stripeSubscriptionId: session.subscription as string,
               plan,
               status: "active",
-            },
-            update: {
-              stripeSubscriptionId: session.subscription as string,
-              plan,
-              status: "active",
-            },
-          });
+            })
+            .onConflictDoUpdate({
+              target: workspaceSubscription.workspaceId,
+              set: {
+                stripeSubscriptionId: session.subscription as string,
+                plan,
+                status: "active",
+              },
+            });
         }
         break;
       }
@@ -83,10 +87,10 @@ export async function POST(request: Request) {
         // Stripe Invoice types omit subscription in some versions; cast safely.
         const subscriptionId = (invoice as unknown as { subscription?: string }).subscription;
         if (subscriptionId) {
-          await prisma.workspaceSubscription.updateMany({
-            where: { stripeSubscriptionId: subscriptionId },
-            data: { status: "past_due" },
-          });
+          await db
+            .update(workspaceSubscription)
+            .set({ status: "past_due" })
+            .where(eq(workspaceSubscription.stripeSubscriptionId, subscriptionId));
           const owner = await findOwnerUserIdBySubscription(subscriptionId);
           if (owner) {
             await notifyUser({
@@ -105,10 +109,10 @@ export async function POST(request: Request) {
 
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        await prisma.workspaceSubscription.updateMany({
-          where: { stripeSubscriptionId: sub.id },
-          data: { status: "cancelled", plan: "free" },
-        });
+        await db
+          .update(workspaceSubscription)
+          .set({ status: "cancelled", plan: "free" })
+          .where(eq(workspaceSubscription.stripeSubscriptionId, sub.id));
         const owner = await findOwnerUserIdBySubscription(sub.id);
         if (owner) {
           await notifyUser({

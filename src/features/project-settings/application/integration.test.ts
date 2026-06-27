@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getTestPrisma, resetDatabase, seedMember, seedUser } from "@/tests/helpers/db";
+import { getTestDb, resetDatabase, seedMember, seedUser } from "@/tests/helpers/db";
+import { eq, and, count } from "drizzle-orm";
+import { membership, projectKpiSnapshot } from "@drizzle/schema";
 import { __resetProjectSettingsDeps, getProjectSettingsDeps } from "../infrastructure/container";
 import { SaveSmartGoal } from "../application/use-cases/SaveSmartGoal";
 import { SetMethodology } from "../application/use-cases/SetMethodology";
@@ -12,12 +14,14 @@ import { ConfigureKpis } from "../application/use-cases/ConfigureKpis";
 import { UserFacingError } from "@/server/lib/errors";
 
 async function seedLeader() {
-  const prisma = await getTestPrisma();
+  const db = await getTestDb();
   const { user, workspaceId } = await seedMember({ name: "Leader" });
-  await prisma.membership.updateMany({
-    where: { userId: user.id, workspaceId },
-    data: { role: "leader", projectRole: "project_manager", status: "active" },
-  });
+  await db
+    .update(membership)
+    .set({ role: "leader", projectRole: "project_manager", status: "active" })
+    .where(
+      and(eq(membership.userId, user.id), eq(membership.workspaceId, workspaceId))
+    );
   return { user, workspaceId };
 }
 
@@ -141,10 +145,12 @@ describe("project-settings integration", () => {
     expect(velocity?.enabled).toBe(true);
     expect(velocity?.target).toBe(42);
 
-    const prisma = await getTestPrisma();
-    const snapshotsBefore = await prisma.projectKpiSnapshot.count();
+    const db = await getTestDb();
+    const [beforeRow] = await db.select({ c: count() }).from(projectKpiSnapshot);
+    const snapshotsBefore = beforeRow.c;
     await deps.kpiRepository.recordSnapshot(workspaceId, "team_velocity", 40);
-    const snapshotsAfter = await prisma.projectKpiSnapshot.count();
+    const [afterRow] = await db.select({ c: count() }).from(projectKpiSnapshot);
+    const snapshotsAfter = afterRow.c;
     expect(snapshotsAfter - snapshotsBefore).toBe(1);
   });
 

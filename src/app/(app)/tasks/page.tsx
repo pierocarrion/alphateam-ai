@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, membership } from "@drizzle/schema";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { Icon } from "@/shared/ui";
 import { TasksBoard } from "@/features/project-tasks/presentation/components/TasksBoard";
@@ -13,26 +15,37 @@ export default async function TasksPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true },
   });
   if (!user) redirect("/login");
 
   const { active } = await getActiveWorkspace(user.id);
   if (!active) redirect("/setup");
 
-  const memberships = await prisma.membership.findMany({
-    where: { workspaceId: active.workspaceId, status: "active" },
-    include: { user: { select: { id: true, name: true } } },
-    orderBy: [{ role: "desc" }, { joinedAt: "asc" }],
-  });
+  const rows = await db
+    .select({
+      role: membership.role,
+      userId: userTable.id,
+      userName: userTable.name,
+      joinedAt: membership.joinedAt,
+    })
+    .from(membership)
+    .leftJoin(userTable, eq(userTable.id, membership.userId))
+    .where(
+      and(
+        eq(membership.workspaceId, active.workspaceId),
+        eq(membership.status, "active")
+      )
+    )
+    .orderBy(desc(membership.role), asc(membership.joinedAt));
 
-  const members: ProjectMemberOption[] = memberships.map((m) => ({
-    id: m.user.id,
-    name: m.user.name ?? "Someone",
+  const members: ProjectMemberOption[] = rows.map((m) => ({
+    id: m.userId!,
+    name: m.userName ?? "Someone",
     role: m.role,
-    isYou: m.user.id === user.id,
+    isYou: m.userId === user.id,
   }));
 
   const isLeader = active.role === "leader" || active.role === "admin";

@@ -1,7 +1,16 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  userProfile,
+  workspace as workspaceTable,
+  membership,
+  goal,
+  milestone as milestoneTable,
+} from "@drizzle/schema";
+import { eq, asc } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { computeLoadBalance, computeWorkspaceMood } from "@/server/lib/metrics";
 import { personIdFromName } from "@/shared/lib/person";
@@ -14,28 +23,49 @@ export default async function CrewPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: { profile: true },
-  });
+  const user = await db
+    .select({
+      id: userTable.id,
+      tone: userProfile.tone,
+    })
+    .from(userTable)
+    .leftJoin(userProfile, eq(userProfile.userId, userTable.id))
+    .where(eq(userTable.email, session.user.email))
+    .then((r) => r[0] ?? null);
   if (!user) redirect("/login");
 
   const { active } = await getActiveWorkspace(user.id);
   if (!active) redirect("/setup");
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: active.workspaceId },
-    include: {
-      memberships: { include: { user: { select: { id: true, name: true } } } },
-      goals: {
-        include: { milestones: { orderBy: { dueDate: "asc" } } },
-        take: 1,
-      },
-    },
+  const workspace = await db.query.workspace.findFirst({
+    where: eq(workspaceTable.id, active.workspaceId),
   });
   if (!workspace) redirect("/setup");
 
-  const warm = user.profile?.tone === "balanced" ? false : true;
+  const [membershipRows, goals] = await Promise.all([
+    db
+      .select({ userId: membership.userId, userName: userTable.name })
+      .from(membership)
+      .leftJoin(userTable, eq(userTable.id, membership.userId))
+      .where(eq(membership.workspaceId, workspace.id)),
+    db.query.goal.findMany({
+      where: eq(goal.workspaceId, workspace.id),
+      limit: 1,
+    }),
+  ]);
+
+  const goalRow = goals[0];
+  const milestoneRow = goalRow
+    ? (
+        await db.query.milestone.findMany({
+          where: eq(milestoneTable.goalId, goalRow.id),
+          orderBy: asc(milestoneTable.dueDate),
+          limit: 1,
+        })
+      )[0] ?? null
+    : null;
+
+  const warm = user.tone === "balanced" ? false : true;
   const locale = await getLocale();
 
   const mood = await computeWorkspaceMood(workspace.id);
@@ -53,15 +83,14 @@ export default async function CrewPage() {
       }
     : null;
 
-  const goal = workspace.goals[0];
-  const contributorsAll = workspace.memberships
-    .map((m) => personIdFromName(m.user.name ?? "") as PersonId)
+  const contributorsAll = membershipRows
+    .map((m) => personIdFromName(m.userName ?? "") as PersonId)
     .filter((p) => p.length > 0);
-  const milestone = goal?.milestones[0]
+  const milestone = milestoneRow
     ? {
-        title: goal.milestones[0].title,
-        due: goal.milestones[0].dueDate
-          ? formatDaysUntil(goal.milestones[0].dueDate, locale)
+        title: milestoneRow.title,
+        due: milestoneRow.dueDate
+          ? formatDaysUntil(milestoneRow.dueDate, locale)
           : t(locale, "crew.soon"),
         contributors: contributorsAll.length
           ? contributorsAll.slice(0, 4)

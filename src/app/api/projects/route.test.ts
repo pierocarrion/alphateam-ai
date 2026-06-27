@@ -1,10 +1,12 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { POST } from "./route";
-import { seedUser, resetDatabase, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, resetDatabase, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest } from "@/tests/helpers/fetch";
 import { CreateProject } from "@/features/projects/application/use-cases/CreateProject";
 import { PrismaProjectRepository } from "@/features/projects/infrastructure/repositories/PrismaProjectRepository";
+import { membership as membershipTable } from "@drizzle/schema";
+import { and, eq } from "drizzle-orm";
 
 const createProject = new CreateProject(new PrismaProjectRepository());
 
@@ -54,14 +56,12 @@ describe("POST /api/projects", () => {
     expect(response.status).toBe(200);
     expect(data.project.hashtag).toBe("#q3-launch");
 
-    const prisma = await getTestPrisma();
-    const membership = await prisma.membership.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId: user.id,
-          workspaceId: data.project.id,
-        },
-      },
+    const db = await getTestDb();
+    const membership = await db.query.membership.findFirst({
+      where: and(
+        eq(membershipTable.userId, user.id),
+        eq(membershipTable.workspaceId, data.project.id)
+      ),
     });
     expect(membership?.role).toBe("leader");
   });

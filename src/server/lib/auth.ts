@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "./prisma";
+import { db } from "./db";
+import { user } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
+import { toSemanticDbError } from "./dbErrors";
 
 const MSG_SIGN_IN = "Please sign in to continue.";
 const MSG_NO_ACCOUNT = "We couldn't find your account. Please sign in again.";
@@ -34,33 +37,39 @@ export async function requireUser(): Promise<RequireUserResult | RequireUserErro
   // over the email, because a linked Google account may carry an email that
   // differs from — or even collides with — another user's email.
   const userId = (session.user as { id?: string }).id;
-  let user = null as null | { id: string; email: string | null };
+  let userRow = null as null | { id: string; email: string | null };
   if (userId) {
-    user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true },
-    });
+    userRow = (await db.query.user.findFirst({
+      where: eq(user.id, userId),
+      columns: { id: true, email: true },
+    })) ?? null;
   }
-  if (!user) {
-    user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, email: true },
-    });
+  if (!userRow) {
+    userRow = (await db.query.user.findFirst({
+      where: eq(user.email, session.user.email),
+      columns: { id: true, email: true },
+    })) ?? null;
   }
 
-  if (!user) {
+  if (!userRow) {
     return {
       user: null,
       response: NextResponse.json({ error: MSG_NO_ACCOUNT }, { status: 404 }),
     };
   }
 
-  return { user, response: null };
+  return { user: userRow, response: null };
 }
 
 export function isPrismaConnectionError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const code = (error as { code?: unknown }).code;
-  if (typeof code !== "string") return false;
-  return ["P1001", "P1002", "P1008", "P2024"].includes(code);
+  if (typeof code === "string" && ["P1001", "P1002", "P1008", "P2024"].includes(code)) {
+    return true;
+  }
+  const semantic = toSemanticDbError(error);
+  if (semantic && semantic.code === "P2024") {
+    return true;
+  }
+  return false;
 }

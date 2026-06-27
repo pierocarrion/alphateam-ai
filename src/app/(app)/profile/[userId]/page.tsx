@@ -2,7 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  userProfile,
+  membership as membershipTable,
+} from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { sumRecoveredMinutesThisWeek } from "@/server/lib/metrics";
 import { isGoogleConnected } from "@/server/services/googleCalendar";
@@ -36,9 +42,9 @@ export default async function ProfilePage({
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const viewer = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
+  const viewer = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true },
   });
   if (!viewer) redirect("/login");
 
@@ -47,28 +53,27 @@ export default async function ProfilePage({
 
   const { userId } = await params;
 
-  const profiled = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      createdAt: true,
-      profile: { select: { role: true } },
-    },
+  const profiled = await db.query.user.findFirst({
+    where: eq(userTable.id, userId),
+    columns: { id: true, name: true, createdAt: true },
   });
 
   if (!profiled) redirect("/home");
 
-  // The profiled user's membership in the active workspace (also gates access:
-  // you can only view profiles of people who share your active workspace).
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_workspaceId: { userId, workspaceId: active.workspaceId },
-    },
-    select: { role: true, joinedAt: true },
+  const membership = await db.query.membership.findFirst({
+    where: and(
+      eq(membershipTable.userId, userId),
+      eq(membershipTable.workspaceId, active.workspaceId)
+    ),
+    columns: { role: true, joinedAt: true },
   });
 
   if (!membership) redirect("/home");
+
+  const profiledProfile = await db.query.userProfile.findFirst({
+    where: eq(userProfile.userId, userId),
+    columns: { role: true },
+  });
 
   const isYou = profiled.id === viewer.id;
   const who = personIdFromName(profiled.name ?? "Someone") as PersonId;
@@ -84,7 +89,7 @@ export default async function ProfilePage({
   ]);
 
   const role = roleLabel(membership.role);
-  const selfRole = profiled.profile?.role;
+  const selfRole = profiledProfile?.role;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">

@@ -1,4 +1,13 @@
-import { prisma } from "./prisma";
+import { db } from "@/server/lib/db";
+import {
+  task as taskTable,
+  ritualSession,
+  userMetric,
+  membership as membershipTable,
+  teamMetric,
+  user as userTable,
+} from "@drizzle/schema";
+import { and, eq, gte, inArray, count, asc } from "drizzle-orm";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -24,9 +33,9 @@ export async function recordRitualCompletion(opts: {
 
   let estimatedMinutes: number | null = null;
   if (taskId) {
-    const task = await prisma.task.findFirst({
-      where: { id: taskId, userId },
-      select: { estimatedMinutes: true },
+    const task = await db.query.task.findFirst({
+      where: and(eq(taskTable.id, taskId), eq(taskTable.userId, userId)),
+      columns: { estimatedMinutes: true },
     });
     estimatedMinutes = task?.estimatedMinutes ?? null;
   }
@@ -36,37 +45,33 @@ export async function recordRitualCompletion(opts: {
       ? estimatedMinutes
       : Math.max(2, Math.round((durationSec ?? 120) / 60));
 
-  await prisma.ritualSession.update({
-    where: { id: ritualId },
-    data: { recoveredMinutes },
-  });
+  await db
+    .update(ritualSession)
+    .set({ recoveredMinutes })
+    .where(eq(ritualSession.id, ritualId));
 
-  await prisma.userMetric.createMany({
-    data: [
-      { userId, date: now, type: "rituals_completed", value: 1 },
-      { userId, date: now, type: "recovered_minutes", value: recoveredMinutes },
-      ...(taskId
-        ? [{ userId, date: now, type: "tasks_completed", value: 1 }]
-        : []),
-    ],
-  });
+  await db.insert(userMetric).values([
+    { userId, date: now, type: "rituals_completed", value: 1 },
+    { userId, date: now, type: "recovered_minutes", value: recoveredMinutes },
+    ...(taskId
+      ? [{ userId, date: now, type: "tasks_completed", value: 1 }]
+      : []),
+  ]);
 
   const resolvedWorkspaceId = workspaceId
     ? workspaceId
     : (
-        await prisma.membership.findFirst({
-          where: { userId },
-          select: { workspaceId: true },
+        await db.query.membership.findFirst({
+          where: eq(membershipTable.userId, userId),
+          columns: { workspaceId: true },
         })
       )?.workspaceId;
   if (resolvedWorkspaceId) {
-    await prisma.teamMetric.create({
-      data: {
-        workspaceId: resolvedWorkspaceId,
-        date: now,
-        type: "recovered_minutes",
-        value: recoveredMinutes,
-      },
+    await db.insert(teamMetric).values({
+      workspaceId: resolvedWorkspaceId,
+      date: now,
+      type: "recovered_minutes",
+      value: recoveredMinutes,
     });
   }
 
@@ -74,8 +79,11 @@ export async function recordRitualCompletion(opts: {
 }
 
 export async function recordTaskCompletion(userId: string): Promise<void> {
-  await prisma.userMetric.create({
-    data: { userId, date: new Date(), type: "tasks_completed", value: 1 },
+  await db.insert(userMetric).values({
+    userId,
+    date: new Date(),
+    type: "tasks_completed",
+    value: 1,
   });
 }
 
@@ -89,20 +97,39 @@ export async function computeWorkspaceMood(workspaceId: string): Promise<Workspa
   const now = new Date();
   const since = new Date(now.getTime() - WEEK_MS);
 
-  const [openTasks, recentRituals] = await Promise.all([
-    prisma.task.count({
-      where: {
-        status: "open",
-        user: { memberships: { some: { workspaceId } } },
-      },
-    }),
-    prisma.ritualSession.count({
-      where: {
-        completedAt: { gte: since },
-        user: { memberships: { some: { workspaceId } } },
-      },
-    }),
-  ]);
+  const memberRows = await db
+    .select({ userId: membershipTable.userId })
+    .from(membershipTable)
+    .where(eq(membershipTable.workspaceId, workspaceId));
+  const memberIds = memberRows.map((r) => r.userId);
+
+  let openTasks = 0;
+  let recentRituals = 0;
+
+  if (memberIds.length > 0) {
+    const [openTaskRows, recentRitualRows] = await Promise.all([
+      db
+        .select({ c: count() })
+        .from(taskTable)
+        .where(
+          and(
+            eq(taskTable.status, "open"),
+            inArray(taskTable.userId, memberIds)
+          )
+        ),
+      db
+        .select({ c: count() })
+        .from(ritualSession)
+        .where(
+          and(
+            gte(ritualSession.completedAt, since),
+            inArray(ritualSession.userId, memberIds)
+          )
+        ),
+    ]);
+    openTasks = Number(openTaskRows[0]?.c ?? 0);
+    recentRituals = Number(recentRitualRows[0]?.c ?? 0);
+  }
 
   const denom = Math.max(recentRituals + openTasks, 1);
   const recoveryRatio = recentRituals / denom;
@@ -144,26 +171,38 @@ export interface LoadBalanceReport {
 export async function computeLoadBalance(
   workspaceId: string
 ): Promise<LoadBalanceReport> {
-  const memberships = await prisma.membership.findMany({
-    where: { workspaceId },
-    include: { user: { select: { id: true, name: true } } },
-  });
+  const membershipRows = await db
+    .select({
+      userId: membershipTable.userId,
+      name: userTable.name,
+    })
+    .from(membershipTable)
+    .leftJoin(userTable, eq(userTable.id, membershipTable.userId))
+    .where(eq(membershipTable.workspaceId, workspaceId))
+    .orderBy(asc(membershipTable.joinedAt));
 
-  if (memberships.length === 0) {
+  if (membershipRows.length === 0) {
     return { counts: [], imbalanced: false };
   }
 
-  const openTasks = await prisma.task.findMany({
-    where: {
-      status: "open",
-      user: { memberships: { some: { workspaceId } } },
-    },
-    select: { userId: true },
-  });
+  const memberIds = membershipRows.map((m) => m.userId);
 
-  const counts: LoadMember[] = memberships.map((m) => ({
+  const openTasks =
+    memberIds.length > 0
+      ? await db
+          .select({ userId: taskTable.userId })
+          .from(taskTable)
+          .where(
+            and(
+              eq(taskTable.status, "open"),
+              inArray(taskTable.userId, memberIds)
+            )
+          )
+      : [];
+
+  const counts: LoadMember[] = membershipRows.map((m) => ({
     userId: m.userId,
-    name: m.user.name ?? "Someone",
+    name: m.name ?? "Someone",
     openCount: 0,
   }));
   for (const t of openTasks) {
@@ -182,9 +221,13 @@ export async function computeLoadBalance(
 
 export async function sumRecoveredMinutesThisWeek(userId: string): Promise<number> {
   const since = new Date(Date.now() - WEEK_MS);
-  const rows = await prisma.userMetric.findMany({
-    where: { userId, type: "recovered_minutes", date: { gte: since } },
-    select: { value: true },
+  const rows = await db.query.userMetric.findMany({
+    where: and(
+      eq(userMetric.userId, userId),
+      eq(userMetric.type, "recovered_minutes"),
+      gte(userMetric.date, since)
+    ),
+    columns: { value: true },
   });
   return rows.reduce((sum, r) => sum + r.value, 0);
 }
@@ -217,9 +260,13 @@ export async function recoveredMinutesByDay(
   }
 
   const since = buckets[0].date;
-  const rows = await prisma.userMetric.findMany({
-    where: { userId, type: "recovered_minutes", date: { gte: since } },
-    select: { value: true, date: true },
+  const rows = await db.query.userMetric.findMany({
+    where: and(
+      eq(userMetric.userId, userId),
+      eq(userMetric.type, "recovered_minutes"),
+      gte(userMetric.date, since)
+    ),
+    columns: { value: true, date: true },
   });
 
   for (const row of rows) {

@@ -7,11 +7,8 @@ until pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" >/dev/n
 done
 echo "✅ PostgreSQL is ready"
 
-echo "🔧 Generating Prisma client..."
-npx prisma generate
-
 echo "🗄️ Pushing schema to database..."
-npx prisma db push --accept-data-loss
+npx drizzle-kit push
 
 echo "🚀 Starting Next.js dev server..."
 npm run dev

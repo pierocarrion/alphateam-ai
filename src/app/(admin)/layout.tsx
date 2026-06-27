@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { AdminSidebar } from "@/features/admin/components/AdminSidebar";
 import { AdminTopBar } from "@/features/admin/components/AdminTopBar";
 
@@ -15,16 +17,18 @@ export default async function AdminLayout({
 
   if (!userId) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      globalRole: true,
-      blocked: true,
-    },
-  });
+  const rows = await db.select({
+    id: userTable.id,
+    name: userTable.name,
+    email: userTable.email,
+    globalRole: userTable.globalRole,
+    blocked: userTable.blocked,
+  })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .limit(1);
+
+  const user = rows[0];
 
   if (!user || user.blocked || user.globalRole !== "superadmin") {
     redirect("/login");

@@ -2,7 +2,7 @@
 
 A gentle, anti-guilt productivity companion for individuals and teams. Alpha listens to your chat, detects tasks before they become pressure, and shrinks each one into a 2-minute first step. Previously AlphaLead AI.
 
-Built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **Prisma**, and **PostgreSQL**.
+Built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **Drizzle ORM**, and **PostgreSQL**.
 
 ## Features
 
@@ -17,7 +17,7 @@ Built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS v4**, **
 
 ## Local development
 
-The fastest way to run the project locally is with Docker Compose. It starts PostgreSQL, generates the Prisma client, pushes the schema, and runs the Next.js dev server with hot reload.
+The fastest way to run the project locally is with Docker Compose. It starts PostgreSQL, pushes the Drizzle schema, and runs the Next.js dev server with hot reload.
 
 ### Requirements
 
@@ -60,8 +60,7 @@ If you prefer to run directly on your machine:
 ```bash
 npm install
 # Start PostgreSQL manually, then:
-npx prisma generate
-npx prisma migrate dev
+npm run db:push      # push schema to the database
 npm run dev
 ```
 
@@ -122,9 +121,9 @@ Detailed instructions, service account setup, and production checklist are in [`
 src/
   app/           # Next.js App Router pages and API routes
   features/      # Domain-driven modules (auth, chat, tasks, rituals)
-  server/lib/    # Prisma, Stripe, AI coordinator, health engine
+  server/lib/    # Drizzle client, Stripe, AI coordinator, health engine
   shared/ui/     # Reusable UI components (Alpha, Button, etc.)
-prisma/          # Schema, migrations
+drizzle/         # Schema (schema/), migrations, and drizzle.config.ts
 scripts/         # Evidence export and utilities
 ```
 

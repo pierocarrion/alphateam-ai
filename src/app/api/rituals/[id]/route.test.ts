@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { PATCH } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import { task as taskTable, ritualSession } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 async function seedTaskAndRitual(userId: string) {
-  const prisma = await getTestPrisma();
-  const task = await prisma.task.create({
-    data: {
+  const db = await getTestDb();
+  const [task] = await db
+    .insert(taskTable)
+    .values({
       userId,
       title: "Test task",
       fromQuote: "“test”",
@@ -16,17 +19,18 @@ async function seedTaskAndRitual(userId: string) {
       micro: "Do the first tiny thing",
       action: "first tiny thing",
       status: "open",
-    },
-  });
-  const ritual = await prisma.ritualSession.create({
-    data: {
+    })
+    .returning();
+  const [ritual] = await db
+    .insert(ritualSession)
+    .values({
       userId,
-      taskId: task.id,
+      taskId: task!.id,
       durationSec: 120,
       startedAt: new Date(),
-    },
-  });
-  return { task, ritual };
+    })
+    .returning();
+  return { task: task!, ritual: ritual! };
 }
 
 describe("PATCH /api/rituals/[id]", () => {
@@ -44,8 +48,10 @@ describe("PATCH /api/rituals/[id]", () => {
     expect(response.status).toBe(200);
     expect(data.ritual.completedAt).not.toBeNull();
 
-    const prisma = await getTestPrisma();
-    const updatedTask = await prisma.task.findUnique({ where: { id: task.id } });
+    const db = await getTestDb();
+    const updatedTask = await db.query.task.findFirst({
+      where: eq(taskTable.id, task.id),
+    });
     expect(updatedTask?.status).toBe("done");
   });
 

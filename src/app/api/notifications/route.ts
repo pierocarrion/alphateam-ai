@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { notification as notificationTable } from "@drizzle/schema";
+import { eq, and, desc, count, isNull } from "drizzle-orm";
 import { requireUser } from "@/server/lib/auth";
 import { jsonError, parseRequestBody, toFriendlyMessage } from "@/server/lib/apiErrors";
 
@@ -9,15 +11,23 @@ export async function GET() {
     const auth = await requireUser();
     if (auth.response) return auth.response;
 
-    const notifications = await prisma.notification.findMany({
-      where: { userId: auth.user.id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
-
-    const unread = await prisma.notification.count({
-      where: { userId: auth.user.id, readAt: null },
-    });
+    const [notifications, unreadRows] = await Promise.all([
+      db.query.notification.findMany({
+        where: eq(notificationTable.userId, auth.user.id),
+        orderBy: desc(notificationTable.createdAt),
+        limit: 50,
+      }),
+      db
+        .select({ c: count() })
+        .from(notificationTable)
+        .where(
+          and(
+            eq(notificationTable.userId, auth.user.id),
+            isNull(notificationTable.readAt)
+          )
+        ),
+    ]);
+    const unread = Number(unreadRows[0]?.c ?? 0);
 
     return NextResponse.json({ notifications, unread });
   } catch (error) {
@@ -41,10 +51,16 @@ export async function POST(request: Request) {
       );
     }
 
-    await prisma.notification.updateMany({
-      where: { id: parsed.data.id, userId: auth.user.id, readAt: null },
-      data: { readAt: new Date() },
-    });
+    await db
+      .update(notificationTable)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(notificationTable.id, parsed.data.id),
+          eq(notificationTable.userId, auth.user.id),
+          isNull(notificationTable.readAt)
+        )
+      );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -58,10 +74,15 @@ export async function PATCH() {
     const auth = await requireUser();
     if (auth.response) return auth.response;
 
-    await prisma.notification.updateMany({
-      where: { userId: auth.user.id, readAt: null },
-      data: { readAt: new Date() },
-    });
+    await db
+      .update(notificationTable)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(notificationTable.userId, auth.user.id),
+          isNull(notificationTable.readAt)
+        )
+      );
 
     return NextResponse.json({ ok: true });
   } catch (error) {

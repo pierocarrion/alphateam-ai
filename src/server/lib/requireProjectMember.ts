@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "./prisma";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { workspace as workspaceTable, membership } from "@drizzle/schema";
 import { requireUser, type AuthUser } from "./auth";
 
 const MSG_SIGN_IN = "Please sign in to continue.";
@@ -34,11 +36,11 @@ export async function requireProjectMember(
   const user = auth.user;
 
   const projectId = decodeURIComponent(rawProjectId);
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: projectId },
-    select: { id: true },
+  const ws = await db.query.workspace.findFirst({
+    where: eq(workspaceTable.id, projectId),
+    columns: { id: true },
   });
-  if (!workspace) {
+  if (!ws) {
     return {
       user: null,
       workspaceId: null,
@@ -47,15 +49,18 @@ export async function requireProjectMember(
     };
   }
 
-  const membership = await prisma.membership.findUnique({
-    where: { userId_workspaceId: { userId: user.id, workspaceId: workspace.id } },
-    select: { role: true, status: true },
+  const m = await db.query.membership.findFirst({
+    where: and(
+      eq(membership.userId, user.id),
+      eq(membership.workspaceId, ws.id)
+    ),
+    columns: { role: true, status: true },
   });
 
   if (
-    !membership ||
-    membership.status !== "active" ||
-    (membership.role !== "member" && membership.role !== "leader" && membership.role !== "admin")
+    !m ||
+    m.status !== "active" ||
+    (m.role !== "member" && m.role !== "leader" && m.role !== "admin")
   ) {
     return {
       user: null,
@@ -65,7 +70,7 @@ export async function requireProjectMember(
     };
   }
 
-  return { user, workspaceId: workspace.id, role: membership.role, response: null };
+  return { user, workspaceId: ws.id, role: m.role, response: null };
 }
 
 export function isLeaderOrAdmin(role: string): boolean {

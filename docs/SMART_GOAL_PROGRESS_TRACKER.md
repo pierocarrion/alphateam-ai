@@ -5,8 +5,8 @@ Módulo de seguimiento inteligente del progreso de objetivos SMART, con un
 detección de riesgos, predicción de cierre, salud del proyecto, línea de tiempo
 automática y un copiloto de IA. Pensado para la **vista del líder**.
 
-> Implementado sobre el stack existente (Next.js 16 · React 19 · Prisma 7 ·
-> PostgreSQL · Vertex AI Gemini 2.5 Flash · Tailwind v4) y siguiendo la
+> Implementado sobre el stack existente (Next.js 16 · React 19 · Drizzle ORM
+> · PostgreSQL · Vertex AI Gemini 2.5 Flash · Tailwind v4) y siguiendo la
 > arquitectura DDD por features del repositorio.
 
 ---

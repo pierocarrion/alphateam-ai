@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user,
+  workspace,
+  alphaSession,
+  workspaceSubscription,
+  membership,
+} from "@drizzle/schema";
+import { eq, count } from "drizzle-orm";
 import { requireSuperAdmin } from "@/server/lib/requireSuperAdmin";
 
 export async function GET() {
@@ -7,27 +15,31 @@ export async function GET() {
   if (auth.response) return auth.response;
 
   const [
-    totalUsers,
-    blockedUsers,
-    superAdmins,
-    totalWorkspaces,
-    alphaSessions,
+    totalUsersAgg,
+    blockedUsersAgg,
+    superAdminsAgg,
+    totalWorkspacesAgg,
+    alphaSessionsAgg,
     subscriptions,
     membershipsAgg,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { blocked: true } }),
-    prisma.user.count({ where: { globalRole: "superadmin" } }),
-    prisma.workspace.count(),
-    prisma.alphaSession.count(),
-    prisma.workspaceSubscription.findMany({
-      select: { plan: true, status: true },
-    }),
-    prisma.membership.groupBy({
-      by: ["role"],
-      _count: true,
-    }),
+    db.select({ c: count() }).from(user),
+    db.select({ c: count() }).from(user).where(eq(user.blocked, true)),
+    db.select({ c: count() }).from(user).where(eq(user.globalRole, "superadmin")),
+    db.select({ c: count() }).from(workspace),
+    db.select({ c: count() }).from(alphaSession),
+    db.select({
+      plan: workspaceSubscription.plan,
+      status: workspaceSubscription.status,
+    }).from(workspaceSubscription),
+    db.select({ role: membership.role, c: count() }).from(membership).groupBy(membership.role),
   ]);
+
+  const totalUsers = Number(totalUsersAgg[0]?.c ?? 0);
+  const blockedUsers = Number(blockedUsersAgg[0]?.c ?? 0);
+  const superAdmins = Number(superAdminsAgg[0]?.c ?? 0);
+  const totalWorkspaces = Number(totalWorkspacesAgg[0]?.c ?? 0);
+  const alphaSessions = Number(alphaSessionsAgg[0]?.c ?? 0);
 
   const planCounts = subscriptions.reduce<
     Record<string, number>
@@ -57,7 +69,7 @@ export async function GET() {
       business: planCounts.business ?? 0,
     },
     memberships: Object.fromEntries(
-      membershipsAgg.map((m) => [m.role, m._count])
+      membershipsAgg.map((m) => [m.role, Number(m.c)])
     ),
   });
 }

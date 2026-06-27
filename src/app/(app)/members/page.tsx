@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import {
+  user as userTable,
+  membership,
+} from "@drizzle/schema";
+import { eq, desc, asc } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { Avatar, Icon } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
@@ -26,27 +31,33 @@ export default async function MembersPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: { id: true },
+  const user = await db.query.user.findFirst({
+    where: eq(userTable.email, session.user.email),
+    columns: { id: true },
   });
   if (!user) redirect("/login");
 
   const { active } = await getActiveWorkspace(user.id);
   if (!active) redirect("/setup");
 
-  const memberships = await prisma.membership.findMany({
-    where: { workspaceId: active.workspaceId },
-    include: { user: { select: { id: true, name: true } } },
-    orderBy: [{ role: "desc" }, { joinedAt: "asc" }],
-  });
+  const memberships = await db
+    .select({
+      userId: membership.userId,
+      userName: userTable.name,
+      role: membership.role,
+      joinedAt: membership.joinedAt,
+    })
+    .from(membership)
+    .leftJoin(userTable, eq(userTable.id, membership.userId))
+    .where(eq(membership.workspaceId, active.workspaceId))
+    .orderBy(desc(membership.role), asc(membership.joinedAt));
 
   const members: MemberRow[] = memberships.map((m) => ({
-    id: m.user.id,
-    name: m.user.name ?? "Someone",
+    id: m.userId,
+    name: m.userName ?? "Someone",
     role: m.role,
     joinedAt: m.joinedAt,
-    isYou: m.user.id === user.id,
+    isYou: m.userId === user.id,
   }));
 
   return (

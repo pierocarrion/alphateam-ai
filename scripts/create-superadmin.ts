@@ -9,7 +9,10 @@
  * para que no caiga en el flujo de onboarding.
  */
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import { eq } from "drizzle-orm";
+import * as schema from "@drizzle/schema";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -30,32 +33,61 @@ async function main() {
     process.exit(1);
   }
 
-  const prisma = new PrismaClient();
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const db = drizzle(pool, { schema });
   try {
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.upsert({
-      where: { email },
-      create: {
-        email,
-        name,
-        passwordHash,
-        globalRole: "superadmin",
-        emailVerified: new Date(),
-        profile: { create: { onboarded: true, role: "Super Admin" } },
-      },
-      update: {
-        name,
-        passwordHash,
-        globalRole: "superadmin",
-        blocked: false,
-      },
-      select: { id: true, email: true, globalRole: true },
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.email, email))
+        .limit(1);
+
+      if (existing) {
+        const [updated] = await tx
+          .update(schema.user)
+          .set({
+            name,
+            passwordHash,
+            globalRole: "superadmin",
+            blocked: false,
+          })
+          .where(eq(schema.user.id, existing.id))
+          .returning({
+            id: schema.user.id,
+            email: schema.user.email,
+            globalRole: schema.user.globalRole,
+          });
+        return updated!;
+      }
+
+      const [created] = await tx
+        .insert(schema.user)
+        .values({
+          email,
+          name,
+          passwordHash,
+          globalRole: "superadmin",
+          emailVerified: new Date(),
+        })
+        .returning({
+          id: schema.user.id,
+          email: schema.user.email,
+          globalRole: schema.user.globalRole,
+        });
+      await tx.insert(schema.userProfile).values({
+        userId: created!.id,
+        onboarded: true,
+        role: "Super Admin",
+      });
+      return created!;
     });
 
-    console.log("✅ Super-admin listo:", user);
+    console.log("✅ Super-admin listo:", result);
   } finally {
-    await prisma.$disconnect();
+    await pool.end();
   }
 }
 

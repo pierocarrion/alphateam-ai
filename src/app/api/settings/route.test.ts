@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { GET, PATCH } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import { userProfile } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 const URL = "http://localhost:3000/api/settings";
 
@@ -43,8 +45,10 @@ describe("PATCH /api/settings", () => {
     expect(data.quietMode).toBe(true);
     expect(data.tone).toBe("balanced");
 
-    const prisma = await getTestPrisma();
-    const profile = await prisma.userProfile.findUnique({ where: { userId: user.id } });
+    const db = await getTestDb();
+    const profile = await db.query.userProfile.findFirst({
+      where: eq(userProfile.userId, user.id),
+    });
     expect(profile?.gentleCheckIns).toBe(false);
     expect(profile?.quietMode).toBe(true);
     expect(profile?.tone).toBe("balanced");

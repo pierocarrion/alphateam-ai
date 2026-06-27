@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, feedbackCampaign, feedbackResponse } from "@drizzle/schema";
+import { eq, and } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import {
   CAMPAIGN_PRESETS,
@@ -35,9 +37,9 @@ export async function POST(request: Request) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Inicia sesión para responder." }, { status: 401 });
     }
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const user = await db.query.user.findFirst({
+      where: eq(userTable.email, session.user.email),
+      columns: { id: true },
     });
     if (!user) return NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 });
     const { active } = await getActiveWorkspace(user.id);
@@ -48,8 +50,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: toFriendlyMessage(parsed.error) }, { status: 400 });
     }
 
-    const campaign = await prisma.feedbackCampaign.findFirst({
-      where: { id: parsed.data.campaignId, workspaceId: active.workspaceId, status: "active" },
+    const campaign = await db.query.feedbackCampaign.findFirst({
+      where: and(
+        eq(feedbackCampaign.id, parsed.data.campaignId),
+        eq(feedbackCampaign.workspaceId, active.workspaceId),
+        eq(feedbackCampaign.status, "active")
+      ),
     });
     if (!campaign) return NextResponse.json({ error: "Campaña no encontrada o cerrada." }, { status: 404 });
 
@@ -75,17 +81,18 @@ export async function POST(request: Request) {
 
     const submitterHash = await sha(`${user.id}:${campaign.id}`);
 
-    await prisma.feedbackResponse.create({
-      data: {
+    await db
+      .insert(feedbackResponse)
+      .values({
         campaignId: campaign.id,
         workspaceId: active.workspaceId,
         submitterHash,
-        payload: { ...parsed.data.answers, open_redacted: redactedText } as object,
+        payload: { ...parsed.data.answers, open_redacted: redactedText },
         sentiment,
         emotion,
-        scores: scores as object,
-      },
-    });
+        scores: scores as unknown,
+      })
+      .returning();
 
     return NextResponse.json({ ok: true, sentiment, emotion, presets: CAMPAIGN_PRESETS.length });
   } catch (error) {

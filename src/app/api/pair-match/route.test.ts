@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getServerSession } from "next-auth/next";
 import { POST, GET } from "./route";
-import { seedMember, getTestPrisma } from "@/tests/helpers/db";
+import { seedMember, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import { task as taskTable, pairMatch as pairMatchTable } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 const URL = "http://localhost:3000/api/pair-match";
 
@@ -75,9 +77,9 @@ describe("POST /api/pair-match", () => {
     expect(data.match.reason).toBe("Two minutes, side by side.");
     expect(data.workspace.id).toBe(requester.workspaceId);
 
-    const prisma = await getTestPrisma();
-    const stored = await prisma.pairMatch.findFirst({
-      where: { requesterId: requester.user.id },
+    const db = await getTestDb();
+    const stored = await db.query.pairMatch.findFirst({
+      where: eq(pairMatchTable.requesterId, requester.user.id),
     });
     expect(stored?.status).toBe("pending");
     expect(stored?.partnerId).toBe(partner.user.id);
@@ -103,15 +105,13 @@ describe("POST /api/pair-match", () => {
     const partner = await seedMember({ workspaceId: requester.workspaceId });
     await mockSession(requester.user);
 
-    const prisma = await getTestPrisma();
-    const task = await prisma.task.create({
-      data: {
-        userId: requester.user.id,
-        title: "Draft the brief",
-        micro: "Open the doc",
-        action: "Write one line",
-      },
-    });
+    const db = await getTestDb();
+    const [task] = await db.insert(taskTable).values({
+      userId: requester.user.id,
+      title: "Draft the brief",
+      micro: "Open the doc",
+      action: "Write one line",
+    }).returning();
 
     const response = await callRouteHandler(
       POST,

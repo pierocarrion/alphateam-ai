@@ -1,4 +1,12 @@
-import { prisma } from "./prisma";
+import { db } from "@/server/lib/db";
+import {
+  message as messageTable,
+  task as taskTable,
+  membership as membershipTable,
+  user as userTable,
+  channel,
+} from "@drizzle/schema";
+import { eq, and, gte, desc, count, inArray } from "drizzle-orm";
 import { createLogger } from "@/shared/lib/logger";
 import {
   classifyMessage,
@@ -111,6 +119,14 @@ function severityFor(text: string): "low" | "medium" | "high" {
   return "low";
 }
 
+async function fetchMemberUserIds(workspaceId: string): Promise<string[]> {
+  const rows = await db
+    .select({ userId: membershipTable.userId })
+    .from(membershipTable)
+    .where(eq(membershipTable.workspaceId, workspaceId));
+  return rows.map((r) => r.userId);
+}
+
 export async function gatherLeaderSignals(
   workspaceId: string,
   leaderId: string,
@@ -118,33 +134,86 @@ export async function gatherLeaderSignals(
 ) {
   const since = new Date(Date.now() - sinceHours * 60 * 60 * 1000);
 
-  const [messages, tasks, load, completedThisWeek] = await Promise.all([
-    prisma.message.findMany({
-      where: {
-        channel: { workspaceId },
-        createdAt: { gte: since },
-      },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    }),
-    prisma.task.findMany({
-      where: {
-        status: "open",
-        user: { memberships: { some: { workspaceId } } },
-      },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
+  const memberIds = await fetchMemberUserIds(workspaceId);
+
+  const [messageRows, taskRows, load, completedThisWeekRows] = await Promise.all([
+    db
+      .select({
+        id: messageTable.id,
+        content: messageTable.content,
+        createdAt: messageTable.createdAt,
+        userId: messageTable.userId,
+        userName: userTable.name,
+      })
+      .from(messageTable)
+      .innerJoin(channel, eq(channel.id, messageTable.channelId))
+      .leftJoin(userTable, eq(userTable.id, messageTable.userId))
+      .where(
+        and(
+          eq(channel.workspaceId, workspaceId),
+          gte(messageTable.createdAt, since)
+        )
+      )
+      .orderBy(desc(messageTable.createdAt))
+      .limit(200),
+    memberIds.length > 0
+      ? db
+          .select({
+            id: taskTable.id,
+            title: taskTable.title,
+            userId: taskTable.userId,
+            status: taskTable.status,
+            quadrant: taskTable.quadrant,
+            deadline: taskTable.deadline,
+            createdAt: taskTable.createdAt,
+            userName: userTable.name,
+          })
+          .from(taskTable)
+          .leftJoin(userTable, eq(userTable.id, taskTable.userId))
+          .where(
+            and(
+              eq(taskTable.status, "open"),
+              inArray(taskTable.userId, memberIds)
+            )
+          )
+          .orderBy(desc(taskTable.createdAt))
+      : Promise.resolve([]),
     computeLoadBalance(workspaceId),
-    prisma.task.count({
-      where: {
-        status: "done",
-        completedAt: { gte: new Date(Date.now() - 7 * DAY_MS) },
-        user: { memberships: { some: { workspaceId } } },
-      },
-    }),
+    memberIds.length > 0
+      ? db
+          .select({ c: count() })
+          .from(taskTable)
+          .where(
+            and(
+              eq(taskTable.status, "done"),
+              gte(taskTable.completedAt, new Date(Date.now() - 7 * DAY_MS)),
+              inArray(taskTable.userId, memberIds)
+            )
+          )
+          .then((rows) => Number(rows[0]?.c ?? 0))
+      : Promise.resolve(0),
   ]);
+
+  const messages = messageRows.map((m) => ({
+    id: m.id,
+    content: m.content,
+    createdAt: m.createdAt,
+    userId: m.userId,
+    user: { id: m.userId, name: m.userName ?? "Someone" },
+  }));
+
+  const tasks = taskRows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    userId: t.userId,
+    status: t.status,
+    quadrant: t.quadrant,
+    deadline: t.deadline,
+    createdAt: t.createdAt,
+    user: { id: t.userId, name: t.userName ?? "Someone" },
+  }));
+
+  const completedThisWeek = completedThisWeekRows;
 
   const now = Date.now();
   const blockers: BlockerItem[] = [];
@@ -373,12 +442,15 @@ export async function classifyRecentMessages(
 ): Promise<Array<{ id: string; classification: string; priority: string }>> {
   if (!isGeminiEnabled()) return [];
   const since = new Date(Date.now() - sinceHours * 60 * 60 * 1000);
-  const messages = await prisma.message.findMany({
-    where: { channel: { workspaceId }, createdAt: { gte: since } },
-    orderBy: { createdAt: "desc" },
-    take: 40,
-    select: { id: true, content: true },
-  });
+  const messages = await db
+    .select({ id: messageTable.id, content: messageTable.content })
+    .from(messageTable)
+    .innerJoin(channel, eq(channel.id, messageTable.channelId))
+    .where(
+      and(eq(channel.workspaceId, workspaceId), gte(messageTable.createdAt, since))
+    )
+    .orderBy(desc(messageTable.createdAt))
+    .limit(40);
   const out: Array<{ id: string; classification: string; priority: string }> = [];
   for (const m of messages) {
     try {
@@ -435,18 +507,24 @@ export async function recommendTaskAssignee(opts: {
 export async function predictDelayForTask(opts: {
   taskId: string;
 }): Promise<{ probabilityDelay: number; reasoning: string }> {
-  const task = await prisma.task.findUnique({
-    where: { id: opts.taskId },
-    include: {
-      user: { select: { memberships: { select: { workspaceId: true } } } },
+  const task = await db.query.task.findFirst({
+    where: eq(taskTable.id, opts.taskId),
+    columns: {
+      id: true,
+      userId: true,
+      title: true,
+      deadline: true,
+      createdAt: true,
     },
   });
   if (!task) {
     return { probabilityDelay: 0, reasoning: "Task not found." };
   }
-  const ownerOpen = await prisma.task.count({
-    where: { userId: task.userId, status: "open" },
-  });
+  const ownerOpenRows = await db
+    .select({ c: count() })
+    .from(taskTable)
+    .where(and(eq(taskTable.userId, task.userId), eq(taskTable.status, "open")));
+  const ownerOpen = Number(ownerOpenRows[0]?.c ?? 0);
   const ageDays = Math.max(
     0,
     Math.floor((Date.now() - task.createdAt.getTime()) / DAY_MS)

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "./prisma";
+import { eq } from "drizzle-orm";
+import { db } from "@/server/lib/db";
+import { user as userTable } from "@drizzle/schema";
 
 export interface SuperAdminUser {
   id: string;
@@ -40,12 +42,18 @@ export async function requireSuperAdmin(): Promise<
     };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, name: true, globalRole: true, blocked: true },
+  const u = await db.query.user.findFirst({
+    where: eq(userTable.id, userId),
+    columns: {
+      id: true,
+      email: true,
+      name: true,
+      globalRole: true,
+      blocked: true,
+    },
   });
 
-  if (!user || user.blocked || user.globalRole !== "superadmin") {
+  if (!u || u.blocked || u.globalRole !== "superadmin") {
     return {
       user: null,
       response: NextResponse.json(
@@ -56,7 +64,7 @@ export async function requireSuperAdmin(): Promise<
   }
 
   return {
-    user: { id: user.id, email: user.email, name: user.name },
+    user: { id: u.id, email: u.email, name: u.name },
     response: null,
   };
 }

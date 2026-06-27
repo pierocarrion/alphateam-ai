@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createLogger } from "@/shared/lib/logger";
 import { UserFacingError } from "./errors";
+import { toSemanticDbError } from "./dbErrors";
 
 const log = createLogger("api");
 
@@ -90,6 +91,16 @@ function isPrismaKnown(error: unknown): error is PrismaKnownError {
   );
 }
 
+/**
+ * Normalize a thrown value: pg/Drizzle errors are mapped to the semantic
+ * Prisma-style code shape so the rest of the mapping logic is shared between
+ * the legacy Prisma client and the new Drizzle client during the migration.
+ */
+function normalizeError(error: unknown): unknown {
+  const semantic = toSemanticDbError(error);
+  return semantic ?? error;
+}
+
 function friendlyZodMessage(error: ZodError): string {
   const issues = error.issues ?? [];
   const seen = new Set<string>();
@@ -129,18 +140,20 @@ function friendlyPrismaMessage(error: PrismaKnownError): string {
 }
 
 export function toFriendlyMessage(error: unknown): string {
-  if (error instanceof UserFacingError) return error.message;
-  if (error instanceof ZodError) return friendlyZodMessage(error);
-  if (isPrismaKnown(error)) return friendlyPrismaMessage(error);
-  if (error instanceof SyntaxError) return FRIENDLY_BAD_JSON;
+  const err = normalizeError(error);
+  if (err instanceof UserFacingError) return err.message;
+  if (err instanceof ZodError) return friendlyZodMessage(err);
+  if (isPrismaKnown(err)) return friendlyPrismaMessage(err);
+  if (err instanceof SyntaxError) return FRIENDLY_BAD_JSON;
   return FRIENDLY_DEFAULT;
 }
 
 export function errorStatus(error: unknown): number {
-  if (error instanceof UserFacingError) return error.status;
-  if (error instanceof ZodError) return 400;
-  if (isPrismaKnown(error)) {
-    switch (error.code) {
+  const err = normalizeError(error);
+  if (err instanceof UserFacingError) return err.status;
+  if (err instanceof ZodError) return 400;
+  if (isPrismaKnown(err)) {
+    switch (err.code) {
       case "P2002":
         return 409;
       case "P2025":
@@ -156,7 +169,7 @@ export function errorStatus(error: unknown): number {
         return 500;
     }
   }
-  if (error instanceof SyntaxError) return 400;
+  if (err instanceof SyntaxError) return 400;
   return 500;
 }
 

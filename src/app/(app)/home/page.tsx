@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, userProfile, task } from "@drizzle/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { buildLeaderBriefing } from "@/server/lib/leaderBriefing";
 import { Alpha, Button, Icon } from "@/shared/ui";
@@ -11,10 +13,16 @@ import { t } from "@/i18n/messages";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
-  const user = await prisma.user.findUnique({
-    where: { email: session?.user?.email ?? "" },
-    include: { profile: true },
-  });
+  const user = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      tone: userProfile.tone,
+    })
+    .from(userTable)
+    .leftJoin(userProfile, eq(userProfile.userId, userTable.id))
+    .where(eq(userTable.email, session?.user?.email ?? ""))
+    .then((r) => r[0] ?? null);
 
   const { active } = await getActiveWorkspace(user?.id ?? "");
   const isLeader = active?.role === "leader" || active?.role === "admin";
@@ -41,7 +49,7 @@ export default async function HomePage() {
     <MemberHome
       userId={user?.id ?? ""}
       name={user?.name ?? "you"}
-      warm={user?.profile?.tone !== "balanced"}
+      warm={user?.tone !== "balanced"}
       locale={locale}
     />
   );
@@ -58,10 +66,10 @@ async function MemberHome({
   warm: boolean;
   locale: import("@/i18n/messages").Locale;
 }) {
-  const openTasks = await prisma.task.findMany({
-    where: { userId, status: "open" },
-    orderBy: { createdAt: "desc" },
-    take: 5,
+  const openTasks = await db.query.task.findMany({
+    where: and(eq(task.userId, userId), eq(task.status, "open")),
+    orderBy: desc(task.createdAt),
+    limit: 5,
   });
 
   const heroTask = openTasks[0];

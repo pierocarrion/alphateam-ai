@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { user as userTable, userProfile } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 import { getActiveWorkspace } from "@/server/lib/activeWorkspace";
 import { sumRecoveredMinutesThisWeek } from "@/server/lib/metrics";
 import { HubRow, Button } from "@/shared/ui";
@@ -10,16 +12,23 @@ import { t } from "@/i18n/messages";
 
 export default async function MePage() {
   const session = await getServerSession(authOptions);
-  const user = await prisma.user.findUnique({
-    where: { email: session?.user?.email ?? "" },
-    include: { profile: true },
-  });
+  const user = session?.user?.email
+    ? await db.query.user.findFirst({
+        where: eq(userTable.email, session.user.email),
+      })
+    : null;
+  const profile =
+    user != null
+      ? await db.query.userProfile.findFirst({
+          where: eq(userProfile.userId, user.id),
+        })
+      : null;
 
   const activeState = user ? await getActiveWorkspace(user.id) : null;
   const active = activeState?.active ?? null;
   const memberships = activeState?.memberships ?? [];
 
-  const warm = user?.profile?.tone === "balanced" ? false : true;
+  const warm = profile?.tone === "balanced" ? false : true;
 
   const minutes = user ? await sumRecoveredMinutesThisWeek(user.id) : 0;
   const hours = Math.floor(minutes / 60);

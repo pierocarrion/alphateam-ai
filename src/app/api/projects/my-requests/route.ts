@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/server/lib/auth";
-import { prisma } from "@/server/lib/prisma";
+import { db } from "@/server/lib/db";
+import { joinRequest, workspace } from "@drizzle/schema";
+import { eq, desc } from "drizzle-orm";
 import { jsonError } from "@/server/lib/apiErrors";
 
 export async function GET() {
@@ -8,31 +10,32 @@ export async function GET() {
     const auth = await requireUser();
     if (auth.response) return auth.response;
 
-    const requests = await prisma.joinRequest.findMany({
-      where: { userId: auth.user.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        workspace: {
-          select: {
-            id: true,
-            name: true,
-            hashtag: true,
-            emoji: true,
-          },
-        },
-      },
-    });
+    const rows = await db
+      .select({
+        id: joinRequest.id,
+        status: joinRequest.status,
+        message: joinRequest.message,
+        createdAt: joinRequest.createdAt,
+        wsId: workspace.id,
+        wsName: workspace.name,
+        wsHashtag: workspace.hashtag,
+        wsEmoji: workspace.emoji,
+      })
+      .from(joinRequest)
+      .leftJoin(workspace, eq(joinRequest.workspaceId, workspace.id))
+      .where(eq(joinRequest.userId, auth.user.id))
+      .orderBy(desc(joinRequest.createdAt));
 
-    const data = requests.map((r) => ({
+    const data = rows.map((r) => ({
       id: r.id,
       status: r.status,
       message: r.message,
       createdAt: r.createdAt,
       workspace: {
-        id: r.workspace.id,
-        name: r.workspace.name,
-        hashtag: r.workspace.hashtag,
-        emoji: r.workspace.emoji,
+        id: r.wsId,
+        name: r.wsName,
+        hashtag: r.wsHashtag,
+        emoji: r.wsEmoji,
       },
     }));
 

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { POST, GET } from "./route";
-import { seedUser, getTestPrisma } from "@/tests/helpers/db";
+import { seedUser, getTestDb } from "@/tests/helpers/db";
 import { mockSession } from "@/tests/helpers/auth";
 import { createJsonRequest, callRouteHandler } from "@/tests/helpers/fetch";
+import { userMetric } from "@drizzle/schema";
+import { and, eq } from "drizzle-orm";
 
 const URL = "http://localhost:3000/api/winddown";
 
@@ -25,9 +27,12 @@ describe("POST /api/winddown", () => {
     );
     expect(response.status).toBe(200);
 
-    const prisma = await getTestPrisma();
-    const metric = await prisma.userMetric.findFirst({
-      where: { userId: user.id, type: "wind_down" },
+    const db = await getTestDb();
+    const metric = await db.query.userMetric.findFirst({
+      where: and(
+        eq(userMetric.userId, user.id),
+        eq(userMetric.type, "wind_down")
+      ),
     });
     expect(metric?.value).toBe(1);
     expect(metric?.metadata).toBe("calm");
@@ -38,9 +43,12 @@ describe("GET /api/winddown", () => {
   it("returns the count of wind-downs this week", async () => {
     const { user } = await seedUser();
     await mockSession(user);
-    const prisma = await getTestPrisma();
-    await prisma.userMetric.create({
-      data: { userId: user.id, type: "wind_down", value: 1, date: new Date() },
+    const db = await getTestDb();
+    await db.insert(userMetric).values({
+      userId: user.id,
+      type: "wind_down",
+      value: 1,
+      date: new Date(),
     });
 
     const response = await callRouteHandler(GET, new Request(URL));

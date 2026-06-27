@@ -1,8 +1,14 @@
 import { spawn } from "node:child_process";
-import { PGliteServer, pushMigrations, hasSchema } from "prisma-pglite-bridge";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { PGliteServer, hasSchema } from "prisma-pglite-bridge";
 
 const PORT = Number(process.env.PGLITE_PORT ?? 5432);
 const HOST = process.env.PGLITE_HOST ?? "127.0.0.1";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const initSqlPath = path.resolve(__dirname, "../drizzle/0000_init.sql");
 
 const server = new PGliteServer({ host: HOST, port: PORT });
 const url = await server.listen();
@@ -13,13 +19,12 @@ try {
   if (already) {
     console.log("[e2e-server] Schema already present, skipping migrations");
   } else {
-    const result = await pushMigrations(server.pglite, {
-      migrationsPath: "./prisma/migrations",
-    });
-    console.log(`[e2e-server] Applied migrations in ${result.durationMs}ms`);
+    const sql = readFileSync(initSqlPath, "utf-8");
+    await server.pglite.exec(sql);
+    console.log("[e2e-server] Applied drizzle init schema");
   }
 } catch (err) {
-  console.error("[e2e-server] Migration failed:", err);
+  console.error("[e2e-server] Schema setup failed:", err);
   await server.close();
   process.exit(1);
 }
