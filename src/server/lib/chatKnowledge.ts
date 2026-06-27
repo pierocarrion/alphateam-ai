@@ -7,6 +7,8 @@ import {
   extractLeaderAnswerToKnowledge,
   generateAlphaResponse,
   isGeminiEnabled,
+  shouldUseFallback,
+  toFriendlyGeminiError,
 } from "@/server/lib/gemini";
 import type { KnowledgeBaseItem } from "@/features/projects/domain/repositories/IProjectRepository";
 
@@ -69,7 +71,16 @@ export async function generateAlphaChannelReply(args: {
     projectContext,
   });
 
-  if (!result.ok || !result.data) return null;
+  if (!result.ok || !result.data) {
+    // Graceful degradation: never leave an @alpha mention silently unanswered.
+    // When Gemini is unavailable (rate-limited, transient, etc.) Alpha still
+    // replies with a short, honest fallback so the user isn't left hanging.
+    const name = args.senderName ?? "Piero";
+    log.warn("generateAlphaResponse failed, using fallback", { error: result.error });
+    return shouldUseFallback()
+      ? `Hola ${name}, no pude procesar tu mensaje justo ahora. ${toFriendlyGeminiError(result.error)}`
+      : null;
+  }
   return result.data.trim();
 }
 

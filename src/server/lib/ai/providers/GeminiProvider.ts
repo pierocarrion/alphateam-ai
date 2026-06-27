@@ -1,6 +1,7 @@
 import { VertexAI } from "@google-cloud/vertexai";
 import type { AiMessage, AiResult } from "../types";
 import { BaseAiProvider } from "../baseProvider";
+import { extractCandidateText } from "@/server/lib/ai/geminiParts";
 
 interface GeminiConfig {
   projectId: string;
@@ -82,7 +83,7 @@ export class GeminiProvider extends BaseAiProvider {
     try {
       const result = await model.generateContent({ contents });
       const candidate = result.response.candidates?.[0];
-      const text = candidate?.content?.parts?.[0]?.text?.trim() ?? "";
+      const text = extractCandidateText(candidate);
       if (!text) return { text: "", error: "Empty response from Gemini" };
       return { text };
     } catch (err) {

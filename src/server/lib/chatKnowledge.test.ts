@@ -4,12 +4,16 @@ const mocks = vi.hoisted(() => ({
   isGeminiEnabled: vi.fn(),
   generateAlphaResponse: vi.fn(),
   extractLeaderAnswerToKnowledge: vi.fn(),
+  shouldUseFallback: vi.fn(),
+  toFriendlyGeminiError: vi.fn(),
 }));
 
 vi.mock("@/server/lib/gemini", () => ({
   isGeminiEnabled: mocks.isGeminiEnabled,
   generateAlphaResponse: mocks.generateAlphaResponse,
   extractLeaderAnswerToKnowledge: mocks.extractLeaderAnswerToKnowledge,
+  shouldUseFallback: mocks.shouldUseFallback,
+  toFriendlyGeminiError: mocks.toFriendlyGeminiError,
 }));
 
 import {
@@ -30,6 +34,8 @@ import {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.isGeminiEnabled.mockReturnValue(true);
+  mocks.shouldUseFallback.mockReturnValue(true);
+  mocks.toFriendlyGeminiError.mockReturnValue("Please try again.");
 });
 
 describe("isMentionedAlpha", () => {
@@ -96,8 +102,26 @@ describe("generateAlphaChannelReply", () => {
     expect(mocks.generateAlphaResponse).not.toHaveBeenCalled();
   });
 
-  it("returns null when Gemini fails", async () => {
+  it("returns a friendly fallback when Gemini fails and fallback is on", async () => {
     const { workspace } = await seedWorkspace();
+    mocks.generateAlphaResponse.mockResolvedValue({
+      ok: false,
+      error: "boom",
+      model: "test",
+    });
+    mocks.toFriendlyGeminiError.mockReturnValue("Please try again.");
+    const reply = await generateAlphaChannelReply({
+      workspaceId: workspace.id,
+      messageText: "@alpha hi",
+      senderName: "Piero",
+    });
+    expect(reply).toBe("Hola Piero, no pude procesar tu mensaje justo ahora. Please try again.");
+    expect(mocks.toFriendlyGeminiError).toHaveBeenCalledWith("boom");
+  });
+
+  it("returns null when Gemini fails and fallback is disabled", async () => {
+    const { workspace } = await seedWorkspace();
+    mocks.shouldUseFallback.mockReturnValue(false);
     mocks.generateAlphaResponse.mockResolvedValue({
       ok: false,
       error: "boom",

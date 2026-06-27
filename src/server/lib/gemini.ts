@@ -1,6 +1,7 @@
 import { VertexAI } from "@google-cloud/vertexai";
 import { DetectedTaskDraft } from "@/features/tasks/lib/detect";
 import { createLogger } from "@/shared/lib/logger";
+import { extractCandidateText } from "@/server/lib/ai/geminiParts";
 
 const log = createLogger("gemini");
 
@@ -102,8 +103,7 @@ export async function generateContent(
         temperature: options.temperature ?? 0.25,
       },
     });
-    const candidate = result.response?.candidates?.[0];
-    return candidate?.content?.parts?.[0]?.text?.trim() ?? "";
+    return extractCandidateText(result.response?.candidates?.[0]);
   };
 
   const MAX_ATTEMPTS = 2; // initial + 1 retry
