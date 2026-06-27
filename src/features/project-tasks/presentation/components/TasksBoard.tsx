@@ -44,13 +44,23 @@ export function TasksBoard({
   const [createOpen, setCreateOpen] = useState(false);
   const [createStatus, setCreateStatus] = useState<ProjectTaskStatus>("todo");
   const [filter, setFilter] = useState<"all" | "me" | "unassigned">("all");
+  const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
+
+  const phaseOptions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const t of data?.tasks ?? []) {
+      if (t.phaseKey) keys.add(t.phaseKey);
+    }
+    return Array.from(keys);
+  }, [data?.tasks]);
 
   const filtered = useMemo(() => {
-    const all = data?.tasks ?? [];
+    let all = data?.tasks ?? [];
+    if (phaseFilter) all = all.filter((t) => t.phaseKey === phaseFilter);
     if (filter === "me") return all.filter((t) => t.assigneeId === currentUserId);
     if (filter === "unassigned") return all.filter((t) => !t.assigneeId);
     return all;
-  }, [data?.tasks, filter, currentUserId]);
+  }, [data?.tasks, filter, currentUserId, phaseFilter]);
 
   const byColumn = useMemo(() => {
     const map: Record<ProjectTaskStatus, ProjectTask[]> = { todo: [], doing: [], done: [] };
@@ -82,6 +92,20 @@ export function TasksBoard({
               {f === "all" ? t(locale, "tasks.filter.all") : f === "me" ? t(locale, "tasks.filter.me") : t(locale, "tasks.filter.unassigned")}
             </button>
           ))}
+          {phaseOptions.length > 0 && (
+            <select
+              value={phaseFilter ?? ""}
+              onChange={(e) => setPhaseFilter(e.target.value || null)}
+              className="ml-2 rounded-full border border-line-2 bg-surface px-3 py-1.5 text-[12.5px] font-semibold text-ink-2 outline-none"
+            >
+              <option value="">Todas las fases</option>
+              {phaseOptions.map((p) => (
+                <option key={p} value={p}>
+                  {p.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <button
           type="button"

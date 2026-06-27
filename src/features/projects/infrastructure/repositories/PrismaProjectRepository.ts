@@ -18,6 +18,9 @@ import {
   COMMUNITY_HASHTAG,
   COMMUNITY_PROJECT,
 } from "../../domain/community";
+import {
+  getMethodologyPhases,
+} from "@/features/project-phases/domain/visualization";
 
 function toProject(row: {
   id: string;
@@ -252,6 +255,21 @@ export class PrismaProjectRepository implements IProjectRepository {
           tier: "primary",
         },
       });
+
+      // Siembra las fases/estaciones de la metodología (estado "not_started")
+      // para que el proyecto nazca con su base visual, sin obligar al usuario.
+      const phases = getMethodologyPhases(input.methodology);
+      if (phases.length > 0) {
+        await tx.projectPhaseState.createMany({
+          data: phases.map((p) => ({
+            workspaceId: workspace.id,
+            methodologyKey: input.methodology,
+            phaseKey: p.phaseKey,
+            status: "not_started" as const,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       await tx.channel.create({
         data: {

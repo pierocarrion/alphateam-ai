@@ -311,6 +311,21 @@ export function DesktopSidebar({
               {tr("nav.teamInsights")}
             </SideRow>
             <SideRow
+              href="/project/phases"
+              active={pathname === "/project/phases"}
+            >
+              <Icon
+                name="spark"
+                size={16}
+                color={
+                  pathname === "/project/phases"
+                    ? "var(--color-accent)"
+                    : "var(--color-ink-3)"
+                }
+              />
+              {tr("nav.projectPhases")}
+            </SideRow>
+            <SideRow
               href="/project/settings"
               active={pathname === "/project/settings"}
             >

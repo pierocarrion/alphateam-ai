@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Alpha, TopBar } from "@/shared/ui";
 import { GoalProgressTracker } from "@/features/projects/presentation/components/GoalProgressTracker";
+import { MethodologyProgressCard } from "@/features/project-phases/presentation/components/MethodologyProgressCard";
 
 interface ProgressClientProps {
   warm: boolean;
+  workspaceId: string;
   projectName: string;
   projectEmoji: string | null;
   goals: Array<{
@@ -24,6 +26,7 @@ interface ProgressClientProps {
  */
 export function ProgressClient({
   warm,
+  workspaceId,
   projectName,
   projectEmoji,
   goals,
@@ -68,6 +71,10 @@ export function ProgressClient({
             ))}
           </div>
         )}
+
+        <div className="mt-3">
+          <MethodologyProgressCard workspaceId={workspaceId} />
+        </div>
 
         <div className="mt-3">
           {selected ? (

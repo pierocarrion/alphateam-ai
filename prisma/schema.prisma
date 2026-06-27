@@ -48,7 +48,7 @@ model User {
   passwordHash  String?
   emailVerified DateTime?
   image         String?
-  globalRole    String?   // null = usuario normal · "superadmin" = admin de plataforma
+  globalRole    String? // null = usuario normal · "superadmin" = admin de plataforma
   blocked       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -74,8 +74,8 @@ model User {
   employeeSkills         EmployeeSkill[]      @relation("EmployeeSkillUser")
   alphaSessions          AlphaSession[]
   alphaDocuments         AlphaDocument[]
-  assignedProjectTasks   ProjectTask[] @relation("ProjectTaskAssignee")
-  createdProjectTasks    ProjectTask[] @relation("ProjectTaskCreator")
+  assignedProjectTasks   ProjectTask[]        @relation("ProjectTaskAssignee")
+  createdProjectTasks    ProjectTask[]        @relation("ProjectTaskCreator")
   notifications          Notification[]
   pushSubscriptions      PushSubscription[]
 }
@@ -140,6 +140,8 @@ model Workspace {
   knowledgeCategories  KnowledgeCategory[]
   knowledgeSuggestions KnowledgeSuggestion[]
   projectTasks         ProjectTask[]
+  phaseStates          ProjectPhaseState[]
+  artifactStates       ProjectArtifactState[]
 }
 
 model Membership {
@@ -200,11 +202,11 @@ model Message {
   // Thread support: null for top-level messages, parent id for replies.
   parentId  String?
 
-  channel     Channel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel     Channel             @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks       Task[]
-  parent      Message?           @relation("ThreadReply", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies     Message[]          @relation("ThreadReply")
+  parent      Message?            @relation("ThreadReply", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies     Message[]           @relation("ThreadReply")
   attachments MessageAttachment[]
   reactions   MessageReaction[]
 
@@ -725,21 +727,21 @@ model EmployeeSkill {
 
 /// Sesión privada de pensamiento estratégico entre el líder y la IA coach.
 model AlphaSession {
-  id             String    @id @default(cuid())
-  userId         String
-  workspaceId    String
-  title          String
-  framework      String   @default("strategic_dialogue") // strategic_dialogue | lean_ux | decision_brief | action_plan | difficult_convo | prep_meeting | speech_practice
-  challenge      String?  @db.Text // desafío principal identificado
-  status         String   @default("active") // active | completed | archived
-  step           Int      @default(0) // etapa del flujo guiado
-  documentJson   Json? // documento ejecutivo editable en construcción
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  completedAt    DateTime?
+  id           String    @id @default(cuid())
+  userId       String
+  workspaceId  String
+  title        String
+  framework    String    @default("strategic_dialogue") // strategic_dialogue | lean_ux | decision_brief | action_plan | difficult_convo | prep_meeting | speech_practice
+  challenge    String?   @db.Text // desafío principal identificado
+  status       String    @default("active") // active | completed | archived
+  step         Int       @default(0) // etapa del flujo guiado
+  documentJson Json? // documento ejecutivo editable en construcción
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  completedAt  DateTime?
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   messages  AlphaMessage[]
   document  AlphaDocument?
 
@@ -752,7 +754,7 @@ model AlphaMessage {
   id        String   @id @default(cuid())
   sessionId String
   role      String // user | coach | system
-  content   String  @db.Text
+  content   String   @db.Text
   meta      Json? // { step, field, suggestion }
   createdAt DateTime @default(now())
 
@@ -763,18 +765,18 @@ model AlphaMessage {
 
 /// Documento ejecutivo exportable generado/edicionable durante una sesión.
 model AlphaDocument {
-  id        String   @id @default(cuid())
-  sessionId String   @unique
-  userId    String
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  userId      String
   workspaceId String
-  title     String
-  kind      String   @default("decision_brief") // lean_ux | action_plan | decision_brief | strategy | feedback_plan
-  sections  Json // [{ id, label, content }]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  title       String
+  kind        String   @default("decision_brief") // lean_ux | action_plan | decision_brief | strategy | feedback_plan
+  sections    Json // [{ id, label, content }]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   session   AlphaSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([userId, updatedAt])
@@ -784,19 +786,19 @@ model AlphaDocument {
 
 /// Campaña de feedback anónimo (check-in periódico o encuesta contextual).
 model FeedbackCampaign {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   title       String
-  kind        String   @default("pulse") // pulse | onboarding | exit | contextual | 360
+  kind        String    @default("pulse") // pulse | onboarding | exit | contextual | 360
   questions   Json // [{ id, text, type }]
-  cadence     String   @default("weekly") // weekly | monthly | ad_hoc
-  status      String   @default("active") // draft | active | closed
+  cadence     String    @default("weekly") // weekly | monthly | ad_hoc
+  status      String    @default("active") // draft | active | closed
   startsAt    DateTime?
   endsAt      DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   responses FeedbackResponse[]
 
   @@index([workspaceId, status])
@@ -805,17 +807,17 @@ model FeedbackCampaign {
 
 /// Respuesta anónima a una campaña. Nunca se asocia a un usuario identificable.
 model FeedbackResponse {
-  id          String   @id @default(cuid())
-  campaignId  String
-  workspaceId String
+  id            String   @id @default(cuid())
+  campaignId    String
+  workspaceId   String
   // userId se guarda SOLO para control de unicidad (hash/anónimo). No se muestra al líder.
   submitterHash String?
-  payload     Json // { questionId -> answer } + free text
+  payload       Json // { questionId -> answer } + free text
   // Métricas derivadas por la IA
-  sentiment   String? // positive | neutral | risk | negative
-  emotion     String? // motivated | committed | stressed | uncertain | disconnected | burned_out
-  scores      Json? // { psychological_safety, engagement, trust, ... }
-  createdAt   DateTime @default(now())
+  sentiment     String? // positive | neutral | risk | negative
+  emotion       String? // motivated | committed | stressed | uncertain | disconnected | burned_out
+  scores        Json? // { psychological_safety, engagement, trust, ... }
+  createdAt     DateTime @default(now())
 
   campaign  FeedbackCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -825,7 +827,6 @@ model FeedbackResponse {
   @@index([workspaceId, createdAt])
 }
 
-
 // ===== Knowledge Hub (biblioteca corporativa inteligente + RAG) =====
 
 /// Categoría dinámica de la biblioteca de conocimiento (Marketing, Strategy, ...)
@@ -833,9 +834,9 @@ model FeedbackResponse {
 model KnowledgeCategory {
   id          String   @id @default(cuid())
   workspaceId String
-  key         String   // marketing, strategy, operations, ...
+  key         String // marketing, strategy, operations, ...
   name        String
-  color       String?  // hex o token de color
+  color       String? // hex o token de color
   icon        String?
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -851,37 +852,38 @@ model KnowledgeCategory {
 /// Recurso de la biblioteca corporativa. Evolución enriquecida de KnowledgeBaseItem
 /// (que se mantiene para compatibilidad con el RAG básico de Alpha).
 model KnowledgeResource {
-  id            String    @id @default(cuid())
-  workspaceId   String
-  categoryId    String?
-  title         String
-  summary       String?   @db.Text // resumen generado por IA
-  contentText   String    @db.Text // texto plano extraído (para keyword search + chunks)
-  fileType      String    @default("text") // text | pdf | docx | xlsx | pptx | image | video | link
-  storageKey    String?   // clave en el IFileStorage (GCS / local)
-  sourceUrl     String?   @db.Text
-  sourceApp     String?   // slack | teams | gdrive | manual | ...
-  sourceType    String    @default("manual") // manual | upload | link | capture
-  authorId      String?   // sin relación fuerte (igual que AuditLog.actorId)
-  projectId     String?
-  accessLevel   String    @default("workspace") // workspace | leaders | members
-  isPremium     Boolean   @default(false)
-  tags          String[]  @default([])
-  keywords      String[]  @default([]) // extraídos por IA
-  status        String    @default("active") // active | processing | archived
-  viewCount     Int       @default(0)
-  useCount      Int       @default(0)
-  aiMetadata    Json?     // { language, readingTime, confidence, topics, ... }
-  version       Int       @default(1)
-  createdById   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  workspaceId String
+  categoryId  String?
+  title       String
+  summary     String?  @db.Text // resumen generado por IA
+  contentText String   @db.Text // texto plano extraído (para keyword search + chunks)
+  fileType    String   @default("text") // text | pdf | docx | xlsx | pptx | image | video | link
+  storageKey  String? // clave en el IFileStorage (GCS / local)
+  sourceUrl   String?  @db.Text
+  sourceApp   String? // slack | teams | gdrive | manual | ...
+  sourceType  String   @default("manual") // manual | upload | link | capture
+  authorId    String? // sin relación fuerte (igual que AuditLog.actorId)
+  projectId   String?
+  accessLevel String   @default("workspace") // workspace | leaders | members
+  isPremium   Boolean  @default(false)
+  tags        String[] @default([])
+  keywords    String[] @default([]) // extraídos por IA
+  status      String   @default("active") // active | processing | archived
+  viewCount   Int      @default(0)
+  useCount    Int      @default(0)
+  aiMetadata  Json? // { language, readingTime, confidence, topics, ... }
+  version     Int      @default(1)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  workspace    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  category     KnowledgeCategory?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  chunks       KnowledgeChunk[]
-  versions     KnowledgeResourceVersion[]
-  suggestions  KnowledgeSuggestion[]
+  workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category      KnowledgeCategory?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  chunks        KnowledgeChunk[]
+  versions      KnowledgeResourceVersion[]
+  suggestions   KnowledgeSuggestion[]
+  artifactState ProjectArtifactState[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, categoryId])
@@ -933,8 +935,8 @@ model KnowledgeSuggestion {
   dismissed    Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  resource  KnowledgeResource?  @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  resource  KnowledgeResource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt])
   @@index([targetUserId, dismissed])
@@ -945,14 +947,14 @@ model KnowledgeSuggestion {
 /// Extracción analítica de Alpha sobre una conversación: resumen, tareas,
 /// riesgos, decisiones, acuerdos, próximos pasos. type + payload (JSON).
 model ChannelInsight {
-  id         String   @id @default(cuid())
-  channelId  String
-  workspaceId String
-  type       String   // summary | tasks | risks | decisions | next_steps | retrospective | strategy | fetch
-  payload    Json
+  id              String   @id @default(cuid())
+  channelId       String
+  workspaceId     String
+  type            String // summary | tasks | risks | decisions | next_steps | retrospective | strategy | fetch
+  payload         Json
   sourceMessageId String?
-  createdById String?
-  createdAt  DateTime @default(now())
+  createdById     String?
+  createdAt       DateTime @default(now())
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
@@ -971,19 +973,21 @@ model ProjectTask {
   assigneeId  String? // User asignado (null = sin asignar, disponible para autoasignarse)
   createdById String
   title       String
-  description String?  @db.Text
+  description String?   @db.Text
   status      String    @default("todo") // todo | doing | done
-  priority    String?   // low | medium | high | urgent
+  priority    String? // low | medium | high | urgent
   dueDate     DateTime?
   tags        String[]  @default([])
   order       Int       @default(0) // orden dentro de la columna Kanban
+  phaseKey    String? // vincula la tarea a una fase de la metodología
+  artifactKey String? // vincula la tarea a un artefacto de la metodología
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
 
-  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  assignee   User?     @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  createdBy  User      @relation("ProjectTaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User      @relation("ProjectTaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, status])
   @@index([workspaceId, assigneeId])
@@ -1026,5 +1030,54 @@ model PushSubscription {
   @@index([userId])
 }
 
+// ===== Project Phases & Artifacts (seguimiento visual de metodología) =====
 
+/// Estado de una fase/estación de la metodología por proyecto.
+/// Permite marcar avance de forma visual sin obligar al usuario.
+model ProjectPhaseState {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  methodologyKey String // design_thinking | scrum | ...
+  phaseKey       String // clave de la sección (fase/roles/artefactos/pasos/métricas)
+  status         String    @default("not_started") // not_started | in_progress | done | skipped
+  startedAt      DateTime?
+  completedAt    DateTime?
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
+  workspace Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  artifacts ProjectArtifactState[]
+
+  @@unique([workspaceId, methodologyKey, phaseKey])
+  @@index([workspaceId, methodologyKey])
+}
+
+/// Estado de un artefacto/herramienta de la metodología por proyecto.
+/// Cada artefacto completado puede materializarse en un KnowledgeResource
+/// (sourceType "methodology_artifact") para integrarse con la base de conocimiento.
+model ProjectArtifactState {
+  id                  String    @id @default(cuid())
+  workspaceId         String
+  phaseId             String
+  methodologyKey      String
+  phaseKey            String
+  artifactKey         String
+  status              String    @default("pending") // pending | in_progress | done | skipped
+  mandatory           Boolean   @default(false) // el líder puede marcar artefacto como requerido
+  visible             Boolean   @default(true) // ocultar ruido en la visualización
+  filledContent       String?   @db.Text // contenido llenado por el usuario (espejo del KnowledgeResource)
+  knowledgeResourceId String? // link al KnowledgeResource creado para este artefacto
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  phase             ProjectPhaseState  @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  knowledgeResource KnowledgeResource? @relation(fields: [knowledgeResourceId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, artifactKey])
+  @@index([workspaceId, phaseKey])
+  @@index([workspaceId, status])
+}

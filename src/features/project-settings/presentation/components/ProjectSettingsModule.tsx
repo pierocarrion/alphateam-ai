@@ -8,13 +8,15 @@ import { TeamManager } from "@/features/project-settings/presentation/components
 import { KpiChips } from "@/features/project-settings/presentation/components/KpiChips";
 import { AiInsightsPanel } from "@/features/project-settings/presentation/components/AiInsightsPanel";
 import { MethodologyExplorer } from "@/features/project-settings/presentation/components/MethodologyExplorer";
+import { PhaseTracker } from "@/features/project-phases/presentation/components/PhaseTracker";
 import { Spinner } from "@/features/project-settings/presentation/components/primitives";
 
-type Tab = "smart" | "methodology" | "team" | "kpis" | "ai";
+type Tab = "smart" | "methodology" | "phases" | "team" | "kpis" | "ai";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "smart", label: "Objetivo SMART", icon: "🎯" },
   { id: "methodology", label: "Metodología", icon: "🧭" },
+  { id: "phases", label: "Fases", icon: "🪜" },
   { id: "team", label: "Equipo", icon: "👥" },
   { id: "kpis", label: "KPIs", icon: "📊" },
   { id: "ai", label: "IA", icon: "✨" },
@@ -85,6 +87,7 @@ export function ProjectSettingsModule({
             {tab === "methodology" && (
               <MethodologyExplorer methodologies={settings.data.methodologies} />
             )}
+            {tab === "phases" && <PhaseTracker workspaceId={workspaceId} />}
             {tab === "team" && (
               <TeamManager
                 workspaceId={workspaceId}

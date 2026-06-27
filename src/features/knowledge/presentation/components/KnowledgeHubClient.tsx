@@ -74,6 +74,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [onlyMethodology, setOnlyMethodology] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -216,7 +217,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
         </form>
 
         {/* Category filter */}
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           <CategoryChip
             active={activeCategory === null}
             onClick={() => {
@@ -237,6 +238,27 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
               color={c.color ?? undefined}
             />
           ))}
+        </div>
+
+        {/* Origin filter: methodology artifacts */}
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOnlyMethodology((v) => !v)}
+            className={cn(
+              "rounded-full border-[1.5px] px-3 py-1 text-[12px] font-semibold transition-colors",
+              onlyMethodology
+                ? "border-accent bg-accent-soft text-ink"
+                : "border-line text-ink-3 hover:bg-surface-2"
+            )}
+          >
+            🧭 Origen: Metodología
+          </button>
+          {onlyMethodology && (
+            <span className="text-[11.5px] text-ink-3">
+              Artefactos generados al seguir la metodología del proyecto.
+            </span>
+          )}
         </div>
 
         {/* Actions */}
@@ -328,11 +350,11 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
           <section>
             {loading ? (
               <p className="text-sm text-ink-3">{t(locale, "common.loading")}</p>
-            ) : resources.length === 0 ? (
-              <EmptyState text={t(locale, "knowledge.noResources")} />
+            ) : (onlyMethodology ? resources.filter((r) => r.tags.includes("methodology")) : resources).length === 0 ? (
+              <EmptyState text={onlyMethodology ? "Aún no hay artefactos de metodología. Completa uno desde /project/phases." : t(locale, "knowledge.noResources")} />
             ) : (
               <div className="flex flex-col gap-3">
-                {resources.map((r) => (
+                {(onlyMethodology ? resources.filter((r) => r.tags.includes("methodology")) : resources).map((r) => (
                   <Card key={r.id} className="flex flex-col gap-2">
                     <div className="flex items-start gap-3">
                       <div className="flex h-9 w-9 flex-none items-center justify-center rounded-[12px] bg-surface-2">

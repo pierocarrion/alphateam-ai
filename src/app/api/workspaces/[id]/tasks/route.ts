@@ -15,6 +15,8 @@ const createSchema = z.object({
   dueDate: z.union([z.string(), z.date()]).nullable().optional(),
   tags: z.array(z.string()).optional(),
   assigneeId: z.string().nullable().optional(),
+  phaseKey: z.string().max(120).nullable().optional(),
+  artifactKey: z.string().max(120).nullable().optional(),
 });
 
 export async function GET(
@@ -56,7 +58,7 @@ export async function POST(
       );
     }
 
-    const { title, description, status, priority, dueDate, tags, assigneeId } = parsed.data;
+    const { title, description, status, priority, dueDate, tags, assigneeId, phaseKey, artifactKey } = parsed.data;
     const leader = isLeaderOrAdmin(auth.role);
 
     // Members can only assign to themselves; leaders/admins can assign to anyone.
@@ -98,6 +100,8 @@ export async function POST(
         priority: priority ?? null,
         dueDate: dueDate ? new Date(dueDate) : null,
         tags: tags ?? [],
+        phaseKey: phaseKey ?? null,
+        artifactKey: artifactKey ?? null,
         completedAt: status === "done" ? new Date() : null,
       },
       include: {

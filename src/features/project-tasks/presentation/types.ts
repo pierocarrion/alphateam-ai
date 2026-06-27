@@ -18,6 +18,8 @@ export interface ProjectTask {
   dueDate: string | null;
   tags: string[];
   order: number;
+  phaseKey: string | null;
+  artifactKey: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;

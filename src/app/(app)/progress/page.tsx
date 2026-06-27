@@ -46,6 +46,7 @@ export default async function ProgressPage() {
   return (
     <ProgressClient
       warm={warm}
+      workspaceId={active.workspaceId}
       projectName={workspace?.name ?? "Proyecto"}
       projectEmoji={workspace?.emoji ?? null}
       goals={goals.map((g) => ({
