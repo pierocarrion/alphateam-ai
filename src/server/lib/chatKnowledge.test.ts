@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   extractLeaderAnswerToKnowledge: vi.fn(),
   shouldUseFallback: vi.fn(),
   toFriendlyGeminiError: vi.fn(),
+  hybrid: vi.fn(),
 }));
 
 vi.mock("@/server/lib/gemini", () => ({
@@ -14,6 +15,16 @@ vi.mock("@/server/lib/gemini", () => ({
   extractLeaderAnswerToKnowledge: mocks.extractLeaderAnswerToKnowledge,
   shouldUseFallback: mocks.shouldUseFallback,
   toFriendlyGeminiError: mocks.toFriendlyGeminiError,
+}));
+
+// The "general" @Alpha path now grounds on the Knowledge Hub via the same
+// `SearchKnowledge.hybrid` pipeline the explicit commands use. Stub the
+// container's `searchKnowledge()` factory so we can drive the hybrid result
+// deterministically without a live embedder / vector store in tests.
+vi.mock("@/features/knowledge/infrastructure/knowledgeContainer", () => ({
+  knowledgeContainer: {
+    searchKnowledge: () => ({ hybrid: mocks.hybrid }),
+  },
 }));
 
 import {
@@ -36,6 +47,8 @@ beforeEach(() => {
   mocks.isGeminiEnabled.mockReturnValue(true);
   mocks.shouldUseFallback.mockReturnValue(true);
   mocks.toFriendlyGeminiError.mockReturnValue("Please try again.");
+  // By default hybrid returns an empty result list (no knowledge wired up).
+  mocks.hybrid.mockResolvedValue([]);
 });
 
 describe("isMentionedAlpha", () => {
@@ -64,32 +77,52 @@ describe("isMentionedAlpha", () => {
 });
 
 describe("generateAlphaChannelReply", () => {
-  it("grounds the reply in the project knowledge base", async () => {
-    const db = await getTestDb();
+  it("grounds the reply in the project Knowledge Hub (hybrid RAG)", async () => {
     const { workspace } = await seedWorkspace();
-    await db.insert(knowledgeBaseItem).values({
-      workspaceId: workspace.id,
-      title: "Refunds",
-      content: "Refunds within 30 days.",
-    });
+    // No legacy knowledgeBaseItem seeded — Alpha must read from Knowledge Hub.
+    mocks.hybrid.mockResolvedValue([
+      {
+        resource: {
+          id: "r1",
+          title: "Tecnologías del proyecto",
+          summary: "Se usará .NET y Flutter como frameworks de la app",
+          tags: [],
+          categoryId: null,
+          isPremium: false,
+          fileType: "text",
+        },
+        score: 0.9,
+        snippet: "Se usará .NET y Flutter como frameworks de la app",
+        source: "hybrid",
+      },
+    ]);
 
     mocks.generateAlphaResponse.mockResolvedValue({
       ok: true,
-      data: "You can refund within 30 days.",
+      data: "Se usará .NET y Flutter como frameworks.",
       model: "test",
     });
 
     const reply = await generateAlphaChannelReply({
       workspaceId: workspace.id,
-      messageText: "@alpha what is the refund policy?",
-      senderName: "Mem",
+      messageText: "@alpha qué tecnología se usará?",
+      senderName: "Piero",
     });
 
-    expect(reply).toBe("You can refund within 30 days.");
-    expect(mocks.generateAlphaResponse).toHaveBeenCalledOnce();
+    expect(reply).toBe("Se usará .NET y Flutter como frameworks.");
+    expect(mocks.hybrid).toHaveBeenCalledWith({
+      workspaceId: workspace.id,
+      query: "@alpha qué tecnología se usará?",
+      topK: 5,
+    });
     const arg = mocks.generateAlphaResponse.mock.calls[0][0];
-    expect(arg.knowledge).toEqual([{ title: "Refunds", content: "Refunds within 30 days." }]);
-    expect(arg.message).toBe("@alpha what is the refund policy?");
+    expect(arg.knowledge).toEqual([
+      {
+        title: "Tecnologías del proyecto",
+        content: "Se usará .NET y Flutter como frameworks de la app",
+      },
+    ]);
+    expect(arg.message).toBe("@alpha qué tecnología se usará?");
   });
 
   it("returns null when Gemini is disabled", async () => {

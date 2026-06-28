@@ -15,6 +15,20 @@
       "when": 1782595444212,
       "tag": "0001_set_updatedat_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782608991329,
+      "tag": "0002_ancient_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782610000000,
+      "tag": "0003_fts",
+      "breakpoints": true
     }
   ]
 }

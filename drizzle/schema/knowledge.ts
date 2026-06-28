@@ -5,6 +5,7 @@ import {
   integer,
   boolean,
   jsonb,
+  vector,
   unique,
   index,
 } from "drizzle-orm/pg-core";
@@ -113,6 +114,13 @@ export const knowledgeChunk = pgTable(
     ordinal: integer().notNull(),
     text: text().notNull(),
     tokenCount: integer(),
+    // pgvector-backed embedding (dim 768 matches Gemini text-embedding-004).
+    // Null until IngestDocument runs; upserts overwrite in place. The ivfflat
+    // index is created out-of-band against Cloud SQL (see scripts/pgvector.sql
+    // and cloudbuild-migrate.yaml) because drizzle-kit's DSL doesn't emit
+    // `USING ivfflat … WITH (lists=…)` and PGlite's vector plugin doesn't
+    // support ivfflat indexes — only the column type itself.
+    embedding: vector("embedding", { dimensions: 768 }),
     createdAt: timestamp(ts).defaultNow().notNull(),
   },
   (t) => ({

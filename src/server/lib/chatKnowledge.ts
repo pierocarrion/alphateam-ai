@@ -10,6 +10,7 @@ import {
   shouldUseFallback,
   toFriendlyGeminiError,
 } from "@/server/lib/gemini";
+import { knowledgeContainer } from "@/features/knowledge/infrastructure/knowledgeContainer";
 import type { KnowledgeBaseItem } from "@/features/projects/domain/repositories/IProjectRepository";
 
 const log = createLogger("chatKnowledge");
@@ -36,12 +37,28 @@ export async function generateAlphaChannelReply(args: {
 }): Promise<string | null> {
   if (!isGeminiEnabled()) return null;
 
+  // Ground Alpha on the project's Knowledge Hub using the same hybrid RAG
+  // pipeline (semantic + keyword) the explicit @alpha commands use, so the
+  // "general" path no longer reads a separate legacy table that drifted out
+  // of sync. The user's own message is the query — natural-language questions
+  // like "what technology will we use?" map to the relevant resource via the
+  // embedder + FTS fusion in SearchKnowledge.hybrid.
   let knowledge: Array<{ title: string; content: string }> = [];
   try {
-    const items = await container.projectRepository.listKnowledge(args.workspaceId);
-    knowledge = items.map((k) => ({ title: k.title, content: k.content }));
+    const search = knowledgeContainer.searchKnowledge();
+    const ranked = await search.hybrid({
+      workspaceId: args.workspaceId,
+      query: args.messageText,
+      topK: 5,
+    });
+    knowledge = ranked
+      .filter((r) => r.resource.title !== "(recurso no disponible)")
+      .map((r) => ({
+        title: r.resource.title,
+        content: r.snippet || r.resource.summary || "",
+      }));
   } catch (err) {
-    log.error("listKnowledge (reply) failed", err);
+    log.error("knowledgeHub hybrid (reply) failed", err);
   }
 
   let projectContext: {

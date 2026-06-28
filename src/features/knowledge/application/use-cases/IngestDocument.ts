@@ -49,26 +49,31 @@ export class IngestDocument {
       return { resourceId: resource.id, chunks: 0, vectors: 0, enriched };
     }
 
-    await this.repo.replaceChunks(
+    // Persist chunk text FIRST so each chunk has a real row id. The vector
+    // store upserts reference those ids directly (PgVectorStore writes the
+    // embedding column on the matching KnowledgeChunk row); using the DB id
+    // instead of a synthesized `${resourceId}:${ordinal}` keeps the link
+    // durable across renames/edits and lets PgVectorStore UPDATE in place.
+    const persistedChunks = await this.repo.replaceChunks(
       resource.id,
       chunks.map((c) => ({ text: c.text, tokenCount: c.tokenCount }))
     );
 
-    // Embed in batches and upsert into the vector store.
+    // Embed in batches and upsert into the vector store, keyed by real chunk id.
     const store = getVectorStore();
     const batchSize = 16;
     let upserted = 0;
-    for (let i = 0; i < chunks.length; i += batchSize) {
-      const batch = chunks.slice(i, i + batchSize);
+    for (let i = 0; i < persistedChunks.length; i += batchSize) {
+      const batch = persistedChunks.slice(i, i + batchSize);
       const embedResult = await this.ai.embedder.embed(batch.map((c) => c.text));
       if (!embedResult.ok || !embedResult.data) break;
       const records = batch.map((chunk, idx) => ({
-        id: `${resource.id}:${chunk.ordinal}`,
+        id: chunk.id,
         vector: embedResult.data![idx],
         metadata: {
           resourceId: resource.id,
           workspaceId: resource.workspaceId,
-          chunkId: `${resource.id}:${chunk.ordinal}`,
+          chunkId: chunk.id,
           ordinal: chunk.ordinal,
         },
       }));
@@ -76,7 +81,7 @@ export class IngestDocument {
       upserted += records.length;
     }
 
-    return { resourceId: resource.id, chunks: chunks.length, vectors: upserted, enriched };
+    return { resourceId: resource.id, chunks: persistedChunks.length, vectors: upserted, enriched };
   }
 
   private async enrichResource(resource: KnowledgeResource): Promise<boolean> {

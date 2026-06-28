@@ -146,16 +146,26 @@ export class PrismaKnowledgeRepository implements IKnowledgeRepository {
     if (filter.fileType)
       conditions.push(eq(knowledgeResource.fileType, filter.fileType));
     if (filter.search) {
-      const q = filter.search;
-      conditions.push(
-        or(
-          ilike(knowledgeResource.title, `%${q}%`),
-          ilike(knowledgeResource.summary, `%${q}%`),
-          ilike(knowledgeResource.contentText, `%${q}%`),
-          sql`${knowledgeResource.tags} @> ARRAY[${q}]::text[]`,
-          sql`${knowledgeResource.keywords} @> ARRAY[${q}]::text[]`
-        )!
-      );
+      const q = filter.search.trim();
+      if (q) {
+        // Use the generated tsvector column + plainto_tsquery for proper
+        // full-text matching (tokenizes, handles multi-word queries, ranks
+        // by frequency). The 'simple' dictionary keeps this language-agnostic
+        // so both Spanish ("qué tecnología se usará?") and English work.
+        // We OR with a literal substring ILIKE on title as a recall backstop
+        // for typos / very short tokens that plainto_tsquery may miss.
+        // `searchVector` is a STORED generated column added by migration
+        // 0003_fts.sql (and scripts/fts.sql in prod); it isn't declared in
+        // the Drizzle schema because the type isn't first-class there.
+        conditions.push(
+          or(
+            sql`"KnowledgeResource"."searchVector" @@ plainto_tsquery('simple', ${q})`,
+            ilike(knowledgeResource.title, `%${q}%`),
+            sql`${knowledgeResource.tags} @> ARRAY[${q}]::text[]`,
+            sql`${knowledgeResource.keywords} @> ARRAY[${q}]::text[]`
+          )!
+        );
+      }
     }
     return and(...conditions);
   }
@@ -280,19 +290,33 @@ export class PrismaKnowledgeRepository implements IKnowledgeRepository {
   async replaceChunks(
     resourceId: string,
     chunks: { text: string; tokenCount?: number }[]
-  ): Promise<void> {
-    await db.transaction(async (tx) => {
+  ): Promise<{ id: string; ordinal: number; text: string; tokenCount: number | null }[]> {
+    if (chunks.length === 0) {
+      await db.delete(knowledgeChunk).where(eq(knowledgeChunk.resourceId, resourceId));
+      return [];
+    }
+    // Delete + insert in a transaction so a concurrent reader never sees an
+    // empty window. Return the inserted rows (with their cuid ids) so callers
+    // (IngestDocument) can upsert embeddings keyed by the real chunk id.
+    return await db.transaction(async (tx) => {
       await tx.delete(knowledgeChunk).where(eq(knowledgeChunk.resourceId, resourceId));
-      if (chunks.length) {
-        await tx.insert(knowledgeChunk).values(
+      const inserted = await tx
+        .insert(knowledgeChunk)
+        .values(
           chunks.map((chunk, idx) => ({
             resourceId,
             ordinal: idx,
             text: chunk.text,
             tokenCount: chunk.tokenCount ?? null,
           }))
-        );
-      }
+        )
+        .returning({
+          id: knowledgeChunk.id,
+          ordinal: knowledgeChunk.ordinal,
+          text: knowledgeChunk.text,
+          tokenCount: knowledgeChunk.tokenCount,
+        });
+      return inserted;
     });
   }
 

@@ -94,7 +94,10 @@ export interface IKnowledgeRepository {
   incrementUse(id: string): Promise<void>;
 
   // Chunks (RAG source text)
-  replaceChunks(resourceId: string, chunks: { text: string; tokenCount?: number }[]): Promise<void>;
+  replaceChunks(
+    resourceId: string,
+    chunks: { text: string; tokenCount?: number }[]
+  ): Promise<{ id: string; ordinal: number; text: string; tokenCount: number | null }[]>;
   listChunks(resourceId: string): Promise<{ id: string; ordinal: number; text: string; tokenCount: number | null }[]>;
   getChunk(chunkId: string): Promise<{ id: string; resourceId: string; ordinal: number; text: string } | null>;
 

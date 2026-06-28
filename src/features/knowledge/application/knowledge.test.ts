@@ -72,7 +72,13 @@ function makeFakeRepo(
     incrementUse: async () => undefined,
     replaceChunks: async (resourceId, newChunks) => {
       chunks.splice(0, chunks.length);
-      newChunks.forEach((c, i) => chunks.push({ id: `${resourceId}:${i}`, resourceId, ordinal: i, text: c.text }));
+      const inserted: { id: string; ordinal: number; text: string; tokenCount: number | null }[] = [];
+      newChunks.forEach((c, i) => {
+        const id = `${resourceId}:${i}`;
+        chunks.push({ id, resourceId, ordinal: i, text: c.text });
+        inserted.push({ id, ordinal: i, text: c.text, tokenCount: c.tokenCount ?? null });
+      });
+      return inserted;
     },
     listChunks: async () => chunks,
     getChunk: async (id) => chunks.find((c) => c.id === id) ?? null,

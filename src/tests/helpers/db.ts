@@ -1,4 +1,5 @@
 ﻿import { PGlite } from "@electric-sql/pglite";
+import { vector as pgVector } from "@electric-sql/pglite/vector";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { inArray, eq } from "drizzle-orm";
@@ -15,7 +16,9 @@ const migrationsFolder = `${process.cwd()}/drizzle`;
 
 export async function getPglite(): Promise<PGlite> {
   if (!pglite) {
-    pglite = new PGlite();
+    // Load pgvector extension so the `embedding vector(768)` column on
+    // KnowledgeChunk works the same way in tests as in Cloud SQL production.
+    pglite = new PGlite({ extensions: { vector: pgVector } });
   }
   return pglite;
 }
@@ -29,6 +32,11 @@ export async function setupTestDatabase(): Promise<Db> {
   const client = await getPglite();
 
   if (!schemaApplied) {
+    // Register the pgvector extension in PGlite BEFORE migrations run, so the
+    // `embedding vector(768)` column added by 0002_ancient_gravity.sql is
+    // accepted. The vector plugin is loaded via the PGlite constructor; this
+    // SQL call makes its types discoverable to the parser.
+    await client.exec("CREATE EXTENSION IF NOT EXISTS vector;");
     db = drizzle(client, { schema }) as unknown as Db;
     await migrate(db, { migrationsFolder });
     schemaApplied = true;

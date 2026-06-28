@@ -38,9 +38,15 @@ steps:
         sleep 8
         export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||')"
         echo "DATABASE_URL host: $$(echo "$$DATABASE_URL" | sed -E 's|.*@([^/:]+).*|\1|')"
+        # Install pgvector before drizzle-kit push, otherwise the `vector(768)`
+        # column on KnowledgeChunk would error on type creation.
+        export PGPASSWORD="$$(echo "$$DATABASE_URL" | sed -nE 's|.*:([^@]+)@.*|\1|p')"
+        psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -c "CREATE EXTENSION IF NOT EXISTS vector;"
         npm ci --ignore-scripts
         npx drizzle-kit push --force --verbose
         PUSH_STATUS=$?
+        psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -c "CREATE INDEX IF NOT EXISTS \"KnowledgeChunk_embedding_ivfflat_idx\" ON \"KnowledgeChunk\" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);"
+        psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -f scripts/fts.sql
         kill $$PROXY_PID || true
         exit $$PUSH_STATUS
     secretEnv: ["DATABASE_URL"]

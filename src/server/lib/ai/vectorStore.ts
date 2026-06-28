@@ -1,4 +1,5 @@
 import type { AiResult } from "./types";
+import { PgVectorStore } from "./PgVectorStore";
 
 /**
  * Vector store abstraction for RAG retrieval. Implementations:
@@ -104,8 +105,27 @@ export class InMemoryVectorStore implements IVectorStore {
 
 let defaultStore: IVectorStore | null = null;
 
+/**
+ * Resolves the active vector store.
+ *
+ * - In tests: `setVectorStore` injects an `InMemoryVectorStore` (see
+ *   `knowledge.test.ts`); if not set explicitly, fall back to in-memory too.
+ * - In production (when `PGVECTOR_ENABLED !== "false"` and `DATABASE_URL` is
+ *   configured) we use {@link PgVectorStore}, backed by the `embedding
+ *   vector(768)` column on `KnowledgeChunk` (Cloud SQL + pgvector). This
+ *   replaces the previous in-memory store that lost all vectors on every
+ *   Cloud Run cold start, which silently broke RAG retrieval for @Alpha.
+ *
+ * Set `PGVECTOR_ENABLED=false` to force the in-memory store (e.g. for a
+ * smoke environment without pgvector installed).
+ */
 export function getVectorStore(): IVectorStore {
-  if (!defaultStore) defaultStore = new InMemoryVectorStore();
+  if (defaultStore) return defaultStore;
+  const usePg =
+    process.env.NODE_ENV === "production" &&
+    process.env.PGVECTOR_ENABLED !== "false" &&
+    Boolean(process.env.DATABASE_URL);
+  defaultStore = usePg ? new PgVectorStore() : new InMemoryVectorStore();
   return defaultStore;
 }
 
