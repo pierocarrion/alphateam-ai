@@ -1,0 +1,47 @@
+# Cloud Build job to run scripts/reindex-knowledge.ts against Cloud SQL.
+# Re-chunks + re-embeds every existing KnowledgeResource so RAG retrieval
+# works on resources created before PgVectorStore was deployed.
+#
+# Usage:
+#   gcloud builds submit --config=cloudbuild-reindex.yaml
+#
+# Optional substitutions:
+#   _REINDEX_ENRICH=true     also regenerate AI summaries
+#   _REINDEX_LIMIT=500       cap how many resources to process
+
+steps:
+  - name: "node:20-alpine"
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        apk add --no-cache wget postgresql-client
+        wget -q https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64 -O /cloud-sql-proxy
+        chmod +x /cloud-sql-proxy
+        /cloud-sql-proxy --structured-logs --port=5432 "${PROJECT_ID}:${_REGION}:${_DB_INSTANCE}" &
+        PROXY_PID=$!
+        echo "Waiting for Cloud SQL proxy..."
+        sleep 8
+        export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||')"
+        echo "DATABASE_URL host: $$(echo "$$DATABASE_URL" | sed -E 's|.*@([^/:]+).*|\1|')"
+        npm ci --ignore-scripts
+        REINDEX_ENRICH=${_REINDEX_ENRICH} REINDEX_LIMIT=${_REINDEX_LIMIT} npx tsx scripts/reindex-knowledge.ts
+        REINDEX_STATUS=$?
+        kill $$PROXY_PID || true
+        exit $$REINDEX_STATUS
+    secretEnv: ["DATABASE_URL"]
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/${_DB_SECRET}/versions/latest
+      env: DATABASE_URL
+
+substitutions:
+  _REGION: us-central1
+  _DB_INSTANCE: alphalead-db
+  _DB_SECRET: database-url
+  _REINDEX_ENRICH: "false"
+  _REINDEX_LIMIT: ""
+
+options:
+  logging: CLOUD_LOGGING_ONLY
