@@ -42,11 +42,7 @@ const isServer = typeof window === "undefined";
 
 function safeSerialize(value: unknown): unknown {
   if (value instanceof Error) {
-    return {
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-    };
+    return serializeError(value, new Set());
   }
   if (typeof value === "object" && value !== null) {
     try {
@@ -57,6 +53,42 @@ function safeSerialize(value: unknown): unknown {
     }
   }
   return value;
+}
+
+/**
+ * Serializes an Error INCLUDING its `cause` chain (Drizzle/pg wrap the real
+ * PostgreSQL error there as `Error.cause`), so server logs reveal the actual
+ * underlying driver error instead of just the wrapping "Failed query: …".
+ */
+function serializeError(err: Error, seen: Set<unknown>): Record<string, unknown> {
+  if (seen.has(err)) return { name: err.name, message: "[circular]" };
+  seen.add(err);
+  const out: Record<string, unknown> = {
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+  };
+  // Preserve commonly used Error-compatible fields (DriverData, code, …)
+  const anyErr = err as Error & {
+    code?: unknown;
+    detail?: unknown;
+    constraint?: unknown;
+    table?: unknown;
+    column?: unknown;
+    statusCode?: unknown;
+  };
+  if (anyErr.code !== undefined) out.code = anyErr.code;
+  if (anyErr.detail !== undefined) out.detail = anyErr.detail;
+  if (anyErr.constraint !== undefined) out.constraint = anyErr.constraint;
+  if (anyErr.table !== undefined) out.table = anyErr.table;
+  if (anyErr.column !== undefined) out.column = anyErr.column;
+  if (anyErr.statusCode !== undefined) out.statusCode = anyErr.statusCode;
+  if (err.cause instanceof Error) {
+    out.cause = serializeError(err.cause, seen);
+  } else if (err.cause !== undefined && err.cause !== null) {
+    out.cause = safeSerialize(err.cause);
+  }
+  return out;
 }
 
 function emit(
