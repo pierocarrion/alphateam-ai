@@ -214,7 +214,7 @@ export class PrismaKnowledgeRepository implements IKnowledgeRepository {
           conditions.push(
             or(
               tsqueryStr
-                ? sql`"KnowledgeResource"."searchVector" @@ to_tsquery('simple', ${tsqueryStr})`
+                ? sql`"searchVector" @@ to_tsquery('simple', ${tsqueryStr})`
                 : sql`false`,
               ...ilikeConditions,
               ...tagConditions,
@@ -227,7 +227,7 @@ export class PrismaKnowledgeRepository implements IKnowledgeRepository {
           // still work.
           conditions.push(
             or(
-              sql`"KnowledgeResource"."searchVector" @@ plainto_tsquery('simple', ${q})`,
+              sql`"searchVector" @@ plainto_tsquery('simple', ${q})`,
               ilike(knowledgeResource.title, `%${q}%`),
               sql`${knowledgeResource.tags} @> ARRAY[${q}]::text[]`,
               sql`${knowledgeResource.keywords} @> ARRAY[${q}]::text[]`
