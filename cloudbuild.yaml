@@ -41,6 +41,11 @@
         # (drizzle-kit push doesn't apply hand-written migrations, so we run
         # scripts/fts.sql directly). Idempotent via IF NOT EXISTS.
         psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -f scripts/fts.sql
+        # Set DEFAULT now() on every "updatedAt" column. The DB was created by
+        # Prisma (no DB-level default on @updatedAt) and drizzle-kit push does
+        # not ALTER existing columns to add defaults, so without this inserts
+        # that rely on the default fail with SQLSTATE 23502. Idempotent.
+        psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -f scripts/set_updatedat_defaults.sql
         kill $$PROXY_PID || true
         exit $$PUSH_STATUS
     secretEnv: ["DATABASE_URL"]

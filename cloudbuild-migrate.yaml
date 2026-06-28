@@ -47,6 +47,9 @@ steps:
         PUSH_STATUS=$?
         psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -c "CREATE INDEX IF NOT EXISTS \"KnowledgeChunk_embedding_ivfflat_idx\" ON \"KnowledgeChunk\" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);"
         psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -f scripts/fts.sql
+        # Set DEFAULT now() on every "updatedAt" column (see scripts header).
+        # Idempotent.
+        psql -h 127.0.0.1 -U "$$(echo "$$DATABASE_URL" | sed -nE 's|.*//([^:]+):.*|\1|p')" -d "$$(echo "$$DATABASE_URL" | sed -nE 's|.*/([^/?]+)(\?.*)?$$|\1|p')" -f scripts/set_updatedat_defaults.sql
         kill $$PROXY_PID || true
         exit $$PUSH_STATUS
     secretEnv: ["DATABASE_URL"]
