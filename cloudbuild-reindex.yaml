@@ -25,6 +25,16 @@ steps:
         export DATABASE_URL="$$(echo "$$DATABASE_URL" | sed -E 's|@/|@localhost:5432/|; s|\?.*||')"
         echo "DATABASE_URL host: $$(echo "$$DATABASE_URL" | sed -E 's|.*@([^/:]+).*|\1|')"
         npm ci --ignore-scripts
+        # Enable Gemini embeddings so IngestDocument can call Vertex AI for
+        # text-embedding-004. The Cloud Build default SA was granted
+        # roles/aiplatform.user so it can hit Vertex AI.
+        export GOOGLE_CLOUD_PROJECT_ID="${PROJECT_ID}"
+        export VERTEX_AI_LOCATION="${_VERTEX_LOCATION}"
+        export GEMINI_ENABLED="true"
+        export GEMINI_MODEL="${_GEMINI_MODEL}"
+        export GEMINI_EMBEDDING_MODEL="${_GEMINI_EMBEDDING_MODEL}"
+        export GEMINI_FALLBACK="false"
+        export NODE_ENV="production"
         REINDEX_ENRICH=${_REINDEX_ENRICH} REINDEX_LIMIT=${_REINDEX_LIMIT} npx tsx scripts/reindex-knowledge.ts
         REINDEX_STATUS=$?
         kill $$PROXY_PID || true
@@ -40,6 +50,9 @@ substitutions:
   _REGION: us-central1
   _DB_INSTANCE: alphalead-db
   _DB_SECRET: database-url
+  _VERTEX_LOCATION: us-central1
+  _GEMINI_MODEL: gemini-2.5-flash
+  _GEMINI_EMBEDDING_MODEL: text-embedding-004
   _REINDEX_ENRICH: "false"
   _REINDEX_LIMIT: ""
 
