@@ -112,7 +112,7 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
       completedAt?: Date | null;
     }
   ): Promise<ProjectPhaseState> {
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (patch.status !== undefined) updateData.status = patch.status;
     if (patch.notes !== undefined) updateData.notes = patch.notes;
     if (patch.startedAt !== undefined) updateData.startedAt = patch.startedAt;
@@ -170,11 +170,11 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
           projectPhaseState.methodologyKey,
           projectPhaseState.phaseKey,
         ],
-        set: {},
+        set: { updatedAt: new Date() },
       })
       .returning({ id: projectPhaseState.id });
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (input.status !== undefined) updateData.status = input.status;
     if (input.mandatory !== undefined) updateData.mandatory = input.mandatory;
     if (input.visible !== undefined) updateData.visible = input.visible;
@@ -233,7 +233,7 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
               projectPhaseState.methodologyKey,
               projectPhaseState.phaseKey,
             ],
-            set: {},
+            set: { updatedAt: new Date() },
           });
       }
     });

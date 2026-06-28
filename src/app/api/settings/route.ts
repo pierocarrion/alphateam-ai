@@ -69,6 +69,9 @@ export async function PATCH(request: Request) {
       .onConflictDoUpdate({
         target: userProfile.userId,
         set: {
+          // `updatedAt` is always present so the `set` object never collapses
+          // to `{}` (Drizzle would throw "No values to set" on conflict).
+          updatedAt: new Date(),
           ...(data.tone !== undefined ? { tone: data.tone } : {}),
           ...(data.gentleCheckIns !== undefined ? { gentleCheckIns: data.gentleCheckIns } : {}),
           ...(data.pairStartInvites !== undefined ? { pairStartInvites: data.pairStartInvites } : {}),

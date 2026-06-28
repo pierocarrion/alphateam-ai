@@ -68,8 +68,10 @@ export class PrismaUserRepository implements IUserRepository {
     input: UpdateProfileInput
   ): Promise<UserProfile> {
     // Build the update set dynamically so undefined fields are skipped
-    // (matches Prisma's `?? undefined` semantics).
-    const set: Partial<typeof userProfile.$inferInsert> = {};
+    // (matches Prisma's `?? undefined` semantics). `updatedAt` is always
+    // present so Drizzle's `onConflictDoUpdate` never sees an empty `set`
+    // (which would throw "No values to set").
+    const set: Partial<typeof userProfile.$inferInsert> = { updatedAt: new Date() };
     if (input.role !== undefined) set.role = input.role ?? null;
     if (input.hardMoment !== undefined) set.hardMoment = input.hardMoment ?? null;
     if (input.profileId !== undefined) set.profileId = input.profileId ?? null;
