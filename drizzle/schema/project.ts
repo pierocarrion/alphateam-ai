@@ -395,3 +395,21 @@ export const projectArtifactState = pgTable(
     ),
   })
 );
+
+export const projectPhaseConfig = pgTable(
+  "ProjectPhaseConfig",
+  {
+    // One row per workspace (the active/primary methodology).
+    workspaceId: text()
+      .primaryKey()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    methodologyKey: text().notNull(),
+    // Phase explicitly marked as "current" by the leader. Null = derive
+    // automatically (first in_progress, else first not_started).
+    currentPhaseKey: text(),
+    // When true, artifacts cannot be edited until their phase is started.
+    requirePhaseStarted: boolean().default(true).notNull(),
+    createdAt: timestamp(ts).defaultNow().notNull(),
+    updatedAt: timestamp(ts).defaultNow().notNull().$onUpdate(() => new Date()),
+  }
+);

@@ -6,6 +6,7 @@ import {
   type SetArtifactStatusInput,
 } from "../../application/schemas";
 import { getMethodologyPhases } from "../../domain/visualization";
+import { assertPhaseEditable } from "../phaseGate";
 import type { ArtifactStatus } from "../../domain/entities";
 
 export interface SetArtifactStatusDeps {
@@ -44,6 +45,14 @@ export class SetArtifactStatus {
       p.items.some((i) => i.key === request.artifactKey)
     );
     if (!phase) throw new UserFacingError("Artefacto no encontrado en la metodología.", 400);
+
+    // Gating: bloquea cambios de estado en artefactos de fases no iniciadas.
+    await assertPhaseEditable({
+      repository: this.deps.phaseTrackingRepository,
+      workspaceId: request.workspaceId,
+      methodologyKey: request.methodologyKey,
+      phaseKey: phase.phaseKey,
+    });
 
     const now = new Date();
     const existingStarted = existing?.startedAt ? new Date(existing.startedAt) : null;

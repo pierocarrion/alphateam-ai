@@ -29,3 +29,9 @@ export const toggleArtifactSchema = z.object({
   visible: z.boolean().optional(),
 });
 export type ToggleArtifactInput = z.infer<typeof toggleArtifactSchema>;
+
+export const updatePhaseConfigSchema = z.object({
+  currentPhaseKey: z.string().max(200).nullable().optional(),
+  requirePhaseStarted: z.boolean().optional(),
+});
+export type UpdatePhaseConfigInput = z.infer<typeof updatePhaseConfigSchema>;

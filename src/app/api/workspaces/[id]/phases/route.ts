@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireProjectLeader } from "@/server/lib/requireProjectLeader";
+import { requireProjectMember } from "@/server/lib/requireProjectMember";
 import { jsonError } from "@/server/lib/apiErrors";
 import { getProjectSettingsDeps } from "@/features/project-settings/infrastructure/container";
 import { getProjectPhasesDeps } from "@/features/project-phases/infrastructure/container";
@@ -7,7 +7,10 @@ import { GetPhaseTracking } from "@/features/project-phases/application/use-case
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const auth = await requireProjectLeader((await params).id);
+    const { id } = await params;
+    // Read access for any workspace member (the global phase indicator is
+    // visible to the whole team). Writes remain leader-only.
+    const auth = await requireProjectMember(id);
     if (auth.response) return auth.response;
 
     const url = new URL(request.url);

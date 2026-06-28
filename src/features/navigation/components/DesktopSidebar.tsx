@@ -18,6 +18,7 @@ import {
 } from "./WorkspaceSwitcher";
 import { NotificationCenter } from "@/features/notifications/NotificationCenter";
 import { useFcmToken } from "@/features/notifications/useFcmToken";
+import { CurrentPhaseBadge } from "@/features/project-phases/presentation/components/CurrentPhaseBadge";
 
 export interface SidebarChannel {
   id: string;
@@ -137,6 +138,7 @@ export function DesktopSidebar({
           activeEmoji={workspaceEmoji}
           activeHashtag={workspaceHashtag}
         />
+        {showBackstage && <CurrentPhaseBadge workspaceId={workspaceId} />}
       </div>
 
       {/* Nav */}

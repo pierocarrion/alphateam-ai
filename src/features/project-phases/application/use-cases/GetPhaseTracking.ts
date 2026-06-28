@@ -36,9 +36,10 @@ export class GetPhaseTracking {
     const facade = methodologyFacade(request.methodologyKey);
     const catalogPhases = getMethodologyPhases(request.methodologyKey);
 
-    const [dbPhases, dbArtifacts] = await Promise.all([
+    const [dbPhases, dbArtifacts, config] = await Promise.all([
       this.deps.phaseTrackingRepository.listPhases(request.workspaceId, request.methodologyKey),
       this.deps.phaseTrackingRepository.listArtifacts(request.workspaceId),
+      this.deps.phaseTrackingRepository.getPhaseConfig(request.workspaceId),
     ]);
 
     const phaseByKey = new Map(dbPhases.map((p) => [p.phaseKey, p]));
@@ -97,6 +98,9 @@ export class GetPhaseTracking {
       0
     );
 
+    const requirePhaseStarted = config?.requirePhaseStarted ?? true;
+    const currentPhaseKey = resolveCurrentPhaseKey(phases, config?.currentPhaseKey ?? null);
+
     return {
       methodologyKey: request.methodologyKey,
       methodologyName: facade.name,
@@ -106,8 +110,30 @@ export class GetPhaseTracking {
       doneArtifacts,
       progress: totalArtifacts === 0 ? 0 : Math.round((doneArtifacts / totalArtifacts) * 100),
       phases,
+      currentPhaseKey,
+      requirePhaseStarted,
     };
   }
+}
+
+/**
+ * Resuelve la fase activa:
+ * 1. La configurada explícitamente, si sigue presente en el catálogo.
+ * 2. La primera en `in_progress`.
+ * 3. La primera `not_started`.
+ * 4. null si todo está completado/omitido o no hay fases.
+ */
+function resolveCurrentPhaseKey(
+  phases: PhaseView[],
+  configured: string | null
+): string | null {
+  if (phases.length === 0) return null;
+  if (configured && phases.some((p) => p.phaseKey === configured)) return configured;
+  const inProgress = phases.find((p) => p.status === "in_progress");
+  if (inProgress) return inProgress.phaseKey;
+  const notStarted = phases.find((p) => p.status === "not_started");
+  if (notStarted) return notStarted.phaseKey;
+  return null;
 }
 
 function normalizePhaseStatus(v: string): PhaseStatus {

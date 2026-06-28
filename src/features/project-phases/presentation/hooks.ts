@@ -56,3 +56,21 @@ export function useSaveArtifactContent(workspaceId: string, methodologyKey?: str
     onSuccess: invalidate,
   });
 }
+
+export function useUpdatePhaseConfig(workspaceId: string, methodologyKey?: string) {
+  const invalidate = useInvalidatePhases(workspaceId, methodologyKey);
+  return useMutation({
+    mutationFn: ({
+      currentPhaseKey,
+      requirePhaseStarted,
+    }: {
+      currentPhaseKey?: string | null;
+      requirePhaseStarted?: boolean;
+    }) =>
+      projectPhasesApi.updatePhaseConfig(workspaceId, {
+        currentPhaseKey,
+        requirePhaseStarted,
+      }),
+    onSuccess: invalidate,
+  });
+}

@@ -8,6 +8,7 @@ import {
   type SaveArtifactContentInput,
 } from "../../application/schemas";
 import { getMethodologyPhases } from "../../domain/visualization";
+import { assertPhaseEditable } from "../phaseGate";
 
 const METHODOLOGY_CATEGORY_KEY = "methodology";
 
@@ -54,6 +55,15 @@ export class SaveArtifactContent {
 
     const { item, phaseKey } = located;
     const prompts = item.prompts ?? [];
+
+    // Gating: si el proyecto exige que la fase esté iniciada, bloqueamos el
+    // guardado de artefactos en fases no iniciadas.
+    await assertPhaseEditable({
+      repository: this.deps.phaseTrackingRepository,
+      workspaceId: request.workspaceId,
+      methodologyKey: request.methodologyKey,
+      phaseKey,
+    });
 
     // Construye el texto plano del artefacto a partir de las respuestas.
     const contentText = buildContentText(item.name, prompts, input.answers);

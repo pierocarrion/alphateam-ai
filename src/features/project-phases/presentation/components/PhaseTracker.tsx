@@ -3,10 +3,16 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { Spinner } from "@/features/project-settings/presentation/components/primitives";
-import { usePhaseTracking, useAdvancePhase, useToggleArtifact } from "../hooks";
+import {
+  usePhaseTracking,
+  useAdvancePhase,
+  useToggleArtifact,
+  useUpdatePhaseConfig,
+} from "../hooks";
 import { LinearStepper } from "./LinearStepper";
 import { SprintRing } from "./SprintRing";
 import { ArtifactModal } from "./ArtifactModal";
+import { PhaseConfigCard } from "./PhaseConfigCard";
 import type { ArtifactView, PhaseView } from "../../domain/repositories";
 import type { ArtifactStatus, PhaseStatus } from "../../domain/entities";
 
@@ -24,6 +30,20 @@ const PHASE_NEXT_STATUS: Record<PhaseStatus, PhaseStatus | null> = {
   skipped: "in_progress",
 };
 
+const PHASE_STATUS_LABEL: Record<PhaseStatus, { label: string; dot: string }> = {
+  not_started: { label: "Por iniciar", dot: "bg-surface-3" },
+  in_progress: { label: "En progreso", dot: "bg-accent" },
+  done: { label: "Completada", dot: "bg-sage" },
+  skipped: { label: "Omitida", dot: "bg-ink-3" },
+};
+
+function formatDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+}
+
 /**
  * Componente principal de seguimiento de metodología.
  * Renderiza el visualizador adecuado (lineal/cíclico), la lista de artefactos
@@ -33,6 +53,7 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
   const { data, isLoading, isError } = usePhaseTracking(workspaceId);
   const advance = useAdvancePhase(workspaceId);
   const toggle = useToggleArtifact(workspaceId);
+  const updateConfig = useUpdatePhaseConfig(workspaceId);
 
   const summary = data?.summary;
   const phases = useMemo(() => summary?.phases ?? [], [summary]);
@@ -42,8 +63,11 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
 
   const activePhase: PhaseView | null = useMemo(() => {
     if (phases.length === 0) return null;
-    return phases.find((p) => p.phaseKey === activePhaseKey) ?? phases[0];
-  }, [phases, activePhaseKey]);
+    const explicit = phases.find((p) => p.phaseKey === activePhaseKey);
+    if (explicit) return explicit;
+    const current = phases.find((p) => p.phaseKey === summary?.currentPhaseKey);
+    return current ?? phases[0];
+  }, [phases, activePhaseKey, summary?.currentPhaseKey]);
 
   if (isLoading) return <Spinner label="Cargando metodología…" />;
 
@@ -68,10 +92,21 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
     );
   }
 
+  const requireStarted = summary.requirePhaseStarted;
+  // La fase activa se puede editar si está iniciada (in_progress/done/skipped)
+  // o si el proyecto no exige el gateo.
+  const phaseEditable =
+    !requireStarted ||
+    (activePhase ? activePhase.status !== "not_started" : false);
+
   const cyclePhaseStatus = (phase: PhaseView) => {
     const next = PHASE_NEXT_STATUS[phase.status];
     if (!next) return;
     advance.mutate({ phaseKey: phase.phaseKey, body: { status: next } });
+  };
+
+  const setCurrent = (phaseKey: string) => {
+    updateConfig.mutate({ currentPhaseKey: phaseKey });
   };
 
   return (
@@ -96,9 +131,14 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
             style={{ width: `${summary.progress}%` }}
           />
         </div>
-        <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-ink-3">
-          No obligatorio · sigue esta base a tu ritmo
-        </p>
+        {summary.currentPhaseKey && (
+          <p className="mt-2 text-[11px] uppercase tracking-[0.12em] text-ink-3">
+            Fase actual ·{" "}
+            <span className="font-semibold text-accent">
+              {phases.find((p) => p.phaseKey === summary.currentPhaseKey)?.title ?? "—"}
+            </span>
+          </p>
+        )}
       </div>
 
       {/* Visualizador según metodología */}
@@ -107,6 +147,7 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
           <LinearStepper
             phases={phases}
             activePhaseKey={activePhase?.phaseKey ?? null}
+            currentPhaseKey={summary.currentPhaseKey}
             onSelect={setActivePhaseKey}
           />
         </div>
@@ -115,6 +156,7 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
           <SprintRing
             phases={phases}
             activePhaseKey={activePhase?.phaseKey ?? null}
+            currentPhaseKey={summary.currentPhaseKey}
             onSelect={setActivePhaseKey}
             progress={summary.progress}
           />
@@ -126,36 +168,61 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
         <div className="rounded-2xl border border-line bg-surface p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-ink-3">
-                {activePhase.kind === "phase"
-                  ? "Fase"
-                  : activePhase.kind === "steps"
-                    ? "Paso del sprint"
-                    : activePhase.kind === "roles"
-                      ? "Roles"
-                      : activePhase.kind === "artifacts"
-                        ? "Artefactos"
-                        : activePhase.kind === "metrics"
-                          ? "Métricas"
-                          : "Sección"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] uppercase tracking-wide text-ink-3">
+                  {activePhase.kind === "phase"
+                    ? "Fase"
+                    : activePhase.kind === "steps"
+                      ? "Paso del sprint"
+                      : activePhase.kind === "roles"
+                        ? "Roles"
+                        : activePhase.kind === "artifacts"
+                          ? "Artefactos"
+                          : activePhase.kind === "metrics"
+                            ? "Métricas"
+                            : "Sección"}
+                </p>
+                {summary.currentPhaseKey === activePhase.phaseKey && (
+                  <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-accent-ink">
+                    Actual
+                  </span>
+                )}
+              </div>
               <h3 className="font-display text-lg text-ink">{activePhase.title}</h3>
               <p className="mt-0.5 text-[12px] text-ink-3">
                 {activePhase.progress}% completado
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => cyclePhaseStatus(activePhase)}
-              disabled={advance.isPending}
-              className="shrink-0 rounded-xl border border-line-2 bg-surface-2 px-3 py-1.5 text-[12px] font-semibold text-ink-2 hover:bg-surface"
-            >
-              {activePhase.status === "not_started" && "Iniciar fase"}
-              {activePhase.status === "in_progress" && "Marcar completada"}
-              {activePhase.status === "done" && "Reabrir fase"}
-              {activePhase.status === "skipped" && "Reanudar fase"}
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => cyclePhaseStatus(activePhase)}
+                disabled={advance.isPending}
+                className="rounded-xl border border-line-2 bg-surface-2 px-3 py-1.5 text-[12px] font-semibold text-ink-2 hover:bg-surface"
+              >
+                {activePhase.status === "not_started" && "Iniciar fase"}
+                {activePhase.status === "in_progress" && "Marcar completada"}
+                {activePhase.status === "done" && "Reabrir fase"}
+                {activePhase.status === "skipped" && "Reanudar fase"}
+              </button>
+              {summary.currentPhaseKey !== activePhase.phaseKey && (
+                <button
+                  type="button"
+                  onClick={() => setCurrent(activePhase.phaseKey)}
+                  disabled={updateConfig.isPending}
+                  className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-60"
+                >
+                  Marcar como fase actual
+                </button>
+              )}
+            </div>
           </div>
+
+          {!phaseEditable && (
+            <div className="mt-3 rounded-xl bg-glow-soft/20 px-3 py-2 text-[12px] text-ink-2">
+              Inicia la fase para poder editar sus artefactos.
+            </div>
+          )}
 
           <div className="mt-4 flex flex-col gap-2">
             {activePhase.artifacts
@@ -170,8 +237,14 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
                     <div className="flex items-start justify-between gap-3 px-4 py-3">
                       <button
                         type="button"
-                        onClick={() => setOpenArtifact(artifact)}
-                        className="flex flex-col items-start text-left"
+                        onClick={() => phaseEditable && setOpenArtifact(artifact)}
+                        disabled={!phaseEditable}
+                        className="flex flex-col items-start text-left disabled:cursor-not-allowed disabled:opacity-50"
+                        title={
+                          phaseEditable
+                            ? undefined
+                            : "Inicia la fase para editar este artefacto"
+                        }
                       >
                         <span className="text-[14px] font-semibold text-ink">
                           {artifact.name}
@@ -230,7 +303,18 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
                       <button
                         type="button"
                         onClick={() => setOpenArtifact(artifact)}
-                        className="rounded-lg bg-accent px-3 py-1 text-[12px] font-bold text-bg"
+                        disabled={!phaseEditable}
+                        title={
+                          phaseEditable
+                            ? undefined
+                            : "Inicia la fase para editar este artefacto"
+                        }
+                        className={cn(
+                          "rounded-lg px-3 py-1 text-[12px] font-bold transition-opacity",
+                          phaseEditable
+                            ? "bg-accent text-bg"
+                            : "cursor-not-allowed bg-line-2 text-ink-3 opacity-60"
+                        )}
                       >
                         {artifact.status === "done" ? "Editar" : "Completar"}
                       </button>
@@ -247,6 +331,17 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
         </div>
       )}
 
+      {/* Timeline de fases con tiempos */}
+      <PhaseTimeline phases={phases} />
+
+      {/* Configuración de fases */}
+      <PhaseConfigCard
+        workspaceId={workspaceId}
+        requirePhaseStarted={requireStarted}
+        currentPhaseKey={summary.currentPhaseKey}
+        phases={phases}
+      />
+
       <ArtifactModal
         workspaceId={workspaceId}
         methodologyKey={summary.methodologyKey}
@@ -254,6 +349,49 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
         open={!!openArtifact}
         onClose={() => setOpenArtifact(null)}
       />
+    </div>
+  );
+}
+
+function PhaseTimeline({ phases }: { phases: PhaseView[] }) {
+  if (phases.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-line bg-surface p-5">
+      <h3 className="font-display text-base text-ink">Línea de tiempo</h3>
+      <p className="mt-0.5 text-[12px] text-ink-3">
+        Estado de cada fase y cuándo se inició/completó.
+      </p>
+      <ol className="mt-4 flex flex-col gap-2.5">
+        {phases.map((phase) => {
+          const visual = PHASE_STATUS_LABEL[phase.status];
+          const started = formatDate(phase.startedAt);
+          const completed = formatDate(phase.completedAt);
+          return (
+            <li
+              key={phase.phaseKey}
+              className="flex items-start gap-3 rounded-xl border border-line-2 bg-surface-2 px-3 py-2.5"
+            >
+              <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", visual.dot)} />
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-x-2">
+                  <span className="text-[13px] font-semibold text-ink">
+                    {phase.title}
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-3">
+                    {visual.label}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11.5px] text-ink-3">
+                  {phase.progress}% completado
+                  {started && ` · Iniciada ${started}`}
+                  {completed && ` · Completada ${completed}`}
+                  {!started && !completed && " · Sin comenzar"}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

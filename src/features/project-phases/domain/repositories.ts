@@ -2,6 +2,7 @@ import type {
   ArtifactStatus,
   PhaseStatus,
   ProjectArtifactState,
+  ProjectPhaseConfig,
   ProjectPhaseState,
 } from "./entities";
 
@@ -51,6 +52,10 @@ export interface MethodologyProgressSummary {
   /** 0..100 */
   progress: number;
   phases: PhaseView[];
+  /** Fase activa del proyecto (configurada o derivada). */
+  currentPhaseKey: string | null;
+  /** True si los artefactos requieren su fase iniciada para editarse. */
+  requirePhaseStarted: boolean;
 }
 
 export interface IPhaseTrackingRepository {
@@ -87,4 +92,13 @@ export interface IPhaseTrackingRepository {
     methodologyKey: string,
     phases: Array<{ phaseKey: string }>
   ): Promise<void>;
+  getPhaseConfig(workspaceId: string): Promise<ProjectPhaseConfig | null>;
+  upsertPhaseConfig(
+    workspaceId: string,
+    input: {
+      methodologyKey: string;
+      currentPhaseKey?: string | null;
+      requirePhaseStarted?: boolean;
+    }
+  ): Promise<ProjectPhaseConfig>;
 }

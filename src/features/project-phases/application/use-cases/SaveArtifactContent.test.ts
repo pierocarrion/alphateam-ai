@@ -1,38 +1,53 @@
 import { describe, expect, it } from "vitest";
 import { SaveArtifactContent } from "./SaveArtifactContent";
 import type { IPhaseTrackingRepository } from "../../domain/repositories";
+import type { ProjectPhaseConfig, ProjectPhaseState, ProjectArtifactState } from "../../domain/entities";
 import type { IKnowledgeRepository } from "@/features/knowledge/domain/repositories/IKnowledgeRepository";
 import type {
   IAuditRepository,
   AuditEntry,
 } from "@/features/project-settings/domain/repositories";
-import type { ProjectArtifactState } from "../../domain/entities";
 
-function makeInMemoryPhaseRepo(): IPhaseTrackingRepository & {
+function makeInMemoryPhaseRepo(opts?: {
+  phases?: ProjectPhaseState[];
+  config?: ProjectPhaseConfig | null;
+}): IPhaseTrackingRepository & {
   artifacts: ProjectArtifactState[];
+  phases: ProjectPhaseState[];
 } {
   const artifacts: ProjectArtifactState[] = [];
-  const repo: IPhaseTrackingRepository & { artifacts: ProjectArtifactState[] } = {
+  const phases: ProjectPhaseState[] = opts?.phases ? [...opts.phases] : [];
+  let config: ProjectPhaseConfig | null = opts?.config ?? null;
+  const repo: IPhaseTrackingRepository & {
+    artifacts: ProjectArtifactState[];
+    phases: ProjectPhaseState[];
+  } = {
     artifacts,
+    phases,
     async listPhases() {
-      return [];
+      return phases;
     },
     async listArtifacts() {
       return artifacts;
     },
-    async upsertPhase(_ws, _mk, _pk, patch) {
-      return {
-        id: "phase-1",
+    async upsertPhase(_ws, _mk, pk, patch) {
+      const existing = phases.find((p) => p.phaseKey === pk);
+      const merged: ProjectPhaseState = {
+        id: existing?.id ?? "phase-1",
         workspaceId: _ws,
         methodologyKey: _mk,
-        phaseKey: _pk,
-        status: (patch.status as "not_started") ?? "not_started",
-        startedAt: null,
-        completedAt: null,
-        notes: patch.notes ?? null,
-        createdAt: new Date().toISOString(),
+        phaseKey: pk,
+        status: (patch.status as "not_started") ?? existing?.status ?? "not_started",
+        startedAt: patch.startedAt ? patch.startedAt.toISOString() : existing?.startedAt ?? null,
+        completedAt: patch.completedAt ? patch.completedAt.toISOString() : existing?.completedAt ?? null,
+        notes: patch.notes ?? existing?.notes ?? null,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      const idx = phases.findIndex((p) => p.phaseKey === pk);
+      if (idx >= 0) phases[idx] = merged;
+      else phases.push(merged);
+      return merged;
     },
     async upsertArtifact(_ws, input) {
       const existing = artifacts.find((a) => a.artifactKey === input.artifactKey);
@@ -59,6 +74,20 @@ function makeInMemoryPhaseRepo(): IPhaseTrackingRepository & {
       return merged;
     },
     async seedForMethodology() {},
+    async getPhaseConfig() {
+      return config;
+    },
+    async upsertPhaseConfig(_ws, input) {
+      config = {
+        workspaceId: _ws,
+        methodologyKey: input.methodologyKey,
+        currentPhaseKey: input.currentPhaseKey ?? null,
+        requirePhaseStarted: input.requirePhaseStarted ?? true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      return config;
+    },
   };
   return repo;
 }
@@ -222,5 +251,94 @@ describe("SaveArtifactContent", () => {
 
     expect(second.knowledgeResourceId).toBe(firstResourceId);
     expect(second.artifact.filledContent).toContain("Certeza A actualizada");
+  });
+
+  it("blocks saving an artifact when its phase is not_started and gating is on", async () => {
+    const phaseRepo = makeInMemoryPhaseRepo({
+      phases: [
+        {
+          id: "phase-1",
+          workspaceId: "ws-1",
+          methodologyKey: "design_thinking",
+          phaseKey: "fase_1_empatizar",
+          status: "not_started",
+          startedAt: null,
+          completedAt: null,
+          notes: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      config: {
+        workspaceId: "ws-1",
+        methodologyKey: "design_thinking",
+        currentPhaseKey: null,
+        requirePhaseStarted: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    const knowledgeRepo = makeInMemoryKnowledgeRepo();
+    const auditRepo = makeInMemoryAuditRepo();
+
+    const useCase = new SaveArtifactContent({
+      phaseTrackingRepository: phaseRepo,
+      knowledgeRepository: knowledgeRepo,
+      auditRepository: auditRepo,
+    });
+
+    await expect(
+      useCase.execute({
+        workspaceId: "ws-1",
+        methodologyKey: "design_thinking",
+        artifactKey: "empathy_map",
+        actorId: "user-1",
+        input: { answers: { "¿Qué ve?": "algo" } },
+      })
+    ).rejects.toThrow(/Inicia la fase/);
+  });
+
+  it("allows saving when gating is on but the phase is in_progress", async () => {
+    const phaseRepo = makeInMemoryPhaseRepo({
+      phases: [
+        {
+          id: "phase-1",
+          workspaceId: "ws-1",
+          methodologyKey: "design_thinking",
+          phaseKey: "fase_1_empatizar",
+          status: "in_progress",
+          startedAt: new Date().toISOString(),
+          completedAt: null,
+          notes: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      config: {
+        workspaceId: "ws-1",
+        methodologyKey: "design_thinking",
+        currentPhaseKey: "fase_1_empatizar",
+        requirePhaseStarted: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    const knowledgeRepo = makeInMemoryKnowledgeRepo();
+    const auditRepo = makeInMemoryAuditRepo();
+
+    const useCase = new SaveArtifactContent({
+      phaseTrackingRepository: phaseRepo,
+      knowledgeRepository: knowledgeRepo,
+      auditRepository: auditRepo,
+    });
+
+    const result = await useCase.execute({
+      workspaceId: "ws-1",
+      methodologyKey: "design_thinking",
+      artifactKey: "empathy_map",
+      actorId: "user-1",
+      input: { answers: { "¿Qué ve?": "algo" } },
+    });
+    expect(result.artifact.status).toBe("done");
   });
 });

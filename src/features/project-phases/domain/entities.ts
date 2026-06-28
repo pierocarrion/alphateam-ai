@@ -56,6 +56,26 @@ export const ARTIFACT_STATUS_VALUES: ArtifactStatus[] = [
   "skipped",
 ];
 
+/**
+ * Configuración por proyecto del seguimiento de fases.
+ * Una fila por workspace (metodología primaria).
+ */
+export interface ProjectPhaseConfig {
+  workspaceId: string;
+  methodologyKey: string;
+  /** Fase marcada explícitamente como actual. Null = se deriva. */
+  currentPhaseKey: string | null;
+  /** Si true, los artefactos no se pueden editar hasta que su fase esté iniciada. */
+  requirePhaseStarted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const DEFAULT_PHASE_CONFIG: Pick<ProjectPhaseConfig, "currentPhaseKey" | "requirePhaseStarted"> = {
+  currentPhaseKey: null,
+  requirePhaseStarted: true,
+};
+
 export function isPhaseStatus(v: string): v is PhaseStatus {
   return (PHASE_STATUS_VALUES as string[]).includes(v);
 }

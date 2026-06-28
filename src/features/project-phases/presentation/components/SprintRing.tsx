@@ -20,11 +20,13 @@ const STATUS_COLOR: Record<PhaseStatus, string> = {
 export function SprintRing({
   phases,
   activePhaseKey,
+  currentPhaseKey,
   onSelect,
   progress,
 }: {
   phases: PhaseView[];
   activePhaseKey: string | null;
+  currentPhaseKey?: string | null;
   onSelect: (phaseKey: string) => void;
   progress: number;
 }) {
@@ -58,6 +60,7 @@ export function SprintRing({
           const x = center + radius * Math.cos(angle);
           const y = center + radius * Math.sin(angle);
           const isActive = phase.phaseKey === activePhaseKey;
+          const isCurrent = phase.phaseKey === currentPhaseKey;
           return (
             <button
               key={phase.phaseKey}
@@ -65,10 +68,14 @@ export function SprintRing({
               onClick={() => onSelect(phase.phaseKey)}
               className={cn(
                 "absolute flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 text-center transition-all",
-                isActive ? "scale-110 border-accent bg-accent-soft" : "border-line bg-surface"
+                isActive
+                  ? "scale-110 border-accent bg-accent-soft"
+                  : isCurrent
+                    ? "border-accent bg-surface"
+                    : "border-line bg-surface"
               )}
               style={{ left: x, top: y }}
-              title={phase.title}
+              title={`${phase.title}${isCurrent ? " · fase actual" : ""}`}
             >
               <span
                 className="h-2 w-2 rounded-full"
@@ -83,6 +90,7 @@ export function SprintRing({
       <div className="flex flex-wrap justify-center gap-2">
         {phases.map((phase) => {
           const isActive = phase.phaseKey === activePhaseKey;
+          const isCurrent = phase.phaseKey === currentPhaseKey;
           return (
             <button
               key={phase.phaseKey}
@@ -92,7 +100,9 @@ export function SprintRing({
                 "rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors",
                 isActive
                   ? "border-accent bg-accent-soft text-ink"
-                  : "border-line text-ink-2 hover:bg-surface-2"
+                  : isCurrent
+                    ? "border-accent text-ink"
+                    : "border-line text-ink-2 hover:bg-surface-2"
               )}
             >
               {phase.title}

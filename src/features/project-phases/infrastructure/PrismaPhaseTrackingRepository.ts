@@ -2,12 +2,14 @@ import { db } from "@/server/lib/db";
 import {
   projectPhaseState,
   projectArtifactState,
+  projectPhaseConfig,
 } from "@drizzle/schema";
 import { eq, and, asc } from "drizzle-orm";
 import type {
   ArtifactStatus,
   PhaseStatus,
   ProjectArtifactState,
+  ProjectPhaseConfig,
   ProjectPhaseState,
 } from "../domain/entities";
 import type { IPhaseTrackingRepository } from "../domain/repositories";
@@ -238,4 +240,61 @@ export class PrismaPhaseTrackingRepository implements IPhaseTrackingRepository {
       }
     });
   }
+
+  async getPhaseConfig(workspaceId: string): Promise<ProjectPhaseConfig | null> {
+    const row = await db.query.projectPhaseConfig.findFirst({
+      where: eq(projectPhaseConfig.workspaceId, workspaceId),
+    });
+    return row ? toPhaseConfig(row) : null;
+  }
+
+  async upsertPhaseConfig(
+    workspaceId: string,
+    input: {
+      methodologyKey: string;
+      currentPhaseKey?: string | null;
+      requirePhaseStarted?: boolean;
+    }
+  ): Promise<ProjectPhaseConfig> {
+    const [row] = await db
+      .insert(projectPhaseConfig)
+      .values({
+        workspaceId,
+        methodologyKey: input.methodologyKey,
+        currentPhaseKey: input.currentPhaseKey ?? null,
+        requirePhaseStarted: input.requirePhaseStarted ?? true,
+      })
+      .onConflictDoUpdate({
+        target: projectPhaseConfig.workspaceId,
+        set: {
+          ...(input.currentPhaseKey !== undefined
+            ? { currentPhaseKey: input.currentPhaseKey }
+            : {}),
+          ...(input.requirePhaseStarted !== undefined
+            ? { requirePhaseStarted: input.requirePhaseStarted }
+            : {}),
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return toPhaseConfig(row!);
+  }
+}
+
+function toPhaseConfig(row: {
+  workspaceId: string;
+  methodologyKey: string;
+  currentPhaseKey: string | null;
+  requirePhaseStarted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProjectPhaseConfig {
+  return {
+    workspaceId: row.workspaceId,
+    methodologyKey: row.methodologyKey,
+    currentPhaseKey: row.currentPhaseKey,
+    requirePhaseStarted: row.requirePhaseStarted,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
 }

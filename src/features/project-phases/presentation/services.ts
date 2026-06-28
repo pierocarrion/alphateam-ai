@@ -62,4 +62,18 @@ export const projectPhasesApi = {
       }
     );
   },
+
+  updatePhaseConfig(
+    workspaceId: string,
+    body: { currentPhaseKey?: string | null; requirePhaseStarted?: boolean }
+  ) {
+    return fetchJson<{ config: unknown }>(
+      `${base(workspaceId)}/phases/config`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+  },
 };

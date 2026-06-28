@@ -18,10 +18,12 @@ const STATUS_VISUAL: Record<PhaseStatus, { dot: string; ring: string; label: str
 export function LinearStepper({
   phases,
   activePhaseKey,
+  currentPhaseKey,
   onSelect,
 }: {
   phases: PhaseView[];
   activePhaseKey: string | null;
+  currentPhaseKey?: string | null;
   onSelect: (phaseKey: string) => void;
 }) {
   return (
@@ -30,6 +32,7 @@ export function LinearStepper({
         {phases.map((phase, idx) => {
           const visual = STATUS_VISUAL[phase.status];
           const isActive = phase.phaseKey === activePhaseKey;
+          const isCurrent = phase.phaseKey === currentPhaseKey;
           return (
             <li key={phase.phaseKey} className="flex items-start">
               <button
@@ -37,19 +40,24 @@ export function LinearStepper({
                 onClick={() => onSelect(phase.phaseKey)}
                 className="flex flex-col items-center gap-1.5 px-2 text-center"
               >
-                <span
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-all",
-                    visual.ring,
-                    isActive ? "scale-110 shadow-sm" : "",
-                    phase.status === "done" ? "text-bg" : "text-ink"
+                <span className="relative">
+                  {isCurrent && (
+                    <span className="absolute -inset-1 rounded-full border border-dashed border-accent" />
                   )}
-                  style={{
-                    background: phase.status === "done" ? "var(--color-sage)" : undefined,
-                  }}
-                >
-                  <span className={cn("flex h-9 w-9 items-center justify-center rounded-full", visual.dot)}>
-                    {phase.status === "done" ? "✓" : idx + 1}
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-bold transition-all",
+                      visual.ring,
+                      isActive ? "scale-110 shadow-sm" : "",
+                      phase.status === "done" ? "text-bg" : "text-ink"
+                    )}
+                    style={{
+                      background: phase.status === "done" ? "var(--color-sage)" : undefined,
+                    }}
+                  >
+                    <span className={cn("flex h-9 w-9 items-center justify-center rounded-full", visual.dot)}>
+                      {phase.status === "done" ? "✓" : idx + 1}
+                    </span>
                   </span>
                 </span>
                 <span
