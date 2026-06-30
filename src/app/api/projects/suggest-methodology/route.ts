@@ -18,12 +18,19 @@ export async function POST(request: Request) {
     const industry = body?.industry ? String(body.industry) : null;
     const category = body?.category ? String(body.category) : null;
 
-    const result = await suggestMethodology({ description, industry, category });
-    if (!result.ok || !result.data) {
+    if (description.trim().length < 8) {
       return NextResponse.json(
-        { error: result.error ?? "No pudimos sugerir una metodología." },
+        { error: "Describe tu objetivo para poder sugerir." },
         { status: 422 }
       );
+    }
+
+    const result = await suggestMethodology({ description, industry, category });
+    // AI failures are not validation errors. Return 200 with no suggestion so
+    // the client can gracefully fall back to its rule-based recommendation
+    // instead of surfacing a scary 422 in the console / network tab.
+    if (!result.ok || !result.data) {
+      return NextResponse.json({ suggestion: null });
     }
     return NextResponse.json({ suggestion: result.data });
   } catch (error) {

@@ -11,6 +11,7 @@ import {
 } from "@/features/projects/domain/hashtag";
 import { METHODOLOGIES } from "@/features/project-settings/domain/catalog";
 import { useLocale } from "@/i18n/useLocale";
+import { LanguageToggle } from "@/i18n/LanguageToggle";
 import { t } from "@/i18n/messages";
 
 const EMOJIS = ["🚀", "🌱", "🎨", "🛠️", "📊", "🔬", "📚", "💡", "🎯", "⚡", "🌍", "❤️"];
@@ -92,7 +93,7 @@ export interface ProjectWizardProps {
 
 export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
   const router = useRouter();
-  const [locale] = useLocale();
+  const [locale, setLocale] = useLocale();
   const [step, setStep] = useState(0);
 
   const [name, setName] = useState("");
@@ -175,21 +176,25 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
       const indLabel = INDUSTRIES.find((i) => i.key === industry)?.labelKey;
       const catLabel = CATEGORIES.find((c) => c.key === category)?.labelKey;
       try {
-        const res = await fetchJson<{ suggestion: { key: string; rationale: string; confidence: number } }>(
-          "/api/projects/suggest-methodology",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              description: desc,
-              industry: indLabel ? t(locale, indLabel) : industry ?? undefined,
-              category: catLabel ? t(locale, catLabel) : category ?? undefined,
-            }),
-          }
-        );
-        setMethodologyHint({ loading: false, data: res.suggestion, error: null });
-        if (!userPickedMethodology.current) {
-          setSelectedMethodology(res.suggestion.key);
+        const res = await fetchJson<{
+          suggestion: { key: string; rationale: string; confidence: number } | null;
+        }>("/api/projects/suggest-methodology", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: desc,
+            industry: indLabel ? t(locale, indLabel) : industry ?? undefined,
+            category: catLabel ? t(locale, catLabel) : category ?? undefined,
+          }),
+        });
+        const suggestion = res.suggestion;
+        setMethodologyHint({
+          loading: false,
+          data: suggestion,
+          error: null,
+        });
+        if (suggestion && !userPickedMethodology.current) {
+          setSelectedMethodology(suggestion.key);
         }
       } catch (err) {
         const message =
@@ -333,7 +338,10 @@ export function ProjectWizard({ onAfterCreate }: ProjectWizardProps = {}) {
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col px-5 py-6 lg:items-center lg:justify-center lg:px-10 lg:py-12">
+      <div className="relative flex flex-1 flex-col px-5 py-6 lg:items-center lg:justify-center lg:px-10 lg:py-12">
+        <div className="absolute right-4 top-4 z-10 lg:right-8 lg:top-8">
+          <LanguageToggle locale={locale} onChange={setLocale} />
+        </div>
         <div className="flex flex-1 flex-col w-full lg:max-w-2xl lg:flex-none">
           <div className="mb-4 flex items-center gap-3 lg:hidden">
             {step > 0 ? (

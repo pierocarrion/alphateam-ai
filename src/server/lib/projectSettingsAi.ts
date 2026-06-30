@@ -173,7 +173,7 @@ export async function suggestMethodology(
     return { ok: false, error: "Describe tu objetivo para poder sugerir." };
   }
 
-  const prompt = `You are a senior project strategist. Recommend ONE methodology for a new project, choosing strictly between "scrum" and "design_thinking".
+  const prompt = `You are a senior project strategist. Recommend ONE methodology for a new project. You must choose exactly one of these two values: "scrum" or "design_thinking".
 
 Project description: ${description}
 Industry: ${input.industry ?? "(unspecified)"}
@@ -183,12 +183,13 @@ Decision guide:
 - Prefer "scrum" when the goal is delivery-oriented, iterative, with a known product/team and time-boxed milestones (e.g. Lanzamiento, Producto, Operaciones, technology/marketing delivery).
 - Prefer "design_thinking" when the goal is discovery-oriented, exploratory, problem-framing or user research (e.g. Investigación, new product lines, undefined problems, design).
 
-Respond with JSON only:
+Reply with a SINGLE valid JSON object and nothing else (no markdown, no code fences, no commentary). It must follow exactly this shape:
 {
-  "key": "scrum" | "design_thinking",
+  "key": "scrum",
   "rationale": "one short sentence in Spanish explaining why it fits this project",
-  "confidence": 0-100
-}`;
+  "confidence": 75
+}
+The "key" field MUST be the string scrum or the string design_thinking. The "confidence" field MUST be an integer between 0 and 100.`;
 
   const result = await generateJSON<MethodologySuggestion>(prompt, {
     maxTokens: 200,
