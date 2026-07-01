@@ -2,7 +2,7 @@
  * Crea (o promociona) una cuenta super-administrador de la plataforma.
  *
  * Uso:
- *   npx tsx scripts/create-superadmin.ts --email=admin@alphateam.com --password=Admin123! [--name="Admin"]
+ *   npx tsx scripts/create-superadmin.ts --email=admin@alpha.com --password=Alph@Lead#2026!Secure [--name="Admin"]
  *
  * Sobrescribe `globalRole` a "superadmin" si el usuario ya existe, o crea uno
  * nuevo con `passwordHash` (bcrypt) y `UserProfile` con `onboarded = true`
@@ -21,8 +21,8 @@ async function main() {
     return found ? found.slice(key.length + 3) : undefined;
   };
 
-  const email = (get("email") ?? "admin@alphateam.com").toLowerCase().trim();
-  const password = get("password") ?? "Admin123!";
+  const email = (get("email") ?? "admin@alpha.com").toLowerCase().trim();
+  const password = get("password") ?? "Alph@Lead#2026!Secure";
   const name = get("name") ?? "Super Admin";
   if (!email || !password) {
     console.error("Uso: --email=... --password=... [--name=...]");
