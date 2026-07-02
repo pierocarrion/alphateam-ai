@@ -24,7 +24,7 @@ import {
   toFriendlyMessage,
 } from "@/server/lib/apiErrors";
 
-async function requireLeader() {
+async function requireMember() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return { error: NextResponse.json({ error: "Inicia sesión para continuar." }, { status: 401 }) };
   const user = await db.query.user.findFirst({
@@ -33,15 +33,15 @@ async function requireLeader() {
   });
   if (!user) return { error: NextResponse.json({ error: "Cuenta no encontrada." }, { status: 404 }) };
   const { active } = await getActiveWorkspace(user.id);
-  if (!active || (active.role !== "leader" && active.role !== "admin")) {
-    return { error: NextResponse.json({ error: "Alpha Space es exclusivo para líderes." }, { status: 403 }) };
+  if (!active) {
+    return { error: NextResponse.json({ error: "No tienes un proyecto activo." }, { status: 403 }) };
   }
   return { user, active };
 }
 
 export async function GET() {
   try {
-    const auth = await requireLeader();
+    const auth = await requireMember();
     if ("error" in auth) return auth.error;
     const { user, active } = auth;
 
@@ -97,7 +97,7 @@ const createSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireLeader();
+    const auth = await requireMember();
     if ("error" in auth) return auth.error;
     const { user, active } = auth;
 

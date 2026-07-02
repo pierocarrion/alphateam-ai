@@ -108,6 +108,14 @@ export function roleName(roleKey: string | null | undefined): string {
   return PROJECT_ROLES.find((r) => r.key === roleKey)?.name ?? roleKey;
 }
 
+export type KpiUnit =
+  | "percent"
+  | "points"
+  | "minutes"
+  | "hours"
+  | "days"
+  | "count";
+
 export interface KpiCatalogItem {
   key: string;
   name: string;
@@ -115,6 +123,13 @@ export interface KpiCatalogItem {
   formula: string;
   dataSource: string;
   frequency: "daily" | "weekly" | "sprint" | "monthly";
+  /**
+   * Si `true`, el valor actual se calcula a partir de los datos del proyecto
+   * (snapshots) y el usuario SOLO configura Meta y Umbral de alerta.
+   */
+  automatic: boolean;
+  /** Unidad de medida para formatear el valor mostrado. */
+  unit: KpiUnit;
 }
 
 export const KPI_CATALOG: KpiCatalogItem[] = [
@@ -125,6 +140,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "completedTasks / plannedTasks * 100",
     dataSource: "Task tracker",
     frequency: "sprint",
+    automatic: true,
+    unit: "percent",
   },
   {
     key: "team_velocity",
@@ -133,6 +150,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "sum(completedStoryPoints)",
     dataSource: "Sprint backlog",
     frequency: "sprint",
+    automatic: true,
+    unit: "points",
   },
   {
     key: "response_time",
@@ -141,6 +160,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "avg(firstResponseTimestamp - messageTimestamp)",
     dataSource: "Chat / messaging",
     frequency: "weekly",
+    automatic: true,
+    unit: "minutes",
   },
   {
     key: "collaboration_score",
@@ -149,6 +170,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "weighted(messages + pairSessions + reviews)",
     dataSource: "Activity graph",
     frequency: "weekly",
+    automatic: true,
+    unit: "points",
   },
   {
     key: "screen_time",
@@ -157,6 +180,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "avg(activeMinutes)",
     dataSource: "Productivity tools",
     frequency: "weekly",
+    automatic: true,
+    unit: "minutes",
   },
   {
     key: "research_score",
@@ -165,6 +190,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "(interviews + tests + insights) / planned",
     dataSource: "Research log",
     frequency: "sprint",
+    automatic: true,
+    unit: "points",
   },
   {
     key: "sprint_burndown",
@@ -173,6 +200,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "remaining - idealRemaining",
     dataSource: "Sprint backlog",
     frequency: "sprint",
+    automatic: true,
+    unit: "points",
   },
   {
     key: "customer_satisfaction",
@@ -181,6 +210,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "avg(csatScore) * 20",
     dataSource: "CSAT surveys",
     frequency: "monthly",
+    automatic: true,
+    unit: "percent",
   },
   {
     key: "defect_density",
@@ -189,6 +220,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "defects / kloc",
     dataSource: "Issue tracker",
     frequency: "sprint",
+    automatic: true,
+    unit: "count",
   },
   {
     key: "lead_time",
@@ -197,6 +230,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "avg(deliveredAt - createdAt)",
     dataSource: "Issue tracker",
     frequency: "weekly",
+    automatic: true,
+    unit: "days",
   },
   {
     key: "cycle_time",
@@ -205,6 +240,8 @@ export const KPI_CATALOG: KpiCatalogItem[] = [
     formula: "avg(deliveredAt - startedAt)",
     dataSource: "Issue tracker",
     frequency: "weekly",
+    automatic: true,
+    unit: "days",
   },
 ];
 

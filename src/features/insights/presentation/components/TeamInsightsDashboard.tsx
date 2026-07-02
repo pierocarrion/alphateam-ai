@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { TeamInsightsFilters, GrowthGranularity } from "../types";
 import { useTeamInsights } from "../hooks/useTeamInsights";
@@ -14,6 +14,8 @@ import { ColleagueList } from "./ColleagueList";
 import { FiltersBar } from "./FiltersBar";
 import { ExportMenu } from "./ExportMenu";
 import { PanelSkeleton, EmptyState } from "./Panel";
+import { TeamAssistantDrawer } from "./ai-assistant/TeamAssistantDrawer";
+import { AssistantFloatingButton } from "./ai-assistant/AssistantFloatingButton";
 import { t } from "@/i18n/messages";
 import { useLocale } from "@/i18n/useLocale";
 
@@ -22,6 +24,12 @@ export function TeamInsightsDashboard() {
   const [granularity, setGranularity] = useState<GrowthGranularity>("month");
   const [days, setDays] = useState(90);
   const [filters, setFilters] = useState<TeamInsightsFilters>({});
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  // Snapshot of the dashboard's "important signals" the leader has already
+  // acknowledged by opening the assistant. Compared against the live signature
+  // to decide whether the floating button should pulse. Derived without effects
+  // (no cascading renders).
+  const [seenSignature, setSeenSignature] = useState<string | null>(null);
 
   const { overview, loading, error, refresh } = useTeamInsights({
     granularity,
@@ -29,6 +37,44 @@ export function TeamInsightsDashboard() {
     filters,
     pollMs: 60000,
   });
+
+  // The assistant mirrors the same query the dashboard uses to fetch data, so
+  // the model is always grounded in the exact view the leader is looking at.
+  const assistantFilterQuery = useMemo(() => {
+    const sp = new URLSearchParams();
+    sp.set("granularity", granularity);
+    sp.set("days", String(days));
+    if (filters.seniority) sp.set("seniority", filters.seniority);
+    if (filters.position) sp.set("position", filters.position);
+    if (filters.sentiment) sp.set("sentiment", filters.sentiment);
+    if (filters.risk) sp.set("risk", filters.risk);
+    if (filters.since) sp.set("since", filters.since);
+    return sp.toString();
+  }, [granularity, days, filters]);
+
+  // "New important insights" => any critical/warning alert or caution-toned
+  // insight. The pulse fires only when the live signature differs from the one
+  // captured the last time the leader opened the assistant.
+  const importantSignature = useMemo(() => {
+    if (!overview) return "";
+    const important = [
+      ...overview.alerts
+        .filter((a) => a.severity === "critical" || a.severity === "warning")
+        .map((a) => `alert:${a.id}`),
+      ...overview.insights
+        .filter((i) => i.tone === "caution")
+        .map((i) => `insight:${i.id}`),
+    ];
+    return important.sort().join("|");
+  }, [overview]);
+
+  const hasNewImportantInsights =
+    importantSignature.length > 0 && importantSignature !== seenSignature;
+
+  const openAssistant = () => {
+    setSeenSignature(importantSignature);
+    setAssistantOpen(true);
+  };
 
   if (error && !overview) {
     return (
@@ -117,6 +163,21 @@ export function TeamInsightsDashboard() {
         </>
         )
       ) : null}
+
+      {/* AI Team Insights Assistant — contextual co-pilot.
+          The dashboard stays in charge; Alpha is just a tap away. */}
+      <AssistantFloatingButton
+        open={assistantOpen}
+        onClick={openAssistant}
+        hasNewInsights={hasNewImportantInsights}
+      />
+      <TeamAssistantDrawer
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        overview={overview}
+        filterQuery={assistantFilterQuery}
+        daysWindow={days}
+      />
     </div>
   );
 }

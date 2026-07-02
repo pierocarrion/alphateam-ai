@@ -28,7 +28,7 @@ export default async function FeedbackIntelligencePage() {
   if (!user) redirect("/login");
 
   const { active } = await getActiveWorkspace(user.id);
-  if (!active || (active.role !== "leader" && active.role !== "admin")) {
+  if (!active) {
     redirect("/home");
   }
 

@@ -8,6 +8,11 @@ export const completeOnboardingSchema = z.object({
   hardMoment: z.string().min(1),
   profileId: z.string().min(1),
   tone: z.enum(["warm", "balanced"]).default("warm"),
+  jobTitle: z.string().optional(),
+  seniority: z.string().optional(),
+  headline: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+  cvStorageKey: z.string().optional(),
 });
 
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;
@@ -22,6 +27,11 @@ export class CompleteOnboarding {
       profileId: input.profileId,
       onboarded: true,
       tone: input.tone,
+      jobTitle: input.jobTitle,
+      seniority: input.seniority,
+      headline: input.headline,
+      skills: input.skills,
+      cvStorageKey: input.cvStorageKey,
     });
   }
 }

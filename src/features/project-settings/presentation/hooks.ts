@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { projectSettingsApi } from "./services";
+import type { ProposedAction, BeforeSnapshot } from "../domain/proposedActions";
 
 const settingsKey = (workspaceId: string) => ["project-settings", workspaceId] as const;
 
@@ -78,6 +79,24 @@ export function useRegenerateInsights(workspaceId: string) {
   const invalidate = useInvalidateSettings(workspaceId);
   return useMutation({
     mutationFn: () => projectSettingsApi.regenerateInsights(workspaceId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useApplyInsights(workspaceId: string) {
+  const invalidate = useInvalidateSettings(workspaceId);
+  return useMutation({
+    mutationFn: (actions: ProposedAction[]) =>
+      projectSettingsApi.applyInsights(workspaceId, actions),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRevertInsights(workspaceId: string) {
+  const invalidate = useInvalidateSettings(workspaceId);
+  return useMutation({
+    mutationFn: (before: BeforeSnapshot) =>
+      projectSettingsApi.revertInsights(workspaceId, before),
     onSuccess: invalidate,
   });
 }

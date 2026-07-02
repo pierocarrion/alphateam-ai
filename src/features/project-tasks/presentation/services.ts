@@ -18,6 +18,8 @@ export const projectTasksApi = {
       dueDate?: string | null;
       tags?: string[];
       assigneeId?: string | null;
+      phaseKey?: string | null;
+      artifactKey?: string | null;
     }
   ) {
     return fetchJson<{ task: ProjectTask }>(base(workspaceId), {

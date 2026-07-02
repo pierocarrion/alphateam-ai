@@ -11,6 +11,8 @@ import {
   UpdateMember,
 } from "../application/use-cases/ManageMembers";
 import { ConfigureKpis } from "../application/use-cases/ConfigureKpis";
+import { ApplyAiInsights } from "../application/use-cases/ApplyAiInsights";
+import { RevertAiInsights } from "../application/use-cases/RevertAiInsights";
 import { UserFacingError } from "@/server/lib/errors";
 
 async function seedLeader() {
@@ -168,5 +170,155 @@ describe("project-settings integration", () => {
     await remove.execute(workspaceId, added.id, user.id);
     const remaining = await deps.memberRepository.list(workspaceId);
     expect(remaining.find((m) => m.id === added.id)).toBeUndefined();
+  });
+
+  describe("ApplyAiInsights copilot", () => {
+    it("applies a mixed batch of proposed actions and captures a revertable snapshot", async () => {
+      const deps = getProjectSettingsDeps();
+      const { user, workspaceId } = await seedLeader();
+
+      // Estado inicial: SMART objetivo, metodología primaria scrum, un dev sin KPIs activos.
+      await new SaveSmartGoal(deps).execute({
+        title: "Adopción Q3",
+        specific: "Más usuarios",
+        measurable: null,
+        achievable: null,
+        relevant: null,
+        timeBound: null,
+        workspaceId,
+        actorId: user.id,
+      });
+      await new SetMethodology(deps).execute({
+        primary: "scrum",
+        secondary: [],
+        workspaceId,
+        actorId: user.id,
+      });
+      const { user: devUser } = await seedUser({ name: "Dev", email: "dev@example.com" });
+      const dev = await deps.memberRepository.add({
+        workspaceId,
+        userId: devUser.id,
+        projectRole: "backend_developer",
+        permissionRole: "member",
+      });
+
+      const apply = new ApplyAiInsights(deps);
+      const result = await apply.execute({
+        workspaceId,
+        actorId: user.id,
+        actions: [
+          {
+            id: "smart_goal",
+            kind: "smart_goal",
+            label: "Afinar objetivo",
+            rationale: "Añade métrica",
+            confidence: 80,
+            goal: { measurable: "+15% vs Q2", timeBound: "2026-09-30" },
+          },
+          {
+            id: "methodology:kanban",
+            kind: "methodology",
+            label: "Añadir kanban",
+            rationale: "Flujo de soporte",
+            confidence: 70,
+            addSecondary: ["kanban"],
+            removeSecondary: [],
+          },
+          {
+            id: "kpi:team_velocity",
+            kind: "kpi",
+            label: "Activar velocity",
+            rationale: "Métrica central",
+            confidence: 85,
+            kpiKey: "team_velocity",
+            kpiName: "Team Velocity",
+            enabled: true,
+            target: 42,
+            alertThreshold: 25,
+          },
+          {
+            id: "role:Dev",
+            kind: "role",
+            label: "Reasignar Dev",
+            rationale: "Mejor fit",
+            confidence: 60,
+            memberName: "Dev",
+            projectRole: "full_stack_developer",
+            roleName: "Full Stack Developer",
+          },
+        ],
+      });
+
+      // Todas las acciones se aplican con éxito.
+      expect(result.applied.map((a) => a.ok)).toEqual([true, true, true, true]);
+      expect(result.before.smartGoal?.title).toBe("Adopción Q3");
+      expect(result.before.methodologies.primary).toBe("scrum");
+      expect(result.before.members.map((m) => m.memberId)).toContain(dev.id);
+
+      // El snapshot sólo incluye miembros tocados.
+      expect(result.before.members).toHaveLength(1);
+
+      // El estado real cambió.
+      const goal = await deps.smartGoalRepository.get(workspaceId);
+      expect(goal?.measurable).toBe("+15% vs Q2");
+      expect(goal?.timeBound).toBe("2026-09-30");
+
+      const methodologies = await deps.methodologyRepository.list(workspaceId);
+      expect(methodologies.find((m) => m.methodologyKey === "kanban")?.tier).toBe("secondary");
+
+      const kpis = await deps.kpiRepository.list(workspaceId);
+      const velocity = kpis.find((k) => k.kpiKey === "team_velocity");
+      expect(velocity?.enabled).toBe(true);
+      expect(velocity?.target).toBe(42);
+
+      const members = await deps.memberRepository.list(workspaceId);
+      expect(members.find((m) => m.id === dev.id)?.projectRole).toBe("full_stack_developer");
+
+      // Deshacer restaura exactamente el estado previo.
+      const revert = new RevertAiInsights(deps);
+      const reverted = await revert.execute({ ...result.before, workspaceId, actorId: user.id });
+      expect(reverted.reverted.sort()).toEqual(["kpis", "members", "methodology", "smart_goal"]);
+
+      const goalAfter = await deps.smartGoalRepository.get(workspaceId);
+      expect(goalAfter?.measurable).toBeNull();
+      expect(goalAfter?.timeBound).toBeNull();
+
+      const methodologiesAfter = await deps.methodologyRepository.list(workspaceId);
+      expect(methodologiesAfter.find((m) => m.methodologyKey === "kanban")).toBeUndefined();
+
+      const membersAfter = await deps.memberRepository.list(workspaceId);
+      expect(membersAfter.find((m) => m.id === dev.id)?.projectRole).toBe("backend_developer");
+    });
+
+    it("rejects an empty action batch and tolerates individual failures", async () => {
+      const deps = getProjectSettingsDeps();
+      const { user, workspaceId } = await seedLeader();
+      const apply = new ApplyAiInsights(deps);
+
+      await expect(
+        apply.execute({ workspaceId, actorId: user.id, actions: [] })
+      ).rejects.toThrow(UserFacingError);
+
+      // Una acción de rol sobre un miembro inexistente se marca como fallida
+      // pero no aborta el resto del lote.
+      const result = await apply.execute({
+        workspaceId,
+        actorId: user.id,
+        actions: [
+          {
+            id: "role:ghost",
+            kind: "role",
+            label: "Reasignar fantasma",
+            rationale: "",
+            confidence: 10,
+            memberName: "No Existe",
+            projectRole: "qa_engineer",
+            roleName: "QA Engineer",
+          },
+        ],
+      });
+      expect(result.applied).toHaveLength(1);
+      expect(result.applied[0].ok).toBe(false);
+    });
   });
 });

@@ -34,6 +34,11 @@ export class PrismaUserRepository implements IUserRepository {
         pProfileId: userProfile.profileId,
         pOnboarded: userProfile.onboarded,
         pTone: userProfile.tone,
+        pJobTitle: userProfile.jobTitle,
+        pSeniority: userProfile.seniority,
+        pHeadline: userProfile.headline,
+        pSkills: userProfile.skills,
+        pCvStorageKey: userProfile.cvStorageKey,
       })
       .from(user)
       .leftJoin(userProfile, eq(userProfile.userId, user.id))
@@ -77,6 +82,11 @@ export class PrismaUserRepository implements IUserRepository {
     if (input.profileId !== undefined) set.profileId = input.profileId ?? null;
     if (input.onboarded !== undefined) set.onboarded = input.onboarded;
     if (input.tone !== undefined) set.tone = input.tone;
+    if (input.jobTitle !== undefined) set.jobTitle = input.jobTitle ?? null;
+    if (input.seniority !== undefined) set.seniority = input.seniority ?? null;
+    if (input.headline !== undefined) set.headline = input.headline ?? null;
+    if (input.skills !== undefined) set.skills = input.skills;
+    if (input.cvStorageKey !== undefined) set.cvStorageKey = input.cvStorageKey ?? null;
 
     const [row] = await db
       .insert(userProfile)
@@ -87,6 +97,11 @@ export class PrismaUserRepository implements IUserRepository {
         profileId: input.profileId ?? null,
         onboarded: input.onboarded ?? false,
         tone: input.tone ?? "warm",
+        jobTitle: input.jobTitle ?? null,
+        seniority: input.seniority ?? null,
+        headline: input.headline ?? null,
+        skills: input.skills ?? [],
+        cvStorageKey: input.cvStorageKey ?? null,
       })
       .onConflictDoUpdate({ target: userProfile.userId, set })
       .returning();
@@ -124,6 +139,16 @@ export class PrismaUserRepository implements IUserRepository {
     onboarded?: boolean | null;
     pTone?: string | null;
     tone?: string | null;
+    pJobTitle?: string | null;
+    jobTitle?: string | null;
+    pSeniority?: string | null;
+    seniority?: string | null;
+    pHeadline?: string | null;
+    headline?: string | null;
+    pSkills?: string[] | null;
+    skills?: string[] | null;
+    pCvStorageKey?: string | null;
+    cvStorageKey?: string | null;
   }): UserProfile {
     return {
       id: (row.pId ?? row.id)!,
@@ -134,6 +159,11 @@ export class PrismaUserRepository implements IUserRepository {
       onboarded: row.pOnboarded ?? row.onboarded ?? false,
       tone:
         (row.pTone ?? row.tone) === "balanced" ? "balanced" : "warm",
+      jobTitle: row.pJobTitle ?? row.jobTitle ?? null,
+      seniority: row.pSeniority ?? row.seniority ?? null,
+      headline: row.pHeadline ?? row.headline ?? null,
+      skills: row.pSkills ?? row.skills ?? [],
+      cvStorageKey: row.pCvStorageKey ?? row.cvStorageKey ?? null,
     };
   }
 }

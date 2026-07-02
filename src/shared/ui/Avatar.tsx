@@ -5,12 +5,21 @@ import { cn } from "@/shared/lib/cn";
 
 export type PersonId = string;
 
+export type PresenceStatus = "online" | "away" | "busy" | "offline";
+
 interface Person {
   name: string;
   initials: string;
   color: string;
   you: boolean;
 }
+
+const PRESENCE_COLOR: Record<PresenceStatus, string> = {
+  online: "#4ec27a",
+  away: "#e6b73d",
+  busy: "#e6635a",
+  offline: "#8a8497",
+};
 
 const PALETTE = [
   "#E6AC73",
@@ -57,14 +66,16 @@ interface AvatarProps {
   className?: string;
   style?: React.CSSProperties;
   href?: string | null;
+  status?: PresenceStatus;
 }
 
-export function Avatar({ who, size = 38, className, style, href }: AvatarProps) {
+export function Avatar({ who, size = 38, className, style, href, status }: AvatarProps) {
   const person = who ? getPerson(who) : generatePerson("?");
+  const dot = Math.max(8, Math.round(size * 0.32));
   const inner = (
     <div
       className={cn(
-        "flex flex-none items-center justify-center rounded-full font-display font-semibold text-[#1a1620]",
+        "relative flex flex-none items-center justify-center rounded-full font-display font-semibold text-[#1a1620]",
         href && "transition-transform active:scale-[0.96]",
         className
       )}
@@ -77,6 +88,17 @@ export function Avatar({ who, size = 38, className, style, href }: AvatarProps) 
       }}
     >
       {person.initials}
+      {status && (
+        <span
+          aria-label={status}
+          className="absolute bottom-0 right-0 rounded-full ring-2 ring-[var(--color-bg-2)]"
+          style={{
+            width: dot,
+            height: dot,
+            backgroundColor: PRESENCE_COLOR[status],
+          }}
+        />
+      )}
     </div>
   );
 

@@ -13,6 +13,11 @@ import type {
   SmartGoal,
   SmartGoalVersion,
 } from "@/features/project-settings/domain/entities";
+import type {
+  ProposedAction,
+  AppliedAction,
+  BeforeSnapshot,
+} from "@/features/project-settings/domain/proposedActions";
 
 export interface ProjectSettingsSnapshot {
   smartGoal: SmartGoal | null;
@@ -48,6 +53,12 @@ export interface AiInsightBundle {
   actionPlan: string[];
   suggestedMetrics: string[];
   workloadDistribution: Array<{ role: string; suggestedShare: number; rationale: string }>;
+  proposedActions: ProposedAction[];
+}
+
+export interface ApplyAiInsightsResult {
+  applied: AppliedAction[];
+  before: BeforeSnapshot;
 }
 
 const base = (workspaceId: string) => `/api/workspaces/${workspaceId}`;
@@ -129,5 +140,19 @@ export const projectSettingsApi = {
       `${base(workspaceId)}/ai-insights`,
       { method: "POST" }
     );
+  },
+  applyInsights(workspaceId: string, actions: ProposedAction[]) {
+    return fetchJson<ApplyAiInsightsResult>(`${base(workspaceId)}/ai-insights/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actions }),
+    });
+  },
+  revertInsights(workspaceId: string, before: BeforeSnapshot) {
+    return fetchJson<{ reverted: string[] }>(`${base(workspaceId)}/ai-insights/revert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(before),
+    });
   },
 };

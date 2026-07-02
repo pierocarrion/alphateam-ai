@@ -12,6 +12,11 @@ export interface UpdateProfileInput {
   profileId?: string;
   onboarded?: boolean;
   tone?: "warm" | "balanced";
+  jobTitle?: string;
+  seniority?: string;
+  headline?: string;
+  skills?: string[];
+  cvStorageKey?: string;
 }
 
 export interface IUserRepository {

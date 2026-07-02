@@ -43,6 +43,7 @@ interface IconProps {
   size?: number;
   color?: string;
   stroke?: number;
+  className?: string;
 }
 
 export function Icon({
@@ -50,6 +51,7 @@ export function Icon({
   size = 22,
   color = "currentColor",
   stroke = 2,
+  className,
 }: IconProps) {
   const p = {
     fill: "none",
@@ -161,7 +163,13 @@ export function Icon({
   };
 
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      style={{ display: "block" }}
+    >
       {paths[name] ?? null}
     </svg>
   );

@@ -14,4 +14,9 @@ export interface UserProfile {
   profileId: string | null;
   onboarded: boolean;
   tone: "warm" | "balanced";
+  jobTitle: string | null;
+  seniority: string | null;
+  headline: string | null;
+  skills: string[];
+  cvStorageKey: string | null;
 }

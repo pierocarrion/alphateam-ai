@@ -5,7 +5,9 @@ import { cn } from "@/shared/lib/cn";
 import { useProjectSettings } from "@/features/project-settings/presentation/hooks";
 import { SmartGoalEditor } from "@/features/project-settings/presentation/components/SmartGoalEditor";
 import { TeamManager } from "@/features/project-settings/presentation/components/TeamManager";
+import { PendingRequests } from "@/features/project-settings/presentation/components/PendingRequests";
 import { KpiChips } from "@/features/project-settings/presentation/components/KpiChips";
+import { KpiDashboard } from "@/features/project-settings/presentation/components/KpiDashboard";
 import { AiInsightsPanel } from "@/features/project-settings/presentation/components/AiInsightsPanel";
 import { MethodologyExplorer } from "@/features/project-settings/presentation/components/MethodologyExplorer";
 import { PhaseTracker } from "@/features/project-phases/presentation/components/PhaseTracker";
@@ -89,14 +91,20 @@ export function ProjectSettingsModule({
             )}
             {tab === "phases" && <PhaseTracker workspaceId={workspaceId} />}
             {tab === "team" && (
-              <TeamManager
-                workspaceId={workspaceId}
-                members={settings.data.members}
-                invitations={settings.data.invitations}
-              />
+              <>
+                <PendingRequests workspaceId={workspaceId} />
+                <TeamManager
+                  workspaceId={workspaceId}
+                  members={settings.data.members}
+                  invitations={settings.data.invitations}
+                />
+              </>
             )}
             {tab === "kpis" && (
-              <KpiChips workspaceId={workspaceId} kpis={settings.data.kpis} />
+              <>
+                <KpiChips workspaceId={workspaceId} kpis={settings.data.kpis} />
+                <KpiDashboard kpis={settings.data.kpis} />
+              </>
             )}
             {tab === "ai" && (
               <AiInsightsPanel

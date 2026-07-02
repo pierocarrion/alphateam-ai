@@ -36,6 +36,13 @@
       "when": 1782960049763,
       "tag": "0004_drop_smart_goal_deadline",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783008232294,
+      "tag": "0005_wooden_sphinx",
+      "breakpoints": true
     }
   ]
 }

@@ -41,13 +41,12 @@ function deepLink(n: NotificationItem): string | null {
   switch (n.type) {
     case "join_approved":
     case "join_rejected":
-      return ws ? `/${ws}/requests` : null;
+    case "join_request_received":
+      return "/project/settings";
     case "task_assigned":
       return ws ? `/${ws}/tasks` : null;
     case "invite_received":
       return ws ? `/${ws}/team` : null;
-    case "join_request_received":
-      return ws ? `/${ws}/requests` : null;
     case "dm_started":
       return "/chat";
     case "payment_failed":

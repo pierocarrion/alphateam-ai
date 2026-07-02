@@ -69,6 +69,10 @@ export default async function AppLayout({
       .select({
         userId: membership.userId,
         userName: userTable.name,
+        role: membership.role,
+        projectRole: membership.projectRole,
+        photoUrl: membership.photoUrl,
+        status: membership.status,
       })
       .from(membership)
       .leftJoin(userTable, eq(userTable.id, membership.userId))
@@ -121,6 +125,10 @@ export default async function AppLayout({
   const members: SidebarMember[] = memberRows.map((m) => ({
     id: m.userId,
     name: m.userName ?? "Someone",
+    role: m.role,
+    projectRole: m.projectRole,
+    photoUrl: m.photoUrl,
+    status: m.status,
   }));
   const dmByPeer: Record<string, string> = {};
   for (const c of dmRows) {

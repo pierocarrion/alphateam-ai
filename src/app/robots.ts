@@ -32,7 +32,6 @@ export default function robots(): MetadataRoute.Robots {
           "/project",
           "/ritual",
           "/capture",
-          "/requests",
           "/members",
           "/knowledge",
           "/backstage",

@@ -64,7 +64,7 @@ export async function PATCH(
               : `Tu solicitud para unirte a ${wsName} fue rechazada.`,
             data: { workspaceId: req.workspaceId, requestId: updated.id },
             workspaceId: req.workspaceId,
-            url: `/${req.workspaceId}/requests`,
+            url: "/project/settings",
           });
         }
       } catch {

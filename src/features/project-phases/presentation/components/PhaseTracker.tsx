@@ -350,6 +350,7 @@ export function PhaseTracker({ workspaceId }: { workspaceId: string }) {
         workspaceId={workspaceId}
         methodologyKey={summary.methodologyKey}
         artifact={openArtifact}
+        phaseKey={activePhase?.phaseKey ?? null}
         open={!!openArtifact}
         onClose={() => setOpenArtifact(null)}
       />

@@ -1,11 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alpha, Button, Card } from "@/shared/ui";
 import { toast } from "sonner";
 import { DesktopOnboardingRail } from "./DesktopOnboardingRail";
 import { fetchJson, ApiError } from "@/shared/lib/api";
+
+type CvDraft = {
+  role: string;
+  roleConfidence: number;
+  jobTitle: string;
+  seniority: string;
+  skills: string[];
+  headline: string;
+  yearsExperience: number | null;
+  storageKey: string;
+};
+
+type CvParseResponse = {
+  storageKey: string;
+  fileName?: string;
+  parsed: {
+    role: string;
+    roleConfidence: number;
+    jobTitle: string;
+    seniority: string;
+    skills: string[];
+    headline: string;
+    yearsExperience: number | null;
+  } | null;
+  message?: string;
+};
 
 const ROLES = [
   "I build / make",
@@ -42,6 +68,7 @@ const PROFILES = [
 
 export function OnboardingFlow() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
   const [role, setRole] = useState<string | null>(null);
   const [hard, setHard] = useState<string | null>(null);
@@ -49,7 +76,57 @@ export function OnboardingFlow() {
   const [tone] = useState<"warm" | "balanced">("warm");
   const [saving, setSaving] = useState(false);
 
+  // CV upload: when the user uploads a résumé, Gemini reads it and we pre-fill
+  // the role + capture professional context (jobTitle, seniority, skills...) so
+  // they don't have to type it later. Everything stays optional.
+  const [parsing, setParsing] = useState(false);
+  const [cvDraft, setCvDraft] = useState<CvDraft | null>(null);
+
   const prof = PROFILES.find((p) => p.id === profile);
+
+  const onUploadCv = async (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!["pdf", "txt", "md"].includes(ext)) {
+      toast.error(
+        "Formato no soportado. Sube tu CV en PDF, TXT o MD (si tienes .docx, expórtalo a PDF)."
+      );
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("El CV supera los 5 MB.");
+      return;
+    }
+
+    setParsing(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetchJson<CvParseResponse>("/api/onboarding/parse-cv", {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.parsed) {
+        toast.info(
+          res.message ??
+            "No pudimos leer tu CV. Puedes continuar eligiendo manualmente."
+        );
+        return;
+      }
+
+      setCvDraft({ ...res.parsed, storageKey: res.storageKey });
+      if (res.parsed.role) setRole(res.parsed.role);
+      toast.success("Listo, leímos tu CV y precargamos tus datos.");
+    } catch (err) {
+      const message =
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : "No pudimos leer tu CV. Intenta de nuevo o elige manualmente.";
+      toast.error(message);
+    } finally {
+      setParsing(false);
+    }
+  };
 
   const complete = async () => {
     if (!role || !hard || !profile) return;
@@ -58,7 +135,17 @@ export function OnboardingFlow() {
       await fetchJson("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, hardMoment: hard, profileId: profile, tone }),
+        body: JSON.stringify({
+          role,
+          hardMoment: hard,
+          profileId: profile,
+          tone,
+          jobTitle: cvDraft?.jobTitle,
+          seniority: cvDraft?.seniority,
+          headline: cvDraft?.headline,
+          skills: cvDraft?.skills,
+          cvStorageKey: cvDraft?.storageKey,
+        }),
       });
       // Route to project setup. Leaders create a project; everyone else joins one.
       const isLeader =
@@ -146,6 +233,24 @@ export function OnboardingFlow() {
                     </OptionTile>
                   ))}
                 </div>
+
+                <CvUpload
+                  parsing={parsing}
+                  hasCv={!!cvDraft}
+                  onPick={() => fileInputRef.current?.click()}
+                  draft={cvDraft}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onUploadCv(f);
+                    e.target.value = "";
+                  }}
+                />
               </Step>
             )}
 
@@ -312,5 +417,69 @@ function OptionTile({
     >
       {children}
     </button>
+  );
+}
+
+function CvUpload({
+  parsing,
+  hasCv,
+  draft,
+  onPick,
+}: {
+  parsing: boolean;
+  hasCv: boolean;
+  draft: CvDraft | null;
+  onPick: () => void;
+}) {
+  if (hasCv && draft && !parsing) {
+    return (
+      <div className="mt-3 rounded-[20px] border-[1.5px] border-accent bg-accent-soft p-4">
+        <div className="flex items-center gap-2 text-sm font-bold text-ink">
+          <span>📄</span>
+          <span>Leímos tu CV</span>
+        </div>
+        {draft.jobTitle && (
+          <p className="mt-1 text-sm text-ink-2">{draft.jobTitle}</p>
+        )}
+        {draft.headline && (
+          <p className="mt-0.5 text-xs text-ink-3">{draft.headline}</p>
+        )}
+        <button
+          onClick={onPick}
+          className="mt-2 text-xs font-semibold text-accent underline-offset-2 hover:underline"
+        >
+          Subir otro CV
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="mb-3 flex items-center gap-3 text-xs text-ink-3">
+        <span className="h-px flex-1 bg-line" />
+        <span>o</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      <button
+        onClick={onPick}
+        disabled={parsing}
+        className="flex w-full items-center justify-center gap-2 rounded-[20px] border-[1.5px] border-dashed border-line bg-surface p-4 text-sm font-semibold text-ink-2 transition-all hover:bg-surface-2 active:scale-[0.98] disabled:opacity-60"
+      >
+        {parsing ? (
+          <>
+            <span className="animate-pulse">Leyendo tu CV…</span>
+          </>
+        ) : (
+          <>
+            <span>📄</span>
+            <span>Sube tu CV y lo deducimos por ti</span>
+          </>
+        )}
+      </button>
+      <p className="mt-1.5 text-center text-[11px] text-ink-3">
+        PDF, TXT o MD · máx. 5 MB · solo tú lo ves
+      </p>
+    </div>
   );
 }

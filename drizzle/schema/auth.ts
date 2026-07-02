@@ -86,6 +86,13 @@ export const userProfile = pgTable("UserProfile", {
   pairStartInvites: boolean().default(true).notNull(),
   quietMode: boolean().default(false).notNull(),
   lastActiveWorkspaceId: text(),
+  // CV-derived profile enrichment (populated when a user uploads a CV during
+  // onboarding so Alpha can personalize without making them re-type everything).
+  jobTitle: text(),
+  seniority: text(),
+  headline: text(),
+  skills: text().array().notNull().default([]),
+  cvStorageKey: text(),
   createdAt: timestamp(ts).defaultNow().notNull(),
   updatedAt: timestamp(ts).defaultNow().notNull().$onUpdate(() => new Date()),
 });

@@ -73,7 +73,7 @@ export async function POST(request: Request) {
               requestId: joinRequest.id,
             },
             workspaceId: joinRequest.workspaceId,
-            url: `/${joinRequest.workspaceId}/requests`,
+            url: "/project/settings",
           }))
         );
       } catch {
