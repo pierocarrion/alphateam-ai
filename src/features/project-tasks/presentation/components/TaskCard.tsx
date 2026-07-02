@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type DragEvent } from "react";
 import { cn } from "@/shared/lib/cn";
 import { Avatar, Icon } from "@/shared/ui";
 import { personIdFromName } from "@/shared/lib/person";
@@ -26,6 +26,17 @@ interface TaskCardProps {
   onMove: (taskId: string, status: ProjectTaskStatus) => void;
   onAssign: (taskId: string, assigneeId: string | null) => void;
   onDelete: (taskId: string) => void;
+  dnd?: TaskCardDnd;
+}
+
+export interface TaskCardDnd {
+  enabled: boolean;
+  isDragging: boolean;
+  dropIndicator: "before" | "after" | null;
+  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
 }
 
 export function TaskCard({
@@ -37,6 +48,7 @@ export function TaskCard({
   onMove,
   onAssign,
   onDelete,
+  dnd,
 }: TaskCardProps) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -53,9 +65,44 @@ export function TaskCard({
   const columns: ProjectTaskStatus[] = ["todo", "doing", "done"];
   const otherStatuses = columns.filter((s) => s !== status);
 
+  const canDrag = !!dnd?.enabled;
+  const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+    if (!dnd) return;
+    // Some browsers won't fire dragstart without dataTransfer data.
+    e.dataTransfer.setData("text/plain", task.id);
+    e.dataTransfer.effectAllowed = "move";
+    dnd.onDragStart(e);
+  };
+
   return (
     <>
-      <div className="group rounded-2xl border border-line bg-surface p-3.5 transition-colors hover:border-line-2">
+      <div
+        draggable={canDrag}
+        onDragStart={dnd ? handleDragStart : undefined}
+        onDragOver={dnd?.onDragOver}
+        onDrop={dnd?.onDrop}
+        onDragEnd={dnd?.onDragEnd}
+        title={canDrag ? t(locale, "tasks.dragHint") : undefined}
+        className={cn(
+          "group relative rounded-2xl border bg-surface p-3.5 transition-colors",
+          dnd?.isDragging
+            ? "border-accent/60 opacity-50"
+            : "border-line hover:border-line-2",
+          canDrag && "cursor-grab active:cursor-grabbing"
+        )}
+      >
+        {dnd?.dropIndicator === "before" && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -top-[5px] left-2 right-2 h-[3px] rounded-full bg-accent"
+          />
+        )}
+        {dnd?.dropIndicator === "after" && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-[5px] left-2 right-2 h-[3px] rounded-full bg-accent"
+          />
+        )}
         <div className="flex items-start gap-2">
           <button
             type="button"

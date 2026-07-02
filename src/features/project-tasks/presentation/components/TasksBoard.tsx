@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type DragEvent } from "react";
+import { cn } from "@/shared/lib/cn";
 import { Icon } from "@/shared/ui";
 import { useLocale } from "@/i18n/useLocale";
 import { t } from "@/i18n/messages";
@@ -10,6 +11,7 @@ import {
   useDeleteProjectTask,
   useMoveProjectTask,
   useProjectTasks,
+  useReorderProjectTasks,
 } from "../hooks";
 import {
   STATUS_COLUMNS,
@@ -18,6 +20,7 @@ import {
   type ProjectTaskStatus,
 } from "../types";
 import { TaskCard } from "./TaskCard";
+import type { TaskCardDnd } from "./TaskCard";
 import { TaskCreateDialog } from "./TaskCreateDialog";
 import { Spinner } from "@/features/project-settings/presentation/components/primitives";
 
@@ -67,6 +70,96 @@ export function TasksBoard({
     for (const t of filtered) map[t.status]?.push(t);
     return map;
   }, [filtered]);
+
+  const reorderMut = useReorderProjectTasks(workspaceId);
+
+  // DnD is only meaningful in the unfiltered "all" view: filters hide cards,
+  // so positional indices would no longer map to real storage order. Moving a
+  // task while a filter is active can still be done via the card's menu.
+  const dndEnabled = filter === "all" && phaseFilter === null && !reorderMut.isPending;
+
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    status: ProjectTaskStatus;
+    index: number;
+  } | null>(null);
+
+  const resetDrag = () => {
+    setDragId(null);
+    setDropTarget(null);
+  };
+
+  const handleDrop = () => {
+    if (!dragId || !dropTarget) {
+      resetDrag();
+      return;
+    }
+    const dragged = (data?.tasks ?? []).find((tk) => tk.id === dragId);
+    if (!dragged) {
+      resetDrag();
+      return;
+    }
+
+    const target = dropTarget.status;
+    const sameCol = dragged.status === target;
+    const fullCol = byColumn[target];
+    // Remove the dragged card, then insert it at the computed index.
+    const without = fullCol.filter((tk) => tk.id !== dragId);
+    let insertAt = Math.max(0, Math.min(dropTarget.index, without.length));
+    if (sameCol) {
+      // The drop index was measured against the column that still contained
+      // the dragged card, so shift it down when the card sat above the index.
+      const origIdx = fullCol.findIndex((tk) => tk.id === dragId);
+      if (origIdx !== -1 && dropTarget.index > origIdx) {
+        insertAt = Math.max(0, dropTarget.index - 1);
+      }
+    }
+
+    const newList = [
+      ...without.slice(0, insertAt),
+      dragged,
+      ...without.slice(insertAt),
+    ];
+
+    // Assign sequential integer orders; include status only when it changed.
+    const updates: {
+      id: string;
+      status?: ProjectTaskStatus;
+      order: number;
+    }[] = [];
+    newList.forEach((tk, i) => {
+      const statusChanged = tk.status !== target;
+      if (tk.order !== i || statusChanged) {
+        updates.push({
+          id: tk.id,
+          ...(statusChanged ? { status: target } : {}),
+          order: i,
+        });
+      }
+    });
+
+    resetDrag();
+    if (updates.length === 0) return;
+
+    const optimisticTasks = (data?.tasks ?? []).map((tk) => {
+      const u = updates.find((x) => x.id === tk.id);
+      if (!u) return tk;
+      let completedAt = tk.completedAt;
+      if (u.status === "done" && tk.status !== "done") {
+        completedAt = new Date().toISOString();
+      } else if (u.status && u.status !== "done" && tk.status === "done") {
+        completedAt = null;
+      }
+      return {
+        ...tk,
+        order: u.order,
+        ...(u.status ? { status: u.status } : {}),
+        completedAt,
+      };
+    });
+
+    reorderMut.mutate({ updates, optimisticTasks });
+  };
 
   const openCreate = (status: ProjectTaskStatus) => {
     setCreateStatus(status);
@@ -126,10 +219,30 @@ export function TasksBoard({
             {STATUS_COLUMNS.map((col) => {
               const colTasks = byColumn[col.key];
               const colLabel = t(locale, col.labelKey);
+              const isDropCol = dropTarget?.status === col.key;
+              const showColEnd =
+                isDropCol && dropTarget.index >= colTasks.length;
+              const handleColDragOver = (e: DragEvent<HTMLDivElement>) => {
+                if (!dragId) return;
+                e.preventDefault();
+                // Only fires for the column's own empty area: cards stop
+                // propagation on their dragOver so this never clobbers a
+                // precise card-based index.
+                setDropTarget({ status: col.key, index: colTasks.length });
+              };
               return (
                 <div
                   key={col.key}
-                  className="flex min-h-[200px] flex-col rounded-2xl border border-line bg-bg-2/40 p-3"
+                  onDragOver={handleColDragOver}
+                  onDrop={(e) => {
+                    if (!dragId) return;
+                    e.preventDefault();
+                    handleDrop();
+                  }}
+                  className={cn(
+                    "flex min-h-[200px] flex-col rounded-2xl border bg-bg-2/40 p-3 transition-colors",
+                    isDropCol ? "border-accent/60 bg-accent-soft/30" : "border-line"
+                  )}
                 >
                   <div className="mb-3 flex items-center justify-between px-1">
                     <div>
@@ -159,21 +272,71 @@ export function TasksBoard({
                         <p className="text-[12px] text-ink-3">{t(locale, "tasks.empty")}</p>
                       </div>
                     ) : (
-                      colTasks.map((t) => (
-                        <TaskCard
-                          key={t.id}
-                          task={t}
-                          status={col.key}
-                          members={members}
-                          currentUserId={currentUserId}
-                          isLeader={isLeader}
-                          onMove={(id, status) => moveMut.mutate({ taskId: id, status })}
-                          onAssign={(id, uid) =>
-                            assignMut.mutate({ taskId: id, assigneeId: uid })
-                          }
-                          onDelete={(id) => deleteMut.mutate(id)}
-                        />
-                      ))
+                      colTasks.map((tk, index) => {
+                        const cardDnd: TaskCardDnd | undefined = dndEnabled
+                          ? {
+                              enabled:
+                                isLeader ||
+                                tk.assigneeId === currentUserId ||
+                                tk.createdById === currentUserId,
+                              isDragging: dragId === tk.id,
+                              dropIndicator:
+                                isDropCol && dropTarget.index === index
+                                  ? "before"
+                                  : isDropCol && dropTarget.index === index + 1
+                                  ? "after"
+                                  : null,
+                              onDragStart: () => {
+                                setDragId(tk.id);
+                                setDropTarget({ status: col.key, index });
+                              },
+                              onDragOver: (e) => {
+                                if (!dragId) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const rect =
+                                  e.currentTarget.getBoundingClientRect();
+                                const after =
+                                  e.clientY > rect.top + rect.height / 2;
+                                setDropTarget({
+                                  status: col.key,
+                                  index: after ? index + 1 : index,
+                                });
+                              },
+                              onDrop: (e) => {
+                                if (!dragId) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDrop();
+                              },
+                              onDragEnd: resetDrag,
+                            }
+                          : undefined;
+                        return (
+                          <TaskCard
+                            key={tk.id}
+                            task={tk}
+                            status={col.key}
+                            members={members}
+                            currentUserId={currentUserId}
+                            isLeader={isLeader}
+                            onMove={(id, status) =>
+                              moveMut.mutate({ taskId: id, status })
+                            }
+                            onAssign={(id, uid) =>
+                              assignMut.mutate({ taskId: id, assigneeId: uid })
+                            }
+                            onDelete={(id) => deleteMut.mutate(id)}
+                            dnd={cardDnd}
+                          />
+                        );
+                      })
+                    )}
+                    {showColEnd && (
+                      <span
+                        aria-hidden
+                        className="h-[3px] shrink-0 rounded-full bg-accent"
+                      />
                     )}
                   </div>
                 </div>

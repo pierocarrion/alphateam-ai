@@ -55,6 +55,17 @@ export const projectTasksApi = {
     });
   },
 
+  reorder(
+    workspaceId: string,
+    updates: { id: string; status?: ProjectTaskStatus; order: number }[]
+  ) {
+    return fetchJson<{ tasks: ProjectTask[] }>(`${base(workspaceId)}/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ updates }),
+    });
+  },
+
   assign(workspaceId: string, taskId: string, assigneeId: string | null) {
     return fetchJson<{ task: ProjectTask }>(`${base(workspaceId)}/${taskId}/assignee`, {
       method: "POST",

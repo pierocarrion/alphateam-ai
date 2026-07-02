@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { projectTasksApi } from "./services";
-import type { ProjectTaskPriority, ProjectTaskStatus } from "./types";
+import type { ProjectTask, ProjectTaskPriority, ProjectTaskStatus } from "./types";
 
 const tasksKey = (workspaceId: string) => ["project-tasks", workspaceId] as const;
 
@@ -48,6 +48,44 @@ export function useMoveProjectTask(workspaceId: string) {
     onSuccess: invalidate,
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : "No se pudo mover la tarea.");
+    },
+  });
+}
+
+export function useReorderProjectTasks(workspaceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      updates,
+    }: {
+      updates: { id: string; status?: ProjectTaskStatus; order: number }[];
+      optimisticTasks: ProjectTask[];
+    }) => projectTasksApi.reorder(workspaceId, updates),
+    onMutate: async ({
+      optimisticTasks,
+    }: {
+      updates: { id: string; status?: ProjectTaskStatus; order: number }[];
+      optimisticTasks: ProjectTask[];
+    }) => {
+      await qc.cancelQueries({ queryKey: tasksKey(workspaceId) });
+      const previous = qc.getQueryData<{ tasks: ProjectTask[] }>(
+        tasksKey(workspaceId)
+      );
+      qc.setQueryData<{ tasks: ProjectTask[] }>(tasksKey(workspaceId), () => ({
+        tasks: optimisticTasks,
+      }));
+      return { previous };
+    },
+    onError: (err: unknown, _vars, ctx) => {
+      if (ctx?.previous) {
+        qc.setQueryData(tasksKey(workspaceId), ctx.previous);
+      }
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo reordenar la tarea."
+      );
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: tasksKey(workspaceId) });
     },
   });
 }
