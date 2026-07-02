@@ -45,7 +45,6 @@ describe("project-settings integration", () => {
       achievable: "Con el equipo actual",
       relevant: "Alineado a revenue",
       timeBound: "Durante Q3",
-      deadline: null,
       workspaceId,
       actorId: user.id,
     });
@@ -59,7 +58,6 @@ describe("project-settings integration", () => {
       achievable: "Con el equipo actual y campaign",
       relevant: "Alineado a revenue",
       timeBound: "Durante Q3 2026",
-      deadline: "2026-09-30T12:00:00.000Z",
       workspaceId,
       actorId: user.id,
     });

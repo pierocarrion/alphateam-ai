@@ -9,7 +9,6 @@ export interface SmartGoal {
   achievable: string | null;
   relevant: string | null;
   timeBound: string | null;
-  deadline: string | null;
   version: number;
   smartScore: number | null;
   createdAt: string;
@@ -25,7 +24,6 @@ export interface SmartGoalVersion {
   achievable: string | null;
   relevant: string | null;
   timeBound: string | null;
-  deadline: string | null;
   smartScore: number | null;
   changedById: string | null;
   changeNote: string | null;

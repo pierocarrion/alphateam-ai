@@ -15,12 +15,14 @@ export const SMART_LABELS: Record<SmartDimension, { label: string; short: string
   measurable: { label: "Measurable", short: "M", hint: "¿Cómo se medirá el éxito? Métrica y valor." },
   achievable: { label: "Achievable", short: "A", hint: "¿Es realista con los recursos y el tiempo?" },
   relevant: { label: "Relevant", short: "R", hint: "¿Por qué importa para el negocio o estrategia?" },
-  timeBound: { label: "Time-bound", short: "T", hint: "¿Para cuándo? Fecha o ventana de tiempo." },
+  timeBound: { label: "Time-bound", short: "T", hint: "Selecciona la fecha límite del objetivo." },
 };
 
 /**
- * Heuristic SMART completeness score (0-100). Each filled dimension with
- * a minimum length contributes equally; a deadline adds a bonus.
+ * Heuristic SMART completeness score (0-100). Each of the five dimensions
+ * contributes equally (20 points) once it has a minimum length. Time-bound is
+ * the single "T" dimension: there is no separate deadline field, so the score
+ * no longer needs a deadline bonus.
  * This is the deterministic baseline the AI score builds on.
  */
 export function computeSmartScore(goal: {
@@ -29,15 +31,12 @@ export function computeSmartScore(goal: {
   achievable?: string | null;
   relevant?: string | null;
   timeBound?: string | null;
-  deadline?: string | null;
 }): number {
   let filled = 0;
   for (const dim of SMART_DIMENSIONS) {
     if ((goal[dim]?.trim().length ?? 0) >= 8) filled += 1;
   }
-  const dimensionScore = (filled / SMART_DIMENSIONS.length) * 90;
-  const deadlineBonus = goal.deadline ? 10 : 0;
-  return Math.round(dimensionScore + deadlineBonus);
+  return Math.round((filled / SMART_DIMENSIONS.length) * 100);
 }
 
 export interface SmartCheck {

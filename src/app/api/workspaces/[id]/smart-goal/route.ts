@@ -9,6 +9,20 @@ import { createLogger } from "@/shared/lib/logger";
 
 const log = createLogger("api:smart-goal");
 
+/**
+ * Best-effort extraction of a calendar deadline from the free-text Time-bound
+ * dimension (e.g. "2026-09-30", "30 de septiembre de 2026", "fin de Q3 2026").
+ * Returns null when the text doesn't describe a concrete date so the Progress
+ * tracker simply stays undated instead of guessing.
+ */
+function parseDeadlineFromTimeBound(timeBound: string | null): Date | null {
+  if (!timeBound || !timeBound.trim()) return null;
+  // ISO-like dates parse reliably; anything else is left to the Date parser,
+  // which handles common localized forms. Invalid results are discarded.
+  const parsed = new Date(timeBound.trim());
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const auth = await requireProjectLeader((await params).id);
@@ -53,7 +67,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           measurable: smartGoal.measurable,
           achievable: smartGoal.achievable,
           relevant: smartGoal.relevant,
-          deadline: smartGoal.deadline ? new Date(smartGoal.deadline) : null,
+          deadline: parseDeadlineFromTimeBound(smartGoal.timeBound),
         }
       );
     } catch (syncErr) {

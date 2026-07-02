@@ -26,29 +26,38 @@ interface Props {
 
 type Draft = Record<(typeof SMART_DIMENSIONS)[number], string>;
 
+/**
+ * Normalizes a stored Time-bound value into the `YYYY-MM-DD` format the native
+ * date input requires. Accepts bare dates and full ISO datetimes; free-text
+ * values that can't be parsed resolve to "" so the picker simply starts empty.
+ */
+function toDateInputValue(v?: string | null): string {
+  if (!v) return "";
+  const sliced = v.slice(0, 10);
+  const d = new Date(sliced);
+  return Number.isNaN(d.getTime()) ? "" : sliced;
+}
+
 function toDraft(g: SmartGoal | null): Draft {
   return {
     specific: g?.specific ?? "",
     measurable: g?.measurable ?? "",
     achievable: g?.achievable ?? "",
     relevant: g?.relevant ?? "",
-    timeBound: g?.timeBound ?? "",
+    timeBound: toDateInputValue(g?.timeBound),
   };
 }
 
 export function SmartGoalEditor({ workspaceId, smartGoal }: Props) {
   const [title, setTitle] = useState(smartGoal?.title ?? "");
   const [draft, setDraft] = useState<Draft>(toDraft(smartGoal));
-  const [deadline, setDeadline] = useState<string>(
-    smartGoal?.deadline ? smartGoal.deadline.slice(0, 10) : ""
-  );
   const [analysis, setAnalysis] = useState<SmartAnalysis | null>(null);
   const [locale] = useLocale();
 
   const saveMutation = useSaveSmartGoal(workspaceId);
   const analyzeMutation = useAnalyzeSmartGoal(workspaceId);
 
-  const liveScore = computeSmartScore({ ...draft, deadline });
+  const liveScore = computeSmartScore(draft);
   const checks = validateSmart(draft);
 
   const canSave = title.trim().length >= 2 && !saveMutation.isPending;
@@ -62,7 +71,6 @@ export function SmartGoalEditor({ workspaceId, smartGoal }: Props) {
       achievable: draft.achievable.trim() || null,
       relevant: draft.relevant.trim() || null,
       timeBound: draft.timeBound.trim() || null,
-      deadline: deadline ? new Date(deadline + "T12:00:00Z").toISOString() : null,
     });
     toast.success(t(locale, "ps.smart.saved"));
   };
@@ -103,7 +111,7 @@ export function SmartGoalEditor({ workspaceId, smartGoal }: Props) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {SMART_DIMENSIONS.map((dim) => (
-          <div key={dim}>
+          <div key={dim} className={dim === "timeBound" ? "md:col-span-2" : undefined}>
             <label className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
               <span>{SMART_LABELS[dim].label}</span>
               <span
@@ -116,27 +124,24 @@ export function SmartGoalEditor({ workspaceId, smartGoal }: Props) {
                 {checks.find((c) => c.dimension === dim)?.ok ? "✓" : "•"}
               </span>
             </label>
-            <textarea
-              value={draft[dim]}
-              onChange={(e) => setDraft({ ...draft, [dim]: e.target.value })}
-              placeholder={SMART_LABELS[dim].hint}
-              rows={2}
-              className="mt-2 w-full resize-none rounded-2xl border border-line-2 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent"
-            />
+            {dim === "timeBound" ? (
+              <input
+                type="date"
+                value={draft.timeBound}
+                onChange={(e) => setDraft({ ...draft, timeBound: e.target.value })}
+                className="mt-2 w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
+              />
+            ) : (
+              <textarea
+                value={draft[dim]}
+                onChange={(e) => setDraft({ ...draft, [dim]: e.target.value })}
+                placeholder={SMART_LABELS[dim].hint}
+                rows={2}
+                className="mt-2 w-full resize-none rounded-2xl border border-line-2 bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+              />
+            )}
           </div>
         ))}
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold uppercase tracking-[0.14em] text-ink-3">
-          {t(locale, "ps.smart.deadline")}
-        </label>
-        <input
-          type="date"
-          value={deadline}
-          onChange={(e) => setDeadline(e.target.value)}
-          className="mt-2 rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
-        />
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">

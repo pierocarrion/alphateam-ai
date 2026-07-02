@@ -8,7 +8,6 @@ export interface SaveSmartGoalInput {
   achievable: string | null;
   relevant: string | null;
   timeBound: string | null;
-  deadline: string | null;
   smartScore: number | null;
   changedById: string;
 }

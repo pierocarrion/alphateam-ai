@@ -36,10 +36,6 @@ import type {
   UpdateMemberInput,
 } from "../domain/repositories";
 
-function toDate(v: Date | null | undefined): string | null {
-  return v ? v.toISOString() : null;
-}
-
 function tier(v: string): "primary" | "secondary" {
   return v === "primary" ? "primary" : "secondary";
 }
@@ -63,7 +59,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
       achievable: row.achievable,
       relevant: row.relevant,
       timeBound: row.timeBound,
-      deadline: toDate(row.deadline),
       version: row.version,
       smartScore: row.smartScore,
       createdAt: row.createdAt.toISOString(),
@@ -72,7 +67,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
   }
 
   async upsert(input: SaveSmartGoalInput): Promise<SmartGoal> {
-    const deadline = input.deadline ? new Date(input.deadline) : null;
     const existing = await db.query.projectSmartGoal.findFirst({
       where: eq(projectSmartGoal.workspaceId, input.workspaceId),
     });
@@ -88,7 +82,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
           achievable: input.achievable,
           relevant: input.relevant,
           timeBound: input.timeBound,
-          deadline,
           version: 1,
           smartScore: input.smartScore,
         })
@@ -102,7 +95,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
         achievable: created!.achievable,
         relevant: created!.relevant,
         timeBound: created!.timeBound,
-        deadline: created!.deadline,
         smartScore: created!.smartScore,
         changedById: input.changedById,
         changeNote: "Initial version",
@@ -121,7 +113,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
           achievable: input.achievable,
           relevant: input.relevant,
           timeBound: input.timeBound,
-          deadline,
           smartScore: input.smartScore,
           version: nextVersion,
         })
@@ -136,7 +127,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
         achievable: row!.achievable,
         relevant: row!.relevant,
         timeBound: row!.timeBound,
-        deadline: row!.deadline,
         smartScore: row!.smartScore,
         changedById: input.changedById,
       });
@@ -151,7 +141,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
       achievable: updated.achievable,
       relevant: updated.relevant,
       timeBound: updated.timeBound,
-      deadline: toDate(updated.deadline),
       version: updated.version,
       smartScore: updated.smartScore,
       createdAt: updated.createdAt.toISOString(),
@@ -177,7 +166,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
       achievable: r.achievable,
       relevant: r.relevant,
       timeBound: r.timeBound,
-      deadline: toDate(r.deadline),
       smartScore: r.smartScore,
       changedById: r.changedById,
       changeNote: r.changeNote,
@@ -203,7 +191,6 @@ export class PrismaSmartGoalRepository implements ISmartGoalRepository {
       achievable: v.achievable,
       relevant: v.relevant,
       timeBound: v.timeBound,
-      deadline: toDate(v.deadline),
       smartScore: v.smartScore,
       changedById,
     });

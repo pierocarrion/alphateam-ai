@@ -81,23 +81,29 @@ export interface GeminiResponse<T> {
   model: string;
 }
 
-export async function generateContent(
-  prompt: string,
-  options: { maxTokens?: number; temperature?: number; json?: boolean } = {}
+type GenerativePart = Record<string, unknown>;
+
+/**
+ * Shared retry wrapper around the Vertex `generateContent` call. Handles
+ * transient errors with a small backoff and normalizes the response into the
+ * common {@link GeminiResponse} shape. Used by both the text-only and the
+ * multimodal (Vision) entry points so error handling stays identical.
+ */
+async function runGenerateContent(
+  parts: GenerativePart[],
+  options: { maxTokens?: number; temperature?: number } = {}
 ): Promise<GeminiResponse<string>> {
   const model = getModel();
   if (!model) {
     return { ok: false, error: "Gemini not enabled or misconfigured", model: modelName };
   }
 
-  const systemHint = options.json
-    ? "Respond ONLY with valid JSON. Do not include markdown code fences or explanations."
-    : "";
-  const fullPrompt = systemHint ? `${systemHint}\n\n${prompt}` : prompt;
-
   const callModel = async (): Promise<string> => {
     const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+      // The Vertex SDK types `parts` as a strict discriminated union (Part[]).
+      // We build parts dynamically (text + inlineData) and trust the runtime
+      // shape, so cast through unknown at the SDK boundary.
+      contents: [{ role: "user", parts: parts as unknown as never[] }],
       generationConfig: {
         maxOutputTokens: options.maxTokens ?? 512,
         temperature: options.temperature ?? 0.25,
@@ -143,6 +149,30 @@ export async function generateContent(
   }
 }
 
+export async function generateContent(
+  prompt: string,
+  options: { maxTokens?: number; temperature?: number; json?: boolean } = {}
+): Promise<GeminiResponse<string>> {
+  const systemHint = options.json
+    ? "Respond ONLY with valid JSON. Do not include markdown code fences or explanations."
+    : "";
+  const fullPrompt = systemHint ? `${systemHint}\n\n${prompt}` : prompt;
+  return runGenerateContent([{ text: fullPrompt }], options);
+}
+
+/**
+ * Multimodal entry point: sends arbitrary parts (text + inlineData images +
+ * fileData references) to the model. Exposed so callers like the Knowledge Hub
+ * image-ingest flow can drive Gemini Vision without re-implementing the retry
+ * and error normalization logic.
+ */
+export async function generateContentFromParts(
+  parts: GenerativePart[],
+  options: { maxTokens?: number; temperature?: number } = {}
+): Promise<GeminiResponse<string>> {
+  return runGenerateContent(parts, options);
+}
+
 export async function generateJSON<T>(
   prompt: string,
   options: { maxTokens?: number; temperature?: number } = {}
@@ -163,6 +193,117 @@ export async function generateJSON<T>(
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: `JSON parse error: ${message}`, model: textResult.model };
   }
+}
+
+/**
+ * Parses a model response (with markdown-fence stripping) into JSON. Shared by
+ * the text-only {@link generateJSON} and the multimodal Vision path so both
+ * tolerate the same formatting quirks.
+ */
+function parseJsonResponse<T>(raw: string, model: string): GeminiResponse<T> {
+  let cleaned = raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+  cleaned = cleaned.trim();
+  try {
+    const parsed = JSON.parse(cleaned) as T;
+    return { ok: true, data: parsed, model };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `JSON parse error: ${message}`, model };
+  }
+}
+
+export interface GeminiImageAnalysis {
+  title: string;
+  description: string;
+  summary: string;
+  category: string;
+  tags: string[];
+  altText: string;
+  objects: string[];
+  ocrText: string;
+}
+
+/** MIME types Gemini Vision accepts as inline data. */
+const VISION_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/heic",
+  "image/heif",
+]);
+
+/**
+ * Sends an image to Gemini Vision (Vertex AI) and asks it to produce rich,
+ * searchable metadata for the Knowledge Hub: a descriptive title, a short
+ * description, a summary, a suggested category, tags, accessibility alt text,
+ * detected objects and any OCR'd text.
+ *
+ * Falls back gracefully: when Gemini is disabled or the MIME type is not
+ * supported, the caller gets an `ok: false` result and can let the user fill
+ * the form manually (never blocking the upload).
+ */
+export async function analyzeImageWithGemini(args: {
+  image: Buffer;
+  mimeType: string;
+}): Promise<GeminiResponse<GeminiImageAnalysis>> {
+  const mimeType = (args.mimeType || "image/jpeg").toLowerCase();
+  if (!VISION_MIME_TYPES.has(mimeType)) {
+    return {
+      ok: false,
+      error: `Unsupported image type for Vision analysis: ${mimeType}`,
+      model: modelName,
+    };
+  }
+
+  const prompt = `You are a meticulous digital-asset cataloguer. Analyze the attached image and produce structured, searchable metadata so it can be indexed in a team knowledge base.
+
+Respond ONLY with valid JSON (no markdown, no commentary) using exactly this shape:
+{
+  "title": "a concise, descriptive title (max 12 words) that captures what the image IS — never the file name",
+  "description": "1-2 sentences describing the visible content and its purpose",
+  "summary": "a single sentence TL;DR of the image",
+  "category": "one short category label (e.g. Diagram, Screenshot, Photography, Illustration, Chart, Logo, Document scan)",
+  "tags": ["4-8 lowercase reusable tags, single words or short kebab-case phrases"],
+  "altText": "an accessibility description of the image for screen readers, max ~125 chars",
+  "objects": ["the main objects, people, UI elements or text regions you can identify"],
+  "ocrText": "any visible text transcribed verbatim; empty string if there is none"
+}
+
+Rules:
+- Write in the SAME language as the dominant text in the image; if there is no text, write in Spanish.
+- NEVER use the file name as the title — describe the actual visual content.
+- Be specific and factual. Do not invent details you cannot see.`;
+
+  const parts: GenerativePart[] = [
+    { inlineData: { data: args.image.toString("base64"), mimeType } },
+    { text: prompt },
+  ];
+
+  const result = await runGenerateContent(parts, { maxTokens: 900, temperature: 0.2 });
+  if (!result.ok || !result.data) {
+    return { ok: false, error: result.error, model: result.model };
+  }
+  const parsed = parseJsonResponse<GeminiImageAnalysis>(result.data, result.model);
+  if (!parsed.ok || !parsed.data) return parsed;
+
+  // Normalize + guard every field so downstream UI never sees undefined.
+  const d = parsed.data;
+  const norm: GeminiImageAnalysis = {
+    title: (d.title ?? "").trim(),
+    description: (d.description ?? "").trim(),
+    summary: (d.summary ?? "").trim(),
+    category: (d.category ?? "").trim(),
+    tags: Array.isArray(d.tags)
+      ? d.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 12)
+      : [],
+    altText: (d.altText ?? "").trim(),
+    objects: Array.isArray(d.objects) ? d.objects.map((o) => String(o).trim()).filter(Boolean) : [],
+    ocrText: (d.ocrText ?? "").trim(),
+  };
+  return { ok: true, data: norm, model: result.model };
 }
 
 export interface GeminiTaskDetection {

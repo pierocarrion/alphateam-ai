@@ -17,22 +17,22 @@ describe("computeSmartScore", () => {
     expect(computeSmartScore({})).toBe(0);
   });
 
-  it("gives a bonus when a deadline is present", () => {
-    const withoutDeadline = computeSmartScore({
-      specific: "A very specific objective",
-    });
-    const withDeadline = computeSmartScore({
-      specific: "A very specific objective",
-      deadline: "2026-12-31T00:00:00.000Z",
-    });
-    expect(withDeadline - withoutDeadline).toBe(10);
+  it("scores 20 points per filled dimension (minimum 8 chars)", () => {
+    expect(computeSmartScore({ specific: "short" })).toBe(0);
+    expect(computeSmartScore({ specific: "A very specific objective" })).toBe(20);
+    expect(
+      computeSmartScore({
+        specific: "A very specific objective",
+        measurable: "With a clear metric value",
+      })
+    ).toBe(40);
   });
 
-  it("reaches 100 when every dimension is richly filled and a deadline exists", () => {
+  it("reaches 100 when every dimension is richly filled", () => {
     const full = Object.fromEntries(
       SMART_DIMENSIONS.map((d) => [d, "This is a rich description"])
     ) as Record<(typeof SMART_DIMENSIONS)[number], string>;
-    expect(computeSmartScore({ ...full, deadline: "2026-12-31" })).toBe(100);
+    expect(computeSmartScore(full)).toBe(100);
   });
 });
 

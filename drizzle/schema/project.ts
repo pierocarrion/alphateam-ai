@@ -29,7 +29,6 @@ export const projectSmartGoal = pgTable(
     achievable: text(),
     relevant: text(),
     timeBound: text(),
-    deadline: timestamp(ts),
     version: integer().default(1).notNull(),
     // 0-100, SMART completeness score (heuristic + AI)
     smartScore: doublePrecision(),
@@ -55,7 +54,6 @@ export const smartGoalVersion = pgTable(
     achievable: text(),
     relevant: text(),
     timeBound: text(),
-    deadline: timestamp(ts),
     smartScore: doublePrecision(),
     changedById: text(),
     changeNote: text(),

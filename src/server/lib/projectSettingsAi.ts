@@ -40,7 +40,6 @@ Measurable: ${goal.measurable ?? "(empty)"}
 Achievable: ${goal.achievable ?? "(empty)"}
 Relevant: ${goal.relevant ?? "(empty)"}
 Time-bound: ${goal.timeBound ?? "(empty)"}
-Deadline: ${goal.deadline ?? "(none)"}
 
 Respond with JSON only:
 {

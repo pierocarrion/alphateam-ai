@@ -26,7 +26,6 @@ export class SaveSmartGoal {
       achievable: request.achievable ?? null,
       relevant: request.relevant ?? null,
       timeBound: request.timeBound ?? null,
-      deadline: request.deadline && request.deadline !== "" ? request.deadline : null,
     });
 
     const title = input.title.trim();
@@ -45,7 +44,6 @@ export class SaveSmartGoal {
       achievable: input.achievable?.trim() || null,
       relevant: input.relevant?.trim() || null,
       timeBound: input.timeBound?.trim() || null,
-      deadline: input.deadline || null,
       smartScore,
       changedById: request.actorId,
     });

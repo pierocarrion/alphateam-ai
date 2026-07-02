@@ -75,6 +75,7 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [onlyMethodology, setOnlyMethodology] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -143,7 +144,16 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
 
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (!file) return;
+
+    // Images go through the intelligent multimodal ingest flow (Gemini Vision)
+    // instead of being stored as a generic file titled by its file name.
+    if (file.type.startsWith("image/")) {
+      setImageFile(file);
+      return;
+    }
+
     setUploading(true);
     try {
       const form = new FormData();
@@ -159,7 +169,6 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
       toast.error(err instanceof ApiError || err instanceof Error ? err.message : t(locale, "knowledge.uploadError"));
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -307,6 +316,20 @@ export function KnowledgeHubClient({ workspaceId }: KnowledgeHubClientProps) {
               void reload();
             }}
             onCancel={() => setEditingId(null)}
+          />
+        )}
+
+        {imageFile && (
+          <IngestImageModal
+            baseUrl={baseUrl}
+            categories={categories}
+            defaultCategoryId={activeCategory}
+            initialFile={imageFile}
+            onSaved={() => {
+              setImageFile(null);
+              void reload();
+            }}
+            onCancel={() => setImageFile(null)}
           />
         )}
 
@@ -722,6 +745,359 @@ function EditResourceModal({
             </div>
           </>
         )}
+      </form>
+    </div>
+  );
+}
+
+interface AnalyzeImageResponse {
+  storageKey: string;
+  previewUrl: string;
+  fileName: string;
+  mimeType: string;
+  fileType: string;
+  metadata: {
+    title: string;
+    description: string;
+    summary: string;
+    category: string;
+    tags: string[];
+    altText: string;
+    objects: string[];
+    ocrText: string;
+  } | null;
+  categoryId: string | null;
+  warning: string | null;
+}
+
+/**
+ * Multimodal ingest modal. Opens with the image the user just picked, uploads
+ * it to Cloud Storage, runs Gemini Vision to auto-fill the form (title,
+ * summary, description, category, tags, alt text) and lets the leader review or
+ * edit before the resource is saved. If the AI analysis fails the form stays
+ * fully editable so the process is never blocked. Replacing the image re-runs
+ * the whole analysis.
+ */
+function IngestImageModal({
+  baseUrl,
+  categories,
+  defaultCategoryId,
+  initialFile,
+  onSaved,
+  onCancel,
+}: {
+  baseUrl: string;
+  categories: Category[];
+  defaultCategoryId: string | null;
+  initialFile: File;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [file, setFile] = useState<File>(initialFile);
+  const [previewUrl, setPreviewUrl] = useState<string>(
+    URL.createObjectURL(initialFile)
+  );
+  const [analyzing, setAnalyzing] = useState(true);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [storageKey, setStorageKey] = useState<string | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(defaultCategoryId);
+  const [tags, setTags] = useState("");
+  const [altText, setAltText] = useState("");
+  const [objects, setObjects] = useState<string[]>([]);
+  const [ocrText, setOcrText] = useState("");
+
+  const [saving, setSaving] = useState(false);
+  const [locale] = useLocale();
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    // Inline async IIFE so setState only runs after the first await (matches
+    // the pattern in EditResourceModal and keeps react-hooks happy).
+    (async () => {
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetchJson<AnalyzeImageResponse>(`${baseUrl}/analyze-image`, {
+          method: "POST",
+          body: form,
+        });
+        if (!active) return;
+        setStorageKey(res.storageKey);
+        setPreviewUrl(res.previewUrl);
+        const meta = res.metadata;
+        if (meta) {
+          setTitle(meta.title || "");
+          setSummary(meta.summary || "");
+          setDescription(meta.description || "");
+          setTags(meta.tags.join(", "));
+          setAltText(meta.altText || "");
+          setObjects(meta.objects);
+          setOcrText(meta.ocrText);
+          if (res.categoryId) setCategoryId(res.categoryId);
+        }
+        if (res.warning) setWarning(res.warning);
+      } catch (err) {
+        if (!active) return;
+        setWarning(
+          err instanceof ApiError || err instanceof Error
+            ? err.message
+            : t(locale, "knowledge.image.analyzeError")
+        );
+      } finally {
+        if (active) setAnalyzing(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [file, baseUrl, locale]);
+
+  // Revoke object URLs to avoid leaking blob memory on every replacement.
+  useEffect(() => {
+    return () => {
+      if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const onReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.files?.[0];
+    if (replaceInputRef.current) replaceInputRef.current.value = "";
+    if (!next) return;
+    setFile(next);
+    setPreviewUrl(URL.createObjectURL(next));
+    // Reset derived fields so stale data from the previous image never lingers,
+    // and flip the loading flag back on so the spinner shows during re-analysis.
+    setAnalyzing(true);
+    setWarning(null);
+    setTitle("");
+    setSummary("");
+    setDescription("");
+    setTags("");
+    setAltText("");
+    setObjects([]);
+    setOcrText("");
+    setStorageKey(null);
+  };
+
+  const canSave = title.trim().length > 0 && !saving && !analyzing;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      // Compose a searchable text representation of the image so the RAG
+      // pipeline (chunks + embeddings) has something semantic to index even
+      // though the binary itself isn't embeddable.
+      const contentParts = [
+        description.trim(),
+        summary.trim(),
+        altText.trim(),
+        ocrText.trim(),
+        objects.length > 0 ? `Objetos: ${objects.join(", ")}` : "",
+      ].filter(Boolean);
+      const contentText =
+        contentParts.join("\n\n") || `Imagen: ${title.trim()}`;
+
+      await fetchJson(`${baseUrl}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          summary: summary.trim() || undefined,
+          contentText,
+          categoryId: categoryId ?? undefined,
+          fileType: "image",
+          storageKey: storageKey ?? undefined,
+          sourceType: "upload",
+          sourceApp: "upload",
+          tags: tags
+            .split(",")
+            .map((tg) => tg.trim())
+            .filter(Boolean),
+          aiMetadata: {
+            description: description.trim(),
+            altText: altText.trim(),
+            objects,
+            ocrText: ocrText.trim(),
+            category: "",
+            visionModel: "gemini",
+          },
+          ingest: true,
+        }),
+      });
+      toast.success(t(locale, "knowledge.image.saved"));
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t(locale, "knowledge.saveError"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <form
+        onSubmit={submit}
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded-3xl border border-line-2 bg-bg-2 p-6 shadow-2xl"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-[20px] text-ink">
+            {t(locale, "knowledge.image.ingestTitle")}
+          </h3>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink-3 hover:text-ink"
+          >
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+
+        {/* Preview */}
+        <div className="flex flex-col gap-2">
+          <div className="relative overflow-hidden rounded-2xl border border-line-2 bg-surface">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt={altText || title || file.name}
+              className="max-h-64 w-full object-contain"
+            />
+            {analyzing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-bg-2/70 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <span className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  <span className="text-xs font-semibold text-ink-2">
+                    {t(locale, "knowledge.image.analyzing")}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-ink-3">{t(locale, "knowledge.image.dragHint")}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => replaceInputRef.current?.click()}
+              disabled={analyzing || saving}
+            >
+              <Icon name="plus" size={14} color="currentColor" />
+              {t(locale, "knowledge.image.replace")}
+            </Button>
+            <input
+              ref={replaceInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={onReplace}
+            />
+          </div>
+        </div>
+
+        {warning && (
+          <div className="rounded-2xl border border-glow-soft bg-glow-soft/30 px-4 py-2.5 text-[13px] text-ink-2">
+            ⚠ {warning}
+          </div>
+        )}
+
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={200}
+          placeholder={t(locale, "knowledge.resourceTitlePlaceholder")}
+          className="w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+        />
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          placeholder={t(locale, "knowledge.image.descriptionPlaceholder")}
+          className="w-full resize-y rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+        />
+        <textarea
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          rows={2}
+          maxLength={1000}
+          placeholder={t(locale, "knowledge.summaryPlaceholder")}
+          className="w-full resize-y rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+        />
+        <input
+          value={altText}
+          onChange={(e) => setAltText(e.target.value)}
+          maxLength={300}
+          placeholder={t(locale, "knowledge.image.altPlaceholder")}
+          className="w-full rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <select
+            value={categoryId ?? ""}
+            onChange={(e) => setCategoryId(e.target.value || null)}
+            className="rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
+          >
+            <option value="">{t(locale, "knowledge.noCategory")}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder={t(locale, "knowledge.tagsPlaceholder")}
+            className="rounded-2xl border border-line-2 bg-surface px-4 py-3 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+          />
+        </div>
+
+        {/* Read-only AI signals */}
+        <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface-2/40 p-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
+              {t(locale, "knowledge.image.detectedObjects")}
+            </p>
+            {objects.length > 0 ? (
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {objects.map((o) => (
+                  <span
+                    key={o}
+                    className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-ink-3"
+                  >
+                    {o}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-0.5 text-[12px] text-ink-3">
+                {t(locale, "knowledge.image.noObjects")}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-ink-3">
+              {t(locale, "knowledge.image.ocr")}
+            </p>
+            <p className="mt-0.5 whitespace-pre-wrap text-[12px] text-ink-2">
+              {ocrText.trim() || t(locale, "knowledge.image.noOcr")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
+            {t(locale, "common.cancel")}
+          </Button>
+          <Button type="submit" disabled={!canSave}>
+            {saving ? t(locale, "common.saving") : t(locale, "knowledge.createIndex")}
+          </Button>
+        </div>
       </form>
     </div>
   );

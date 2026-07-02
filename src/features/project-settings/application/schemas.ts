@@ -8,7 +8,6 @@ export const smartGoalSchema = z.object({
   achievable: z.string().max(2000).nullable().default(null),
   relevant: z.string().max(2000).nullable().default(null),
   timeBound: z.string().max(2000).nullable().default(null),
-  deadline: z.string().datetime().nullable().or(z.literal("")).optional(),
 });
 export type SmartGoalInput = z.infer<typeof smartGoalSchema>;
 

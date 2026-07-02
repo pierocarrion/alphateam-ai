@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toFriendlyGeminiError } from "./gemini";
+import { analyzeImageWithGemini, toFriendlyGeminiError } from "./gemini";
 
 describe("toFriendlyGeminiError", () => {
   it("maps quota errors to a friendly message", () => {
@@ -46,5 +46,27 @@ describe("toFriendlyGeminiError", () => {
 
   it("returns a default friendly message for undefined", () => {
     expect(toFriendlyGeminiError(undefined)).toMatch(/couldn't process/i);
+  });
+});
+
+describe("analyzeImageWithGemini", () => {
+  it("rejects unsupported MIME types without calling the model", async () => {
+    const res = await analyzeImageWithGemini({
+      image: Buffer.from("x"),
+      mimeType: "application/pdf",
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/unsupported image type/i);
+  });
+
+  it("returns ok:false (not a throw) when Gemini is disabled", async () => {
+    // GEMINI_ENABLED is not "true" in the test environment, so the model is
+    // unavailable. The ingest flow must be able to fall back to manual entry.
+    const res = await analyzeImageWithGemini({
+      image: Buffer.from("x"),
+      mimeType: "image/png",
+    });
+    expect(res.ok).toBe(false);
+    expect(res.error).toBeTruthy();
   });
 });

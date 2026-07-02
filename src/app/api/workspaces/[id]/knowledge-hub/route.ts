@@ -14,6 +14,7 @@ const createResourceSchema = z.object({
   summary: z.string().max(1000).optional(),
   categoryId: z.string().optional().nullable(),
   fileType: z.string().optional(),
+  storageKey: z.string().max(500).optional().nullable(),
   sourceUrl: z.string().url().max(1000).optional().nullable(),
   sourceApp: z.string().max(80).optional(),
   sourceType: z.string().max(40).optional(),
@@ -23,6 +24,7 @@ const createResourceSchema = z.object({
   isPremium: z.boolean().optional(),
   tags: z.array(z.string().max(40)).max(20).optional(),
   keywords: z.array(z.string().max(40)).max(30).optional(),
+  aiMetadata: z.record(z.string(), z.unknown()).optional(),
   ingest: z.boolean().optional(),
   enrich: z.boolean().optional(),
 });
@@ -101,6 +103,7 @@ export async function POST(
       summary: data.summary,
       categoryId: data.categoryId ?? null,
       fileType: (data.fileType as never) ?? "text",
+      storageKey: data.storageKey ?? null,
       sourceUrl: data.sourceUrl ?? null,
       sourceApp: data.sourceApp,
       sourceType: data.sourceType ?? "manual",
@@ -110,6 +113,7 @@ export async function POST(
       isPremium: data.isPremium ?? false,
       tags: data.tags ?? [],
       keywords: data.keywords ?? [],
+      aiMetadata: data.aiMetadata ?? null,
       createdById: auth.user.id,
     });
 
